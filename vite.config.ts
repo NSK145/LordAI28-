@@ -19,5 +19,12 @@ export default defineConfig({
     server: { host: "0.0.0.0", port: localPort, strictPort: true },
     preview: { host: "0.0.0.0", port: localPort, strictPort: true },
   },
-  nitro: nitroPreset ? { preset: nitroPreset } : false,
+  nitro: nitroPreset
+    ? {
+        preset: nitroPreset,
+        // TypeScript's compiler API is CommonJS and uses Node's module wrapper
+        // globals. Keep it out of Nitro's ESM bundle and load it as a package.
+        externals: { external: ["typescript"] },
+      }
+    : false,
 });

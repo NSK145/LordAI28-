@@ -21,6 +21,15 @@ self.addEventListener("fetch", (event) => {
   const request = event.request;
   const url = new URL(request.url);
 
+  // Browser extensions and other non-HTTP resources cannot be stored in Cache.
+  // Only cache same-origin web requests handled by this service worker.
+  if (
+    (url.protocol !== "http:" && url.protocol !== "https:") ||
+    url.origin !== self.location.origin
+  ) {
+    return;
+  }
+
   const isSupabase =
     url.hostname.includes("supabase.co") ||
     url.pathname.startsWith("/rest/v1") ||
