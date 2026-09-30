@@ -1,21 +1,13 @@
 import fs from "node:fs";
-import { createRequire } from "node:module";
 import path from "node:path";
 import { spawn } from "node:child_process";
-import type * as tsTypes from "typescript";
+import * as ts from "typescript";
 import { safeResolve } from "../fs-safe";
 import { getLordConfig } from "../config";
 import { registerTool } from "../registry";
 import { fail, ok } from "../permissions";
 import type { ToolContext, ToolResult } from "../types";
 import { getRepositoryGraph } from "./repository";
-
-// The TypeScript compiler package is CommonJS. Importing it statically makes
-// Nitro bundle it as ESM, where its use of `__filename` crashes Vercel's
-// serverless runtime. Load the production dependency through Node's native CJS
-// loader instead. The type query is erased during compilation.
-const require = createRequire(import.meta.url);
-const ts = require("typescript") as typeof import("typescript");
 
 const SOURCE_EXTENSIONS = new Set([
   ".c",
@@ -187,7 +179,7 @@ function findPatchTarget(targetPath: string): { file: string; root: string; rela
   };
 }
 
-function readCompilerOptions(root: string): tsTypes.CompilerOptions {
+function readCompilerOptions(root: string): ts.CompilerOptions {
   const configPath = ts.findConfigFile(root, ts.sys.fileExists);
   if (!configPath) return { allowJs: true, jsx: ts.JsxEmit.Preserve };
   const config = ts.readConfigFile(configPath, ts.sys.readFile);
@@ -215,8 +207,8 @@ function validatePatchSource(
     true,
     scriptKind,
   );
-  const parseDiagnostics = (sourceFile as tsTypes.SourceFile & {
-    parseDiagnostics: readonly tsTypes.Diagnostic[];
+  const parseDiagnostics = (sourceFile as ts.SourceFile & {
+    parseDiagnostics: readonly ts.Diagnostic[];
   }).parseDiagnostics;
   if (parseDiagnostics.length > 0) {
     return `Patch introduces a syntax error: ${ts.flattenDiagnosticMessageText(
@@ -246,8 +238,8 @@ function validatePatchSource(
     const modifiers = ts.canHaveModifiers(statement) ? ts.getModifiers(statement) : undefined;
     if (!modifiers?.some((modifier) => modifier.kind === ts.SyntaxKind.ExportKeyword)) return [];
     const name = "name" in statement ? statement.name : undefined;
-    return name && typeof name === "object" && ts.isIdentifier(name as tsTypes.Node)
-      ? [(name as tsTypes.Identifier).text]
+    return name && typeof name === "object" && ts.isIdentifier(name as ts.Node)
+      ? [(name as ts.Identifier).text]
       : [];
   });
   const duplicate = exportedNames.find((symbol) =>
