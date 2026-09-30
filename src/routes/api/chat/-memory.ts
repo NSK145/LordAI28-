@@ -1,6 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/integrations/supabase/types";
 import { buildBrainContext, type BrainContextOptions } from "@/lib/brain/context";
+import { isMemoryEnabled } from "@/lib/memory/types";
 
 export async function buildMemoryPrompt(
   supabase: SupabaseClient<Database>,
@@ -9,6 +10,13 @@ export async function buildMemoryPrompt(
   projectId?: string | null,
 ): Promise<string> {
   try {
+    const { data: settings, error: settingsError } = await supabase
+      .from("memory_settings")
+      .select("memory_enabled")
+      .eq("user_id", userId)
+      .maybeSingle();
+    if (settingsError || !isMemoryEnabled(settings)) return "";
+
     const opts: BrainContextOptions = {
       userId,
       projectId: projectId ?? null,
@@ -20,7 +28,7 @@ export async function buildMemoryPrompt(
       includeRecentTasks: false,
       tokenBudget: 800,
     };
-    const result = await buildBrainContext(opts);
+    const result = await buildBrainContext(opts, supabase);
     return result.systemPromptSnippet;
   } catch {
     return "";

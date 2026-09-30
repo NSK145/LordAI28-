@@ -17,6 +17,7 @@ import {
 import { GlassCard, SectionTitle, StatusDot, ORBITRON, Spinner, activityColor } from "./ui";
 import { useStatus, useActivity, useAgent, useStop, type AgentResult } from "./api";
 import { cn } from "@/lib/utils";
+import type { AgentProgress } from "@/lib/lord/types";
 
 const NAV = [
   { to: "/command-center", label: "Dashboard", icon: Home },
@@ -123,6 +124,7 @@ function ActivityCard() {
 
 function CommandBar() {
   const [cmd, setCmd] = React.useState("");
+  const [agentProgress, setAgentProgress] = React.useState<AgentProgress | null>(null);
   const agent = useAgent();
   const [confirmPlan, setConfirmPlan] = React.useState<{
     planId: string;
@@ -137,7 +139,8 @@ function CommandBar() {
 
   const run = () => {
     if (!cmd.trim()) return;
-    agent.mutate({ command: cmd });
+    setAgentProgress(null);
+    agent.mutate({ command: cmd, onProgress: setAgentProgress });
   };
 
   return (
@@ -164,6 +167,15 @@ function CommandBar() {
         <p className="mt-2 text-xs text-red-300">{(agent.error as Error).message}</p>
       )}
 
+      {agent.isPending && agentProgress && (
+        <p role="status" className="mt-2 text-xs text-primary">
+          {agentProgress.phase}: {agentProgress.message}
+          {agentProgress.totalTasks > 0 &&
+            ` (${agentProgress.completedTasks}/${agentProgress.totalTasks})`}
+          {typeof agentProgress.percent === "number" && ` · ${agentProgress.percent}%`}
+        </p>
+      )}
+
       {confirmPlan && (
         <div className="mt-3 rounded-xl border border-amber-500/30 bg-amber-500/5 p-3">
           <p className="text-sm font-semibold text-amber-200">REVIEW & CONFIRM</p>
@@ -173,18 +185,49 @@ function CommandBar() {
           <ul className="mt-2 space-y-1 text-sm">
             {confirmPlan.steps
               .filter((s) => s.status === "pending")
-              .map((s) => (
-                <li key={s.id} className="flex items-center gap-2">
-                  <Circle className="h-2 w-2 fill-amber-400 text-amber-400" />
-                  <span className="text-amber-100">{s.intent}</span>
-                  <span className="text-xs text-muted-foreground">({s.tool})</span>
-                </li>
-              ))}
+              .map((s) => {
+                const content = typeof s.params.content === "string" ? s.params.content : null;
+                const target = typeof s.params.path === "string" ? s.params.path : null;
+                return (
+                  <li
+                    key={s.id}
+                    className="flex flex-col gap-1 border-b border-border/60 py-2 last:border-0"
+                  >
+                    <div className="flex flex-wrap items-center gap-2">
+                      <Circle className="h-2 w-2 fill-amber-400 text-amber-400" />
+                      <span className="text-amber-100">{s.intent}</span>
+                      <span className="text-xs text-muted-foreground">({s.tool})</span>
+                      <span className="text-xs text-muted-foreground">{s.risk} risk</span>
+                    </div>
+                    {target && <p className="pl-4 text-xs text-muted-foreground">File: {target}</p>}
+                    {s.params.allowGenerated === true && (
+                      <p className="pl-4 text-xs font-semibold text-red-300">
+                        Generated-file protection override requested.
+                      </p>
+                    )}
+                    {content !== null && (
+                      <>
+                        <p className="pl-4 text-xs text-muted-foreground">
+                          Proposed content · {new TextEncoder().encode(content).byteLength} bytes
+                        </p>
+                        <pre className="ml-4 max-h-48 overflow-auto whitespace-pre-wrap rounded border border-border bg-background/70 p-2 text-xs text-foreground">
+                          {content.slice(0, 4_000)}
+                          {content.length > 4_000 ? "\n[Preview truncated]" : ""}
+                        </pre>
+                      </>
+                    )}
+                  </li>
+                );
+              })}
           </ul>
           <div className="mt-3 flex gap-2">
             <button
               onClick={() => {
-                agent.mutate({ planId: confirmPlan.planId, approvedStepIds: "all" });
+                agent.mutate({
+                  planId: confirmPlan.planId,
+                  approvedStepIds: "all",
+                  onProgress: setAgentProgress,
+                });
               }}
               disabled={agent.isPending}
               className="rounded-lg bg-amber-500 px-3 py-1.5 text-sm font-medium text-black hover:bg-amber-400 disabled:opacity-50"

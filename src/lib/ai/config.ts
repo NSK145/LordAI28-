@@ -1,3 +1,5 @@
+import { PROVIDER_CONFIG } from "@/config/lord-config";
+
 export interface AIConfig {
   openRouterApiKey: string;
 }
@@ -10,7 +12,7 @@ export class AIConfigurationError extends Error {
 }
 
 export function getAIConfig(): AIConfig {
-  const apiKey = process.env.OPENROUTER_API_KEY?.trim();
+  const apiKey = process.env[PROVIDER_CONFIG.openrouter.apiKeyEnv]?.trim();
   if (!apiKey) {
     throw new AIConfigurationError("OpenRouter API key is missing.");
   }

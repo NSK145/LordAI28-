@@ -44,6 +44,7 @@ type DbMemoryRow = {
   confidence: number;
   source: string;
   embedding: unknown | null; // jsonb -> unknown
+  expires_at?: string | null;
   created_at: string;
   updated_at: string;
 };
@@ -68,6 +69,7 @@ function rowToMemory(row: DbMemoryRow): MemoryRecord {
     confidence: typeof row.confidence === "number" ? row.confidence : 1,
     source: (row.source as MemorySource) ?? "manual",
     embedding,
+    expires_at: row.expires_at ?? null,
     created_at: row.created_at,
     updated_at: row.updated_at,
   };
@@ -128,6 +130,7 @@ export function useAddMemory(userId: string | null | undefined) {
       category: MemoryCategory;
       confidence?: number;
       source?: MemorySource;
+      expiresAt?: string;
     }) => {
       if (!userId) throw new Error("Not authenticated");
       const content = input.content.trim();
@@ -150,6 +153,7 @@ export function useAddMemory(userId: string | null | undefined) {
         confidence: input.confidence ?? 1,
         source: input.source ?? "manual",
         embedding,
+        expires_at: input.expiresAt ?? null,
         client_tag: tag,
       };
       const { data, error } = await supabase
@@ -173,6 +177,7 @@ export function useAddMemory(userId: string | null | undefined) {
         confidence: input.confidence ?? 1,
         source: input.source ?? "manual",
         embedding: null,
+        expires_at: input.expiresAt ?? null,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       };
@@ -206,6 +211,7 @@ export function useSaveDetectedMemory(userId: string | null | undefined) {
         category: detected.category,
         confidence: detected.confidence,
         source: "auto",
+        expiresAt: detected.expiresAt,
       }),
   });
 }

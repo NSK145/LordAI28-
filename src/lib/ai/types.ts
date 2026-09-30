@@ -17,7 +17,7 @@ export interface OpenRouterRequest {
   model: string;
   messages: readonly ChatMessage[];
   stream: true;
-  max_tokens: 512;
+  max_tokens: number;
 }
 
 export interface ChatResponse {

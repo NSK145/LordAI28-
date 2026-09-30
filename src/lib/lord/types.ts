@@ -6,6 +6,8 @@
 // permission system can decide whether it may run automatically or must be
 // confirmed by Lord first.
 
+import type { FailureAnalysis } from "./repair";
+
 export type RiskLevel = "low" | "medium" | "high";
 
 export type ToolCategory =
@@ -63,6 +65,7 @@ export interface ToolContext {
     system: string;
     prompt: string;
     mode?: import("@/lib/ai/models").LordMode;
+    signal?: AbortSignal;
   }) => Promise<{ text: string; provider?: string }>;
   /** Resolved server-side configuration. */
   config: import("./config").LordConfig;
@@ -88,9 +91,110 @@ export interface PlanStep {
   params: Record<string, unknown>;
   risk: RiskLevel;
   intent: string;
+  title?: string;
+  description?: string;
+  estimatedComplexity?: "low" | "medium" | "high";
+  estimatedDurationMinutes?: number;
+  affectedFiles?: string[];
+  requiredTools?: string[];
+  approvalRequired?: boolean;
+  retryPolicy?: { maxRetries: number; recoverableOnly: boolean };
+  expectedOutputs?: string[];
+  dependencies?: string[];
+  attempts?: number;
+  reflection?: string;
   /** Set once executed. */
-  status: "pending" | "approved" | "denied" | "running" | "done" | "failed" | "skipped";
+  status:
+    | "pending"
+    | "approved"
+    | "waiting"
+    | "running"
+    | "retrying"
+    | "denied"
+    | "done"
+    | "failed"
+    | "skipped";
   result?: ToolResult;
+}
+
+export interface AgentProgress {
+  phase:
+    | "analysis"
+    | "analyzing-failure"
+    | "planning"
+    | "repository-analysis"
+    | "context-retrieval"
+    | "reasoning"
+    | "planned"
+    | "executing"
+    | "reflecting"
+    | "validation"
+    | "revalidating"
+    | "generating-patch"
+    | "applying-patch"
+    | "repair"
+    | "retrying"
+    | "awaiting-confirmation"
+    | "completed"
+    | "recovered"
+    | "failed-permanently"
+    | "aborted"
+    | "failed";
+  message: string;
+  completedTasks: number;
+  totalTasks: number;
+  percent?: number;
+  etaMs?: number;
+  activeTask?: string;
+  retryCount?: number;
+  failureCategory?: FailureAnalysis["category"];
+  stepId?: string;
+}
+
+export type AgentProgressCallback = (progress: AgentProgress) => void | Promise<void>;
+
+export type AgentTaskCategory =
+  | "bug-fix"
+  | "feature"
+  | "refactor"
+  | "migration"
+  | "architecture"
+  | "optimization"
+  | "documentation"
+  | "testing"
+  | "infrastructure"
+  | "security";
+
+export interface AgentGoalAnalysis {
+  objective: string;
+  taskType: AgentTaskCategory;
+  complexity: "low" | "medium" | "high";
+  affectedSystems: string[];
+  estimatedScope: number;
+  risk: RiskLevel;
+  requiredPermissions: string[];
+}
+
+export interface EngineeringReport {
+  objective: string;
+  plan?: { title: string; tool: string; dependencies: string[] }[];
+  completedTasks: string[];
+  filesModified: string[];
+  validations: { tool: string; status: "passed" | "failed"; evidence: string }[];
+  failures?: FailureAnalysis[];
+  repairs?: {
+    path: string;
+    rationale: string;
+    score: number;
+    outcome: "rejected" | "applied-validation-failed" | "applied-validation-passed";
+  }[];
+  retryCount?: number;
+  finalOutcome?: "success" | "retry-exhausted" | "approval-required" | "unsafe-patch" | "failed";
+  remainingIssues: string[];
+  risks: string[];
+  manualFollowUp: string[];
+  confidence: number;
+  elapsedMs: number;
 }
 
 export interface AgentPlan {
@@ -111,6 +215,8 @@ export interface AgentExecuteResult {
   planId?: string;
   intent: string;
   steps: PlanStep[];
+  analysis?: AgentGoalAnalysis;
+  report?: EngineeringReport;
   summary?: string;
   error?: string;
 }

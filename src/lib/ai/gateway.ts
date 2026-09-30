@@ -5,20 +5,28 @@ import { normalizeOpenRouterError, OpenRouterError } from "./errors";
 import { MODELS } from "./models";
 import type { ChatMessage } from "./types";
 
-export function streamChat(messages: readonly ChatMessage[], signal?: AbortSignal): Response {
+export function streamChat(
+  messages: readonly ChatMessage[],
+  signal?: AbortSignal,
+  candidateModelIds: readonly string[] = [MODELS.DEFAULT],
+): Response {
   const startedAt = Date.now();
+  const models = candidateModelIds.length > 0 ? candidateModelIds : [MODELS.DEFAULT];
 
-  console.info("Model request started", { model: MODELS.DEFAULT });
+  console.info("Model request started", { model: models[0], candidateCount: models.length });
 
   let client: OpenRouterClient;
   try {
     const config = getAIConfig();
     client = new OpenRouterClient(config.openRouterApiKey);
   } catch (error) {
-    const message = error instanceof AIConfigurationError ? error.message : "OpenRouter is temporarily unavailable.";
-    console.error("Model request error", { model: MODELS.DEFAULT, error: message });
+    const message =
+      error instanceof AIConfigurationError
+        ? error.message
+        : "OpenRouter is temporarily unavailable.";
+    console.error("Model request error", { model: models[0], error: message });
     console.info("Model request completed", {
-      model: MODELS.DEFAULT,
+      model: models[0],
       duration: Date.now() - startedAt,
       status: "error",
     });
@@ -29,24 +37,51 @@ export function streamChat(messages: readonly ChatMessage[], signal?: AbortSigna
     execute: async ({ writer }) => {
       const messageId = crypto.randomUUID();
       let status = "completed";
+      let activeModel = models[0];
+      let emittedText = false;
       writer.write({ type: "text-start", id: messageId });
 
       try {
-        for await (const token of client.streamChat(messages, MODELS.DEFAULT, signal)) {
-          writer.write({ type: "text-delta", id: messageId, delta: token });
+        let completed = false;
+        for (const [index, modelId] of models.entries()) {
+          activeModel = modelId;
+          try {
+            for await (const token of client.streamChat(messages, modelId, signal)) {
+              if (token) emittedText = true;
+              writer.write({ type: "text-delta", id: messageId, delta: token });
+            }
+            completed = true;
+            break;
+          } catch (error) {
+            const normalized = normalizeOpenRouterError(error);
+            const canRetry =
+              !emittedText &&
+              !signal?.aborted &&
+              index < models.length - 1 &&
+              (normalized.kind === "network" ||
+                normalized.kind === "rate_limit" ||
+                normalized.kind === "unavailable");
+            if (!canRetry) throw error;
+            console.warn("Model candidate failed; trying configured fallback", {
+              model: modelId,
+              nextModel: models[index + 1],
+              error: normalized.message,
+            });
+          }
         }
+        if (!completed) throw new Error("No configured model candidate completed the request.");
         writer.write({ type: "text-end", id: messageId });
       } catch (error) {
         const normalized = normalizeOpenRouterError(error);
         status = "error";
         writer.write({ type: "error", errorText: normalized.message });
         console.error("Model request error", {
-          model: MODELS.DEFAULT,
+          model: activeModel,
           error: normalized.message,
         });
       } finally {
         console.info("Model request completed", {
-          model: MODELS.DEFAULT,
+          model: activeModel,
           duration: Date.now() - startedAt,
           status,
         });

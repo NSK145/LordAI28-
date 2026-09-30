@@ -120,6 +120,16 @@ const FACT_PATTERNS: Array<{
   },
 ];
 
+const TASK_PATTERNS = [
+  {
+    re: /\b(?:i'?ll|we'?ll|i will|we will|let'?s)\s+(?:finish|complete|continue|resume|work on)\b/i,
+    weight: 0.88,
+    reason: "Unfinished task",
+    category: "project" as const,
+    expiresInDays: 30,
+  },
+];
+
 // Things that clearly should NOT be remembered.
 const NON_MEMORY_PATTERNS: RegExp[] = [
   /\?$/, // questions
@@ -160,14 +170,21 @@ export function detectMemories(rawText: string): DetectedMemory[] {
     const hasMemorySignal =
       PROFILE_PATTERNS.some((p) => p.re.test(text)) ||
       PREFERENCE_PATTERNS.some((p) => p.re.test(text)) ||
-      FACT_PATTERNS.some((p) => p.re.test(text));
+      FACT_PATTERNS.some((p) => p.re.test(text)) ||
+      TASK_PATTERNS.some((p) => p.re.test(text));
     if (!hasMemorySignal) return [];
   }
 
   const candidates: DetectedMemory[] = [];
 
   const tryPatterns = (
-    patterns: Array<{ re: RegExp; weight: number; reason: string; category?: MemoryCategory }>,
+    patterns: Array<{
+      re: RegExp;
+      weight: number;
+      reason: string;
+      category?: MemoryCategory;
+      expiresInDays?: number;
+    }>,
     fallbackCategory: MemoryCategory,
   ) => {
     for (const p of patterns) {
@@ -189,6 +206,11 @@ export function detectMemories(rawText: string): DetectedMemory[] {
         content,
         category: (p.category ?? fallbackCategory) as MemoryCategory,
         confidence: Math.min(0.99, p.weight),
+        ...(p.expiresInDays
+          ? {
+              expiresAt: new Date(Date.now() + p.expiresInDays * 24 * 60 * 60 * 1000).toISOString(),
+            }
+          : {}),
         reason: p.reason,
       });
     }
@@ -197,6 +219,7 @@ export function detectMemories(rawText: string): DetectedMemory[] {
   tryPatterns(PROFILE_PATTERNS, "profile");
   tryPatterns(PREFERENCE_PATTERNS, "preference");
   tryPatterns(FACT_PATTERNS, "fact");
+  tryPatterns(TASK_PATTERNS, "project");
 
   if (candidates.length === 0) return [];
 

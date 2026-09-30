@@ -50,6 +50,7 @@ export interface MemoryRecord {
   confidence: number;
   source: MemorySource;
   embedding: number[] | null;
+  expires_at?: string | null;
   created_at: string;
   updated_at: string;
   project_id?: string | null;
@@ -62,6 +63,16 @@ export interface MemorySettings {
   ask_before_save: boolean;
   confidence_threshold: number;
   updated_at: string;
+}
+
+export function isMemoryEnabled(
+  settings: Pick<MemorySettings, "memory_enabled"> | null | undefined,
+): boolean {
+  return settings?.memory_enabled ?? true;
+}
+
+export function isMemoryActive(expiresAt: string | null | undefined, now = Date.now()): boolean {
+  return !expiresAt || Date.parse(expiresAt) > now;
 }
 
 export const DEFAULT_MEMORY_SETTINGS: MemorySettings = {
@@ -78,6 +89,7 @@ export interface DetectedMemory {
   content: string;
   category: MemoryCategory;
   confidence: number;
+  expiresAt?: string;
   /** Short human explanation used when asking the user to confirm. */
   reason: string;
 }

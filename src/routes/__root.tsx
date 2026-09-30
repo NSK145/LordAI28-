@@ -19,11 +19,6 @@ import { getUserSettings } from "../lib/user-settings.functions";
 import { useQuery } from "@tanstack/react-query";
 import { DEFAULT_MODE, type LordMode } from "../lib/modes";
 
-// Initialize global monitoring
-if (typeof window !== "undefined") {
-  setupApiInterceptor();
-}
-
 function UserSettingsHydrator({ children }: { children: ReactNode }) {
   const { data: userSettings } = useQuery({
     queryKey: ["user_settings"],
@@ -39,11 +34,6 @@ function UserSettingsHydrator({ children }: { children: ReactNode }) {
       {children}
     </WakeWordProvider>
   );
-}
-
-// Initialize global monitoring
-if (typeof window !== "undefined") {
-  setupApiInterceptor();
 }
 
 function registerServiceWorker() {
@@ -198,6 +188,7 @@ function RootComponent() {
   const { queryClient } = Route.useRouteContext();
 
   useEffect(() => {
+    setupApiInterceptor();
     void import("../lib/mobile-native").then(({ initializeMobileRuntime }) =>
       initializeMobileRuntime(),
     );

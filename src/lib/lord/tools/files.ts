@@ -205,6 +205,139 @@ export function registerFileTools(): void {
   });
 
   registerTool({
+    name: "files.write_text",
+    category: "files",
+    description:
+      "Create or replace a UTF-8 source or text file inside an allowed directory. Always requires confirmation.",
+    risk: "high",
+    requiresConfirmation: true,
+    parameters: [
+      { name: "path", type: "string", description: "Target file path", required: true },
+      {
+        name: "content",
+        type: "string",
+        description: "Complete UTF-8 file contents",
+        required: true,
+      },
+      {
+        name: "allowGenerated",
+        type: "boolean",
+        description:
+          "Explicitly allow modifying a generated file; user confirmation is still required.",
+        required: false,
+      },
+    ],
+    examples: ["Write a React component to src/App.tsx."],
+    async execute(params, ctx: ToolContext): Promise<ToolResult> {
+      const file = safeResolve(String(params.path ?? ""));
+      const content = typeof params.content === "string" ? params.content : null;
+      if (!file) return fail("Path outside allowed directories.", { errorCode: "PATH_DENIED" });
+      if (content === null)
+        return fail("File content must be text.", { errorCode: "INVALID_CONTENT" });
+      if (content.length > 100_000) {
+        return fail("File content exceeds the 100 KB limit.", { errorCode: "CONTENT_TOO_LARGE" });
+      }
+      const normalizedFile = file.replaceAll(path.sep, "/");
+      const generatedPath =
+        /(^|\/)(dist|build|coverage|node_modules)(\/|$)/i.test(normalizedFile) ||
+        /(^|\/)routeTree\.gen\.[^/]+$/i.test(normalizedFile) ||
+        /(^|\/)[^/]+\.generated\.[^/]+$/i.test(normalizedFile);
+      let generatedHeader = false;
+      if (fs.existsSync(file) && fs.statSync(file).isFile()) {
+        try {
+          generatedHeader = /@generated|automatically generated|do not edit/i.test(
+            fs.readFileSync(file, "utf8").slice(0, 4_000),
+          );
+        } catch {
+          return fail("Cannot inspect the existing file before writing.", {
+            errorCode: "FILE_READ_FAILED",
+          });
+        }
+      }
+      if ((generatedPath || generatedHeader) && params.allowGenerated !== true) {
+        return fail("Generated files are protected unless explicitly allowed.", {
+          errorCode: "GENERATED_FILE_PROTECTED",
+        });
+      }
+      const extension = path.extname(file).toLowerCase();
+      const textExtensions = new Set([
+        ".c",
+        ".css",
+        ".csv",
+        ".go",
+        ".html",
+        ".java",
+        ".js",
+        ".jsx",
+        ".json",
+        ".md",
+        ".py",
+        ".rs",
+        ".sh",
+        ".sql",
+        ".ts",
+        ".tsx",
+        ".txt",
+        ".xml",
+        ".yaml",
+        ".yml",
+      ]);
+      if (!textExtensions.has(extension) || path.basename(file).toLowerCase().startsWith(".env")) {
+        return fail(
+          "Only supported text/source files may be written; environment files are blocked.",
+          {
+            errorCode: "FILE_TYPE_DENIED",
+          },
+        );
+      }
+
+      const parent = path.dirname(file);
+      if (!fs.existsSync(parent) || !fs.statSync(parent).isDirectory()) {
+        return fail("Create the parent directory before writing this file.", {
+          errorCode: "PARENT_NOT_FOUND",
+        });
+      }
+      const realParent = fs.realpathSync(parent);
+      const realAllowedDirs = getLordConfig().allowedDirs.map((dir) => fs.realpathSync(dir));
+      if (
+        !realAllowedDirs.some((dir) => realParent === dir || realParent.startsWith(dir + path.sep))
+      ) {
+        return fail("Path resolves outside allowed directories.", { errorCode: "PATH_DENIED" });
+      }
+      if (fs.existsSync(file)) {
+        const stat = fs.lstatSync(file);
+        if (stat.isSymbolicLink() || !stat.isFile()) {
+          return fail("Target must be a regular file, not a link or directory.", {
+            errorCode: "TARGET_DENIED",
+          });
+        }
+        const realFile = fs.realpathSync(file);
+        if (!realAllowedDirs.some((dir) => realFile.startsWith(dir + path.sep))) {
+          return fail("Target resolves outside allowed directories.", { errorCode: "PATH_DENIED" });
+        }
+      }
+
+      const temporary = path.join(parent, `.${path.basename(file)}.${crypto.randomUUID()}.tmp`);
+      try {
+        fs.writeFileSync(temporary, content, { encoding: "utf8", flag: "wx" });
+        fs.renameSync(temporary, file);
+        ctx.log({ level: "warn", source: "files", message: `Wrote ${path.basename(file)}` });
+        return ok(`Wrote ${path.basename(file)}.`, {
+          path: file,
+          bytes: Buffer.byteLength(content, "utf8"),
+        });
+      } catch (err) {
+        try {
+          if (fs.existsSync(temporary)) fs.unlinkSync(temporary);
+        } catch {
+          // Best-effort temporary-file cleanup.
+        }
+        return fail(`Cannot write file: ${(err as Error).message}`, { errorCode: "FS_ERROR" });
+      }
+    },
+  });
+
+  registerTool({
     name: "files.create_folder",
     category: "files",
     description: "Create a new folder within allowed directories.",

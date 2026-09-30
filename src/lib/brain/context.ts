@@ -1,6 +1,12 @@
 import { supabase } from "@/integrations/supabase/client";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/integrations/supabase/types";
-import { retrieveMemories, type MemoryRecord, type RetrievedMemory } from "@/lib/memory";
+import {
+  isMemoryActive,
+  retrieveMemories,
+  type MemoryRecord,
+  type RetrievedMemory,
+} from "@/lib/memory";
 import { embed, cosineSimilarity } from "@/lib/memory/embeddings";
 import type {
   BrainContextOptions,
@@ -58,7 +64,10 @@ function truncate(text: string, maxTokens: number): string {
   return text.slice(0, maxChars).trimEnd() + "...";
 }
 
-export async function buildBrainContext(options: BrainContextOptions): Promise<BrainContextResult> {
+export async function buildBrainContext(
+  options: BrainContextOptions,
+  client: SupabaseClient<Database> = supabase,
+): Promise<BrainContextResult> {
   const {
     userId,
     projectId,
@@ -97,14 +106,14 @@ export async function buildBrainContext(options: BrainContextOptions): Promise<B
     // These five lookups are independent, so run them concurrently instead of
     // in a chain. This roughly halves the context-assembly latency.
     const [memResult, knowResult, chatResult, noteResult, taskResult] = await Promise.all([
-      fetchMemories(supabase, userId, projectId, maxMemories * 2),
-      fetchKnowledgeChunks(supabase, userId, projectId, maxKnowledgeChunks * 2),
-      fetchRecentChats(supabase, userId, projectId, maxRecentChats),
+      fetchMemories(client, userId, projectId, maxMemories * 2),
+      fetchKnowledgeChunks(client, userId, projectId, maxKnowledgeChunks * 2),
+      fetchRecentChats(client, userId, projectId, maxRecentChats),
       includePinnedNotes
-        ? fetchPinnedNotes(supabase, userId, projectId, NOTE_LIMIT)
+        ? fetchPinnedNotes(client, userId, projectId, NOTE_LIMIT)
         : Promise.resolve([] as Awaited<ReturnType<typeof fetchPinnedNotes>>),
       includeRecentTasks
-        ? fetchRecentTasks(supabase, userId, projectId, TASK_LIMIT)
+        ? fetchRecentTasks(client, userId, projectId, TASK_LIMIT)
         : Promise.resolve([] as Awaited<ReturnType<typeof fetchRecentTasks>>),
     ]);
     memoryRows = memResult;
@@ -115,18 +124,21 @@ export async function buildBrainContext(options: BrainContextOptions): Promise<B
     brainCache.set(cacheKey, { ts: Date.now(), memoryRows, knowledge, chats, notes, tasks });
   }
 
-  const memoryRecords: MemoryRecord[] = memoryRows.map((r) => ({
-    id: r.id,
-    user_id: r.user_id,
-    content: r.content,
-    category: (r.category as MemoryRecord["category"]) ?? "note",
-    pinned: r.pinned,
-    confidence: r.confidence ?? 1,
-    source: (r.source as MemoryRecord["source"]) ?? "manual",
-    embedding: Array.isArray(r.embedding) ? (r.embedding as number[]) : null,
-    created_at: r.created_at,
-    updated_at: r.updated_at,
-  }));
+  const now = Date.now();
+  const memoryRecords: MemoryRecord[] = memoryRows
+    .filter((row) => isMemoryActive(row.expires_at, now))
+    .map((r) => ({
+      id: r.id,
+      user_id: r.user_id,
+      content: r.content,
+      category: (r.category as MemoryRecord["category"]) ?? "note",
+      pinned: r.pinned,
+      confidence: r.confidence ?? 1,
+      source: (r.source as MemoryRecord["source"]) ?? "manual",
+      embedding: Array.isArray(r.embedding) ? (r.embedding as number[]) : null,
+      created_at: r.created_at,
+      updated_at: r.updated_at,
+    }));
 
   let retrievedMemories: RetrievedMemory[] = [];
   try {
@@ -325,6 +337,7 @@ async function fetchMemories(
     .select("*")
     .eq("user_id", userId)
     .eq("archived", false)
+    .or(`expires_at.is.null,expires_at.gt.${new Date().toISOString()}`)
     .order("importance", { ascending: false })
     .order("created_at", { ascending: false })
     .limit(limit);

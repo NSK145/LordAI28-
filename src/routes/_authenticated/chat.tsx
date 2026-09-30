@@ -1292,8 +1292,8 @@ function ChatPage() {
     isNewConversation: boolean,
   ): boolean => {
     const settings = memorySettings;
-    // Memory disabled entirely → never detect.
-    if (settings && settings.memory_enabled === false) return false;
+    // Unknown settings are treated as opt-out until the user's choice loads.
+    if (!settings || settings.memory_enabled === false) return false;
     // Nothing to remember if it's sensitive.
     if (detectSensitive(text)) return false;
 

@@ -15,7 +15,7 @@ import {
   setEmergencyStop,
   getState,
 } from "./index";
-import type { ApiResult, AgentExecuteResult } from "./types";
+import type { ApiResult, AgentExecuteResult, AgentProgressCallback } from "./types";
 
 export function ensureBooted(): void {
   bootstrapLord();
@@ -44,12 +44,15 @@ export async function callTool(
 export async function runAgent(
   body: { command?: string; planId?: string; approvedStepIds?: string[] | "all" },
   userId?: string,
+  onProgress?: AgentProgressCallback,
+  memoryPrompt = "",
+  signal?: AbortSignal,
 ): Promise<AgentExecuteResult> {
   ensureBooted();
   if (body.planId) {
-    return confirmAgentPlan(body.planId, body.approvedStepIds ?? "all", userId);
+    return confirmAgentPlan(body.planId, body.approvedStepIds ?? "all", userId, onProgress, signal);
   }
-  return planAgentCommand(body.command ?? "", userId);
+  return planAgentCommand(body.command ?? "", userId, onProgress, memoryPrompt, signal);
 }
 
 export function stopAll(): { stopped: number } {

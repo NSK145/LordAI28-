@@ -16,6 +16,8 @@ import { registerBrowserTools } from "./tools/browser";
 import { registerMobileTools } from "./tools/mobile";
 import { registerSmartHomeTools } from "./tools/smart-home";
 import { registerAutomationTools } from "./tools/automation";
+import { registerCodeTools } from "./tools/code";
+import { registerRepositoryTools } from "./tools/repository";
 
 let registered = false;
 
@@ -30,6 +32,8 @@ export function bootstrapLord(): void {
   registerMobileTools();
   registerSmartHomeTools();
   registerAutomationTools();
+  registerCodeTools();
+  registerRepositoryTools();
 }
 
 export const ensureBooted = bootstrapLord;

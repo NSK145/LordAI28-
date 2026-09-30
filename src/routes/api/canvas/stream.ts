@@ -3,7 +3,7 @@ import { requireSupabaseRequestAuth } from "@/integrations/supabase/auth-middlew
 import { streamText } from "ai";
 import { createGoogleGenerativeAI } from "@ai-sdk/google";
 import { createOpenAI } from "@ai-sdk/openai";
-import { PROVIDER_CONFIG } from "@/lib/lord-config";
+import { PROVIDER_CONFIG } from "@/config/lord-config";
 
 export const Route = createFileRoute("/api/canvas/stream")({
   server: {

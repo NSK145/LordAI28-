@@ -10,8 +10,9 @@ export class OpenRouterClient {
     messages: readonly ChatMessage[],
     model: string,
     signal?: AbortSignal,
+    maxTokens = 512,
   ): AsyncGenerator<string> {
-    const body: OpenRouterRequest = { model, messages, stream: true, max_tokens: 512 };
+    const body: OpenRouterRequest = { model, messages, stream: true, max_tokens: maxTokens };
     const requestBody = JSON.stringify(body);
     const headers = {
       Authorization: `Bearer ${this.apiKey}`,
@@ -20,26 +21,13 @@ export class OpenRouterClient {
       "X-Title": "LordAI",
     };
 
-    console.info(
-      [
-        `POST ${OPENROUTER_URL}`,
-        "",
-        "Model:",
-        model,
-        "",
-        "Stream:",
-        String(body.stream),
-        "",
-        "Headers:",
-        `Authorization: Bearer ${maskApiKey(this.apiKey)}`,
-        `Content-Type: ${headers["Content-Type"]}`,
-        `HTTP-Referer: ${headers["HTTP-Referer"]}`,
-        `X-Title: ${headers["X-Title"]}`,
-        "",
-        "Payload:",
-        JSON.stringify(body, null, 2),
-      ].join("\n"),
-    );
+    console.info("OpenRouter request started", {
+      url: OPENROUTER_URL,
+      model,
+      stream: body.stream,
+      messageCount: messages.length,
+      inputCharacters: messages.reduce((total, message) => total + message.content.length, 0),
+    });
 
     let response: Response;
     try {
@@ -58,20 +46,17 @@ export class OpenRouterClient {
       throw new OpenRouterError("network");
     }
 
-    const [streamBody, diagnosticBody] = response.body.tee();
-    const diagnosticBodyPromise = readResponseBody(diagnosticBody);
-
     try {
       if (!response.ok) {
-        const details = await diagnosticBodyPromise;
+        const details = await readResponseBody(response.body);
         throw errorFromStatus(response.status, details);
       }
 
-      yield* this.readStream(streamBody);
+      yield* this.readStream(response.body);
     } catch (error) {
       throw normalizeOpenRouterError(error);
     } finally {
-      await logResponse(response, await diagnosticBodyPromise);
+      logResponse(response);
     }
   }
 
@@ -99,22 +84,15 @@ export class OpenRouterClient {
   }
 }
 
-function maskApiKey(apiKey: string): string {
-  return `${apiKey.slice(0, 8)}****`;
-}
-
 async function readResponseBody(body: ReadableStream<Uint8Array>): Promise<string> {
   return new Response(body).text().catch(() => "");
 }
 
-async function logResponse(response: Response, body: string): Promise<void> {
-  console.info(`HTTP ${response.status} ${response.statusText}`);
-  console.info("Response headers:");
-  for (const [name, value] of response.headers.entries()) {
-    console.info(`${name}: ${value}`);
-  }
-  console.info("Response body:");
-  console.log(body);
+function logResponse(response: Response): void {
+  console.info("OpenRouter response received", {
+    status: response.status,
+    statusText: response.statusText,
+  });
 }
 
 function parseSseLine(line: string): string | null | undefined {
@@ -126,9 +104,17 @@ function parseSseLine(line: string): string | null | undefined {
   try {
     const parsed = JSON.parse(payload) as {
       choices?: Array<{ delta?: { content?: string } }>;
+      error?: { code?: number; message?: string };
     };
+    if (parsed.error) {
+      throw errorFromStatus(
+        typeof parsed.error.code === "number" ? parsed.error.code : 503,
+        parsed.error,
+      );
+    }
     return parsed.choices?.[0]?.delta?.content ?? "";
   } catch (error) {
+    if (error instanceof OpenRouterError) throw error;
     throw new OpenRouterError("unavailable", undefined, error);
   }
 }

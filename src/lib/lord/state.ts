@@ -31,6 +31,8 @@ interface LordState {
   emergencyStop: boolean;
   /** executionId -> AbortController for in-flight agent runs. */
   executions: Map<string, AbortController>;
+  /** Removes request-abort listeners when an execution is disposed. */
+  externalAbortListeners: Map<string, { signal: AbortSignal; listener: () => void }>;
   /** In-flight plans awaiting confirmation (planId -> plan). */
   pendingPlans: Map<string, unknown>;
 }
@@ -54,6 +56,7 @@ function freshState(): LordState {
     automations: [],
     emergencyStop: false,
     executions: new Map(),
+    externalAbortListeners: new Map(),
     pendingPlans: new Map(),
   };
 }
@@ -114,15 +117,33 @@ export function setEmergencyStop(value: boolean): void {
   }
 }
 
-export function registerExecution(id: string): AbortController {
+export function registerExecution(id: string, externalSignal?: AbortSignal): AbortController {
   const state = getState();
   const controller = new AbortController();
   state.executions.set(id, controller);
+  if (externalSignal) {
+    const listener = () => controller.abort();
+    if (externalSignal.aborted) listener();
+    else {
+      externalSignal.addEventListener("abort", listener, { once: true });
+      state.externalAbortListeners.set(id, { signal: externalSignal, listener });
+    }
+  }
   return controller;
 }
 
 export function endExecution(id: string): void {
+  detachExecutionAbortListener(id);
   getState().executions.delete(id);
+}
+
+export function detachExecutionAbortListener(id: string): void {
+  const state = getState();
+  const external = state.externalAbortListeners.get(id);
+  if (external) {
+    external.signal.removeEventListener("abort", external.listener);
+    state.externalAbortListeners.delete(id);
+  }
 }
 
 export function abortExecution(id: string): boolean {

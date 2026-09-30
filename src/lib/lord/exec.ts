@@ -22,28 +22,19 @@ export function makeToolContext(
   userId?: string,
   externalSignal?: AbortSignal,
 ): ToolContext {
-  let controller: AbortController;
-  if (externalSignal) {
-    controller = {
-      abort: () => {},
-      signal: externalSignal,
-      aborted: externalSignal.aborted,
-    } as AbortController;
-  } else {
-    controller = registerExecution(executionId);
-  }
+  const controller = registerExecution(executionId, externalSignal);
   return {
     userId,
     signal: controller.signal,
     executionId,
     config: getLordConfig(),
     log: (e) => pushActivity(e),
-    llm: runLordText,
+    llm: (opts) => runLordText({ ...opts, signal: opts.signal ?? controller.signal }),
   };
 }
 
-export function disposeToolContext(executionId: string, externalSignal?: AbortSignal): void {
-  if (!externalSignal) endExecution(executionId);
+export function disposeToolContext(executionId: string, _externalSignal?: AbortSignal): void {
+  endExecution(executionId);
 }
 
 /** Execute a single tool through the permission layer. */
