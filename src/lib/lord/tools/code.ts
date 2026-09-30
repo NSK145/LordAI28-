@@ -1,13 +1,21 @@
 import fs from "node:fs";
+import { createRequire } from "node:module";
 import path from "node:path";
 import { spawn } from "node:child_process";
-import * as ts from "typescript";
+import type * as tsTypes from "typescript";
 import { safeResolve } from "../fs-safe";
 import { getLordConfig } from "../config";
 import { registerTool } from "../registry";
 import { fail, ok } from "../permissions";
 import type { ToolContext, ToolResult } from "../types";
 import { getRepositoryGraph } from "./repository";
+
+// The TypeScript compiler package is CommonJS. Importing it statically makes
+// Nitro bundle it as ESM, where its use of `__filename` crashes Vercel's
+// serverless runtime. Load the production dependency through Node's native CJS
+// loader instead. The type query is erased during compilation.
+const require = createRequire(import.meta.url);
+const ts = require("typescript") as typeof import("typescript");
 
 const SOURCE_EXTENSIONS = new Set([
   ".c",
@@ -179,7 +187,7 @@ function findPatchTarget(targetPath: string): { file: string; root: string; rela
   };
 }
 
-function readCompilerOptions(root: string): ts.CompilerOptions {
+function readCompilerOptions(root: string): tsTypes.CompilerOptions {
   const configPath = ts.findConfigFile(root, ts.sys.fileExists);
   if (!configPath) return { allowJs: true, jsx: ts.JsxEmit.Preserve };
   const config = ts.readConfigFile(configPath, ts.sys.readFile);
@@ -192,7 +200,14 @@ function validatePatchSource(
   target: { file: string; root: string; relativePath: string },
 ): string | null {
   const extension = path.extname(target.file).toLowerCase();
-  const scriptKind = extension === ".tsx" ? ts.ScriptKind.TSX : extension === ".jsx" ? ts.ScriptKind.JSX : extension === ".js" ? ts.ScriptKind.JS : ts.ScriptKind.TS;
+  const scriptKind =
+    extension === ".tsx"
+      ? ts.ScriptKind.TSX
+      : extension === ".jsx"
+        ? ts.ScriptKind.JSX
+        : extension === ".js"
+          ? ts.ScriptKind.JS
+          : ts.ScriptKind.TS;
   const sourceFile = ts.createSourceFile(
     target.file,
     source,
@@ -200,8 +215,14 @@ function validatePatchSource(
     true,
     scriptKind,
   );
-  if (sourceFile.parseDiagnostics.length > 0) {
-    return `Patch introduces a syntax error: ${ts.flattenDiagnosticMessageText(sourceFile.parseDiagnostics[0].messageText, " ")}`;
+  const parseDiagnostics = (sourceFile as tsTypes.SourceFile & {
+    parseDiagnostics: readonly tsTypes.Diagnostic[];
+  }).parseDiagnostics;
+  if (parseDiagnostics.length > 0) {
+    return `Patch introduces a syntax error: ${ts.flattenDiagnosticMessageText(
+      parseDiagnostics[0].messageText,
+      " ",
+    )}`;
   }
 
   const graph = getRepositoryGraph(target.root, target.relativePath);
@@ -225,7 +246,9 @@ function validatePatchSource(
     const modifiers = ts.canHaveModifiers(statement) ? ts.getModifiers(statement) : undefined;
     if (!modifiers?.some((modifier) => modifier.kind === ts.SyntaxKind.ExportKeyword)) return [];
     const name = "name" in statement ? statement.name : undefined;
-    return name && ts.isIdentifier(name) ? [name.text] : [];
+    return name && typeof name === "object" && ts.isIdentifier(name as tsTypes.Node)
+      ? [(name as tsTypes.Identifier).text]
+      : [];
   });
   const duplicate = exportedNames.find((symbol) =>
     graph.exportedSymbols.some(
