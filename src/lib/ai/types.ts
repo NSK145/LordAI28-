@@ -11,11 +11,17 @@ export type ChatRole = "system" | "user" | "assistant";
 export interface ChatMessage {
   role: ChatRole;
   content: string;
+  images?: readonly string[];
 }
 
 export interface OpenRouterRequest {
   model: string;
-  messages: readonly ChatMessage[];
+  messages: ReadonlyArray<{
+    role: ChatRole;
+    content:
+      | string
+      | Array<{ type: "text"; text: string } | { type: "image_url"; image_url: { url: string } }>;
+  }>;
   stream: true;
   max_tokens: number;
 }

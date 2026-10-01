@@ -12,7 +12,20 @@ export class OpenRouterClient {
     signal?: AbortSignal,
     maxTokens = 512,
   ): AsyncGenerator<string> {
-    const body: OpenRouterRequest = { model, messages, stream: true, max_tokens: maxTokens };
+    const body: OpenRouterRequest = {
+      model,
+      messages: messages.map(({ role, content, images }) => ({
+        role,
+        content: images?.length
+          ? [
+              { type: "text" as const, text: content },
+              ...images.map((url) => ({ type: "image_url" as const, image_url: { url } })),
+            ]
+          : content,
+      })),
+      stream: true,
+      max_tokens: maxTokens,
+    };
     const requestBody = JSON.stringify(body);
     const headers = {
       Authorization: `Bearer ${this.apiKey}`,
@@ -42,7 +55,7 @@ export class OpenRouterClient {
     }
 
     if (!response.body) {
-      await logResponse(response, "");
+      logResponse(response);
       throw new OpenRouterError("network");
     }
 

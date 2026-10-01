@@ -1138,7 +1138,15 @@ const TASK_KEYWORDS: Readonly<Record<TaskType, readonly string[]>> = Object.free
   creative: ["story", "poem", "creative", "write", "fiction", "narrative", "brainstorm"],
   translation: ["translate", "translation", "translat", "language", "spanish", "french"],
   summarization: ["summarize", "summary", "tl;dr", "brief", "outline"],
-  "long-context": ["long", "document", "paper", "report", "context", "whole file", "large codebase"],
+  "long-context": [
+    "long",
+    "document",
+    "paper",
+    "report",
+    "context",
+    "whole file",
+    "large codebase",
+  ],
   planning: ["plan", "roadmap", "strategy", "launch", "milestone", "schedule"],
   learning: ["learn", "teach", "explain", "concept", "tutorial", "understand"],
   "image-generation": ["image", "generate", "photo", "art", "poster", "illustration", "render"],
@@ -1187,7 +1195,10 @@ export function classifyTask(input: string): TaskType {
     if (taskType === "image-generation" && /(generate|create.*image|image.*generate)/.test(text)) {
       score += 4;
     }
-    if (taskType === "image-editing" && /(edit.*image|retouch|remove.*background|crop)/.test(text)) {
+    if (
+      taskType === "image-editing" &&
+      /(edit.*image|retouch|remove.*background|crop)/.test(text)
+    ) {
       score += 4;
     }
     if (score > bestScore) {
@@ -1199,15 +1210,18 @@ export function classifyTask(input: string): TaskType {
   return best;
 }
 
-function isFreeModel(model: { pricing: { inputPer1MTokens: number; outputPer1MTokens: number } }): boolean {
+function isFreeModel(model: {
+  pricing: { inputPer1MTokens: number; outputPer1MTokens: number };
+}): boolean {
   return model.pricing.inputPer1MTokens === 0 && model.pricing.outputPer1MTokens === 0;
 }
 
 function normalizeHealthScore(model: { health: ProviderHealthState }): number {
   const health = model.health;
-  const successRate = health.successCount + health.failureCount > 0
-    ? (health.successCount / (health.successCount + health.failureCount)) * 100
-    : 50;
+  const successRate =
+    health.successCount + health.failureCount > 0
+      ? (health.successCount / (health.successCount + health.failureCount)) * 100
+      : 50;
   const statusWeight =
     health.status === "healthy"
       ? 100
@@ -1216,7 +1230,7 @@ function normalizeHealthScore(model: { health: ProviderHealthState }): number {
         : health.status === "unavailable"
           ? 20
           : 70;
-  return Math.min(100, Math.max(0, (successRate * 0.7) + (statusWeight * 0.3)));
+  return Math.min(100, Math.max(0, successRate * 0.7 + statusWeight * 0.3));
 }
 
 const _PROVIDER_RUNTIME_HEALTH: Readonly<Record<ProviderName, ProviderRuntimeHealth>> =
@@ -1285,7 +1299,10 @@ export function updateProviderHealth(
   return merged;
 }
 
-export function recordProviderSuccess(provider: ProviderName, latencyMs: number): ProviderRuntimeHealth {
+export function recordProviderSuccess(
+  provider: ProviderName,
+  latencyMs: number,
+): ProviderRuntimeHealth {
   const current = providerHealth[provider];
   const now = new Date().toISOString();
   const nextSuccessRate = Math.min(100, current.successRate + 10);
@@ -1295,7 +1312,8 @@ export function recordProviderSuccess(provider: ProviderName, latencyMs: number)
     successRate: nextSuccessRate,
     failureRate: nextFailureRate,
     timeouts: current.timeouts,
-    averageLatency: current.averageLatency === 0 ? latencyMs : (current.averageLatency + latencyMs) / 2,
+    averageLatency:
+      current.averageLatency === 0 ? latencyMs : (current.averageLatency + latencyMs) / 2,
     lastSuccess: now,
     lastFailure: current.lastFailure,
     consecutiveFailures: 0,
@@ -1305,7 +1323,7 @@ export function recordProviderSuccess(provider: ProviderName, latencyMs: number)
 
 export function recordProviderFailure(
   provider: ProviderName,
-  errorType: "network" | "timeout" | "rate_limit" | "provider" | "auth" | "model", 
+  errorType: "network" | "timeout" | "rate_limit" | "provider" | "auth" | "model",
   latencyMs?: number,
 ): ProviderRuntimeHealth {
   const current = providerHealth[provider];
@@ -1366,8 +1384,7 @@ export function getModelHealthSnapshot(modelId: string): ModelHealthSnapshot {
   );
 
   return {
-    availability:
-      healthScore >= 80 ? "healthy" : healthScore >= 50 ? "degraded" : "unavailable",
+    availability: healthScore >= 80 ? "healthy" : healthScore >= 50 ? "degraded" : "unavailable",
     lastSuccessfulRequest: model.health.lastSuccessfulRequest,
     lastFailure: model.health.lastFailedRequest,
     averageLatency: model.health.latency ?? model.latency.expectedMs,
@@ -1413,7 +1430,13 @@ export function findBestFreeModel(
   prompt: string,
   taskTypeOverride?: TaskType | null,
   mode: LordMode = LORD_IDENTITY.defaultMode,
-): { modelId: string; provider: ProviderName; score: number; healthScore: number; latencyMs: number } | null {
+): {
+  modelId: string;
+  provider: ProviderName;
+  score: number;
+  healthScore: number;
+  latencyMs: number;
+} | null {
   const taskType = taskTypeOverride ?? classifyTask(prompt);
   const candidates = getFreeCandidatesByMode(mode, taskType);
   return candidates[0] ?? null;
@@ -1422,10 +1445,22 @@ export function findBestFreeModel(
 function getFreeCandidatesByMode(
   mode: LordMode,
   taskType: TaskType,
-): Array<{ modelId: string; provider: ProviderName; score: number; healthScore: number; latencyMs: number }> {
+): Array<{
+  modelId: string;
+  provider: ProviderName;
+  score: number;
+  healthScore: number;
+  latencyMs: number;
+}> {
   const routing = MODE_ROUTING_CONFIG[mode];
   const normalizedTask = taskType;
-  const candidates: Array<{ modelId: string; provider: ProviderName; score: number; healthScore: number; latencyMs: number }> = [];
+  const candidates: Array<{
+    modelId: string;
+    provider: ProviderName;
+    score: number;
+    healthScore: number;
+    latencyMs: number;
+  }> = [];
 
   for (const model of MODEL_REGISTRY) {
     if (model.type !== "chat" || !model.enabled || !isFreeModel(model)) continue;
@@ -2686,6 +2721,7 @@ PRIMARY PRINCIPLES
 10. Never hide errors. Explain the useful part of the failure and provide the next action.
 11. Always distinguish verified facts from assumptions when uncertainty matters.
 12. Never claim that an action succeeded unless an available tool or result confirms it.
+13. Use only AI models with a $0 model price. Never route to paid models or suggest paid models for this project.
 
 APPLICATION AWARENESS
 

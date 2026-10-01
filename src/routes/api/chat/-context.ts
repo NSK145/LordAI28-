@@ -25,7 +25,11 @@ function estimateTokens(text: string): number {
 }
 
 function messageTokens(message: ChatMessage): number {
-  return estimateTokens(message.content) + 4;
+  return estimateTokens(messageText(message)) + 4;
+}
+
+function messageText(message: ChatMessage): string {
+  return message.content + (message.images?.map(() => " [image]").join("") ?? "");
 }
 
 function clipToTokens(text: string, tokenLimit: number): string {
@@ -49,7 +53,7 @@ function applicationContextText(context: ChatApplicationContext): string {
 
 function summarizeMessages(messages: readonly ChatMessage[], tokenLimit: number): string {
   const lines = messages.map((message) => {
-    const excerpt = message.content.replace(/\s+/g, " ").trim().slice(0, 180);
+    const excerpt = messageText(message).replace(/\s+/g, " ").trim().slice(0, 180);
     return `${message.role}: ${excerpt}`;
   });
   return clipToTokens(`Earlier conversation summary:\n${lines.join("\n")}`, tokenLimit);
@@ -77,12 +81,22 @@ export function buildChatContextMessages(
 
   const conversation = messages.flatMap((message): ChatMessage[] => {
     if (message.role === "system") return [];
-    const content = message.parts
-      .filter((part) => part.type === "text")
-      .map((part) => part.text)
-      .join(" ")
-      .trim();
-    return content ? [{ role: message.role, content }] : [];
+    const content: string[] = [];
+    const images: string[] = [];
+    for (const part of message.parts) {
+      if (part.type === "text" && part.text.trim()) content.push(part.text);
+      if (
+        part.type === "file" &&
+        part.mediaType.startsWith("image/") &&
+        part.url.startsWith("data:image/")
+      ) {
+        images.push(part.url);
+      }
+    }
+    const text = content.join(" ").trim();
+    return text || images.length
+      ? [{ role: message.role, content: text, ...(images.length ? { images } : {}) }]
+      : [];
   });
   if (conversation.length === 0) return [system];
 

@@ -88,17 +88,41 @@ export function createChatRoute() {
             const mode = parsed.data.mode ?? LORD_IDENTITY.defaultMode;
             const lastUserText = getLastUserText(parsed.data.messages as unknown as UIMessage[]);
             const taskType = classifyTask(lastUserText || "general");
-            const bestFreeModel = findBestFreeModel(lastUserText || "general", taskType, mode);
-            const modelCandidates = bestFreeModel
-              ? [bestFreeModel.modelId]
-              : getModeCandidates(mode, parsed.data.modelId)
-                  .filter(
-                    (candidate) =>
-                      candidate.provider === "openrouter" && CHAT_MODEL_MAP.has(candidate.modelId),
-                  )
-                  .map((candidate) => candidate.modelId);
+            const hasImage = parsed.data.messages.some((message) =>
+              message.parts.some((part) => {
+                if (!part || typeof part !== "object") return false;
+                const item = part as { type?: unknown; mediaType?: unknown; url?: unknown };
+                return (
+                  item.type === "file" &&
+                  typeof item.mediaType === "string" &&
+                  item.mediaType.startsWith("image/") &&
+                  typeof item.url === "string" &&
+                  item.url.startsWith("data:image/")
+                );
+              }),
+            );
+            const bestFreeModel = hasImage
+              ? null
+              : findBestFreeModel(lastUserText || "general", taskType, mode);
+            // OpenRouter's free router selects only $0 models and filters for image
+            // understanding when an image part is included in the request.
+            const modelCandidates = hasImage
+              ? ["openrouter/free"]
+              : bestFreeModel
+                ? [bestFreeModel.modelId]
+                : getModeCandidates(mode, parsed.data.modelId)
+                    .filter((candidate) => {
+                      const definition = CHAT_MODEL_MAP.get(candidate.modelId);
+                      return (
+                        candidate.provider === "openrouter" &&
+                        definition !== undefined &&
+                        definition.pricing.inputPer1MTokens === 0 &&
+                        definition.pricing.outputPer1MTokens === 0
+                      );
+                    })
+                    .map((candidate) => candidate.modelId);
 
-            if (bestFreeModel === null && modelCandidates.length === 0) {
+            if (!hasImage && bestFreeModel === null && modelCandidates.length === 0) {
               return apiErrorResponse(
                 503,
                 "AI_NOT_CONFIGURED",

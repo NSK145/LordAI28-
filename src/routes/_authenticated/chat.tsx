@@ -1391,10 +1391,25 @@ function ChatPage() {
         }),
       );
       const userMsgId = crypto.randomUUID();
+      const imageParts = await Promise.all(
+        payload.attachments
+          .filter((attachment) => attachment.kind === "image")
+          .map(async (attachment) => ({
+            type: "file" as const,
+            mediaType: attachment.file.type || "image/png",
+            filename: attachment.name,
+            url: await new Promise<string>((resolve, reject) => {
+              const reader = new FileReader();
+              reader.onload = () => resolve(String(reader.result));
+              reader.onerror = () => reject(new Error(`Could not read ${attachment.name}.`));
+              reader.readAsDataURL(attachment.file);
+            }),
+          })),
+      );
       const userMessage: UIMessage = {
         id: userMsgId,
         role: "user",
-        parts: [{ type: "text", text }],
+        parts: [{ type: "text", text }, ...imageParts],
       };
 
       // --- Instant sidebar feedback (no network wait) -----------------------
