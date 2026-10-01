@@ -436,6 +436,34 @@ const MODEL_REGISTRY_DEFINITIONS: readonly ModelDefinition[] = Object.freeze([
   },
   // OpenRouter — free chat models
   {
+    id: "google/gemma-4-26b-a4b-it:free",
+    provider: "openrouter",
+    type: "chat",
+    label: "Gemma 4 26B A4B (Free, Vision)",
+    description: "Free multimodal chat model with image understanding via OpenRouter.",
+    enabled: true,
+    supports: ["chat"],
+    capabilities: {
+      ...STANDARD_CHAT_CAPABILITIES,
+      supportsVision: true,
+      maxContextTokens: 262144,
+    },
+    limits: {
+      maxContextTokens: 262144,
+      maxOutputTokens: 2048,
+      maxImagesPerRequest: 4,
+      maxImages: 4,
+    },
+    pricing: { inputPer1MTokens: 0, outputPer1MTokens: 0, currency: "USD" },
+    metadata: {
+      badges: ["OpenRouter", "Free", "Vision"],
+      tags: ["chat", "vision", "multimodal"],
+      priority: 1,
+      enabled: true,
+      addedAt: "2026-04-03",
+    },
+  },
+  {
     id: "google/gemma-3-27b-it:free",
     provider: "openrouter",
     type: "chat",

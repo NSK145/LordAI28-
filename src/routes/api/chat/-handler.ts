@@ -107,7 +107,7 @@ export function createChatRoute() {
             // OpenRouter's free router selects only $0 models and filters for image
             // understanding when an image part is included in the request.
             const modelCandidates = hasImage
-              ? ["openrouter/free"]
+              ? ["google/gemma-4-26b-a4b-it:free", "openrouter/free"]
               : bestFreeModel
                 ? [bestFreeModel.modelId]
                 : getModeCandidates(mode, parsed.data.modelId)

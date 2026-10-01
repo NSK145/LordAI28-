@@ -66,6 +66,7 @@ export function streamChat(
               model: modelId,
               nextModel: models[index + 1],
               error: normalized.message,
+              status: normalized.status,
             });
           }
         }
@@ -78,6 +79,7 @@ export function streamChat(
         console.error("Model request error", {
           model: activeModel,
           error: normalized.message,
+          status: normalized.status,
         });
       } finally {
         console.info("Model request completed", {
