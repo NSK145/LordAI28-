@@ -4,7 +4,9 @@
 
 import ReactMarkdown from "react-markdown";
 import rehypeShiki from "@shikijs/rehype";
+import rehypeKatex from "rehype-katex";
 import remarkGfm from "remark-gfm";
+import remarkMath from "remark-math";
 import type { Components } from "react-markdown";
 import type { PluggableList } from "unified";
 import type { Root } from "hast";
@@ -92,8 +94,8 @@ export function MarkdownRenderer({
   return (
     <div className={cn(className, streaming && "markdown-streaming")}>
       <ReactMarkdown
-        remarkPlugins={[remarkGfm]}
-        rehypePlugins={[shikiHighlighter] as PluggableList}
+        remarkPlugins={[remarkGfm, remarkMath]}
+        rehypePlugins={[rehypeKatex, shikiHighlighter] as PluggableList}
         components={
           {
             h1: (props: ComponentPropsWithoutRef<"h1">) => <Heading level={1} {...props} />,

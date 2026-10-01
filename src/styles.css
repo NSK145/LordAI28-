@@ -1,4 +1,5 @@
 @import "tailwindcss" source(none);
+@import "katex/dist/katex.min.css";
 @source "../src";
 @import "tw-animate-css";
 

@@ -10,7 +10,7 @@ export class OpenRouterClient {
     messages: readonly ChatMessage[],
     model: string,
     signal?: AbortSignal,
-    maxTokens = 512,
+    maxTokens = 1400,
   ): AsyncGenerator<string> {
     const body: OpenRouterRequest = {
       model,
