@@ -8,6 +8,8 @@ export type ApiErrorCode =
   | "AI_RATE_LIMITED"
   | "AI_UPSTREAM_ERROR"
   | "AI_ERROR"
+  | "WEB_SEARCH_NOT_CONFIGURED"
+  | "WEB_SEARCH_UNAVAILABLE"
   | "DB_ERROR"
   | "INTERNAL_ERROR"
   | "NOT_FOUND";

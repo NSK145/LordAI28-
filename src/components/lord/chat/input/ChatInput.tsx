@@ -7,7 +7,14 @@ import {
   type DragEvent,
 } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Paperclip, Sparkles, ArrowUp, Square, Calendar as CalendarIcon } from "lucide-react";
+import {
+  Paperclip,
+  Sparkles,
+  ArrowUp,
+  Square,
+  Calendar as CalendarIcon,
+  Globe2,
+} from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { Attachment, AttachmentKind, ChatSubmitPayload, ToolId } from "./types";
 import { FileChip } from "./FileChip";
@@ -49,6 +56,8 @@ export function ChatInput({
   onModeChange,
   responseStyle,
   onResponseStyleChange,
+  webSearch,
+  onWebSearchChange,
 }: {
   value: string;
   onChange: (v: string) => void;
@@ -60,6 +69,8 @@ export function ChatInput({
   onModeChange: (mode: LordMode) => void;
   responseStyle: ResponseStyle;
   onResponseStyleChange: (style: ResponseStyle) => void;
+  webSearch: boolean;
+  onWebSearchChange: (enabled: boolean) => void;
 }) {
   const taRef = useRef<HTMLTextAreaElement>(null);
   const rootRef = useRef<HTMLDivElement>(null);
@@ -345,6 +356,21 @@ export function ChatInput({
               <option value="detailed">Detailed</option>
               <option value="step-by-step">Step by step</option>
             </select>
+            <button
+              type="button"
+              aria-pressed={webSearch}
+              aria-label={webSearch ? "Turn off web sources" : "Search the web and cite sources"}
+              title={webSearch ? "Web sources on" : "Search web and cite sources"}
+              onClick={() => onWebSearchChange(!webSearch)}
+              className={cn(
+                "flex h-9 items-center gap-1 rounded-full border px-2 text-xs transition focus-visible:ring-2 focus-visible:ring-cyan-400",
+                webSearch
+                  ? "border-cyan-400/50 bg-cyan-400/10 text-cyan-200"
+                  : "border-white/10 text-white/60 hover:text-white",
+              )}
+            >
+              <Globe2 className="h-3.5 w-3.5" /> Sources
+            </button>
             <motion.button
               type="button"
               onClick={() => setCalendarOpen(true)}

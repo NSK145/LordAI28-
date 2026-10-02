@@ -75,15 +75,49 @@ export const Route = createFileRoute("/api/study-plans/$id/ai/generate")({
           parsed.data.conceptIds.map((id) => resolveConcept(db, id)),
         );
         const validConcepts = concepts.filter((c): c is any => c !== null);
+        if (validConcepts.length === 0) {
+          return apiErrorResponse(
+            404,
+            "NOT_FOUND",
+            "No valid study concepts were found.",
+            requestId,
+          );
+        }
 
-        const now = new Date();
-        const startDate = parsed.data.startDate ? new Date(parsed.data.startDate) : now;
-        const targetDate = parsed.data.targetDate
-          ? new Date(parsed.data.targetDate)
-          : new Date(startDate.getTime() + 30 * 86400000);
+        const today = new Date().toISOString().slice(0, 10);
+        const startDateText = parsed.data.startDate ?? today;
+        const startDate = parseCalendarDate(startDateText);
+        if (!startDate) {
+          return apiErrorResponse(
+            400,
+            "INVALID_REQUEST",
+            "Plan dates must be valid calendar dates.",
+            requestId,
+          );
+        }
+        const targetDateText =
+          parsed.data.targetDate ??
+          new Date(startDate.getTime() + 30 * 86400000).toISOString().slice(0, 10);
+        const targetDate = parseCalendarDate(targetDateText);
+        if (!targetDate) {
+          return apiErrorResponse(
+            400,
+            "INVALID_REQUEST",
+            "Plan dates must be valid calendar dates.",
+            requestId,
+          );
+        }
+        if (targetDate.getTime() < startDate.getTime()) {
+          return apiErrorResponse(
+            400,
+            "INVALID_REQUEST",
+            "The target date must be on or after the plan start date.",
+            requestId,
+          );
+        }
         const daysAvailable = Math.max(
           1,
-          Math.ceil((targetDate.getTime() - startDate.getTime()) / 86400000),
+          Math.floor((targetDate.getTime() - startDate.getTime()) / 86400000) + 1,
         );
         const totalMinutes = parsed.data.dailyMinutes
           ? parsed.data.dailyMinutes * daysAvailable
@@ -100,7 +134,7 @@ export const Route = createFileRoute("/api/study-plans/$id/ai/generate")({
         const taskTypes = ["learn", "practice", "review"] as const;
         let pos = 0;
 
-        for (const concept of validConcepts) {
+        for (const [conceptIndex, concept] of validConcepts.entries()) {
           const m = masteryMap.get(concept.id);
           const score = m?.score ?? 0.3;
           const baseMinutes = concept.estimated_study_minutes ?? 20;
@@ -112,8 +146,18 @@ export const Route = createFileRoute("/api/study-plans/$id/ai/generate")({
             title: `${capitalize(taskType)}: ${concept.title}`,
             description: concept.description ?? null,
             task_type: taskType,
-            due_at: new Date(startDate.getTime() + (pos % daysAvailable) * 86400000).toISOString(),
-            estimated_minutes: Math.max(10, baseMinutes),
+            due_at: new Date(
+              startDate.getTime() +
+                Math.floor((conceptIndex * daysAvailable) / validConcepts.length) * 86400000,
+            ).toISOString(),
+            estimated_minutes: Math.max(
+              5,
+              Math.min(
+                baseMinutes,
+                parsed.data.dailyMinutes ?? 30,
+                Math.floor(totalMinutes / validConcepts.length),
+              ),
+            ),
             priority: score < 0.4 ? "high" : score < 0.7 ? "medium" : "low",
             status: "pending",
             position: pos,
@@ -133,9 +177,9 @@ export const Route = createFileRoute("/api/study-plans/$id/ai/generate")({
           return apiErrorResponse(404, "NOT_FOUND", "Plan not found.", requestId);
         }
 
-        await db
+        const { data: previousTasks } = await db
           .from("learning_plan_tasks")
-          .delete()
+          .select("id")
           .eq("plan_id", params.id)
           .eq("user_id", userId);
 
@@ -148,6 +192,23 @@ export const Route = createFileRoute("/api/study-plans/$id/ai/generate")({
         );
 
         if (insertError) return apiErrorResponse(500, "DB_ERROR", insertError.message, requestId);
+
+        const previousIds = (previousTasks ?? []).map((task: { id: string }) => task.id);
+        if (previousIds.length > 0) {
+          const { error: deleteError } = await db
+            .from("learning_plan_tasks")
+            .delete()
+            .in("id", previousIds)
+            .eq("user_id", userId);
+          if (deleteError) {
+            return apiErrorResponse(
+              500,
+              "DB_ERROR",
+              "New tasks were saved, but previous tasks could not be replaced. Refresh the plan before trying again.",
+              requestId,
+            );
+          }
+        }
 
         const updatePayload: Record<string, unknown> = {
           source: "ai",
@@ -187,4 +248,9 @@ function taskIndexToTaskType(
 
 function capitalize(s: string) {
   return s.charAt(0).toUpperCase() + s.slice(1);
+}
+
+function parseCalendarDate(value: string): Date | null {
+  const date = new Date(`${value}T00:00:00.000Z`);
+  return Number.isFinite(date.getTime()) && date.toISOString().slice(0, 10) === value ? date : null;
 }

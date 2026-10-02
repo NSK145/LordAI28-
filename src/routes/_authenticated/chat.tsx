@@ -12,6 +12,7 @@ import {
   Pin,
   ThumbsUp,
   ThumbsDown,
+  Globe2,
 } from "lucide-react";
 import { toast } from "sonner";
 import { AppShell } from "@/components/lord/AppShell";
@@ -208,6 +209,7 @@ function ChatPage() {
     "chat-response-style",
     "balanced",
   );
+  const [webSearch, setWebSearch] = usePersistedState("chat-web-search", false);
   const [messageSearch, setMessageSearch] = useState("");
   const [searchOpen, setSearchOpen] = useState(false);
   const [pinnedMessages, setPinnedMessages] = usePersistedState<string[]>(
@@ -343,12 +345,26 @@ function ChatPage() {
   const modeRef = useRef<LordMode>(mode);
   const requestBodyRef = useRef({
     mode,
-    context: { page: currentRoute, workflow: activeWorkflow, metrics, history, responseStyle },
+    context: {
+      page: currentRoute,
+      workflow: activeWorkflow,
+      metrics,
+      history,
+      responseStyle,
+      webSearch,
+    },
   });
 
   requestBodyRef.current = {
     mode,
-    context: { page: currentRoute, workflow: activeWorkflow, metrics, history, responseStyle },
+    context: {
+      page: currentRoute,
+      workflow: activeWorkflow,
+      metrics,
+      history,
+      responseStyle,
+      webSearch,
+    },
   };
   modeRef.current = mode;
 
@@ -2097,6 +2113,8 @@ function ChatPage() {
                   mode={mode}
                   responseStyle={responseStyle}
                   onResponseStyleChange={setResponseStyle}
+                  webSearch={webSearch}
+                  onWebSearchChange={setWebSearch}
                   onModeChange={(m) => {
                     setMode(m);
                     emitDashboardEvent("ai");

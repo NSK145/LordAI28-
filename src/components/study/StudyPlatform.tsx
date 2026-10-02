@@ -20,6 +20,13 @@ import { ProgressView } from "./views/ProgressView";
 import { StudyOnboarding } from "./views/StudyOnboarding";
 import { LoadingState } from "./ui/LoadingState";
 import type { LearningSnapshot, StudyView } from "./types";
+import { StudyFocusSession } from "./StudyFocusSession";
+import {
+  clearLearningSnapshotOffline,
+  loadLearningSnapshotOffline,
+  saveLearningSnapshotOffline,
+} from "@/lib/learning/offline-cache";
+import { usePersistedState } from "@/lib/use-persisted-state";
 
 const AI_ENTRY_VIEW = "ai-entry";
 
@@ -162,22 +169,59 @@ export function StudyPlatform() {
 
   const { user } = useCurrentUser();
   const userId = user?.id ?? null;
+  const [studyLanguage, setStudyLanguage] = usePersistedState("study-language", "");
+  const [studyTextScale, setStudyTextScale] = usePersistedState("study-text-scale", "100");
+  const [isOnline, setIsOnline] = useState(
+    () => typeof navigator === "undefined" || navigator.onLine,
+  );
   const navigate = useNavigate();
 
   const VIEW_FALLBACK: StudyView = "dashboard";
   const activeView: StudyView | typeof AI_ENTRY_VIEW = view ?? VIEW_FALLBACK;
 
   const {
-    data: snapshot,
+    data: snapshotResult,
     isLoading,
     error,
     refetch,
   } = useQuery({
     queryKey: ["learning-snapshot", userId],
-    queryFn: () => getLearningSnapshot(userId as string),
+    queryFn: async () => {
+      const id = userId as string;
+      const cached = loadLearningSnapshotOffline(id);
+      if (typeof navigator !== "undefined" && !navigator.onLine) {
+        if (cached) return { snapshot: cached.snapshot, fromCache: true, cachedAt: cached.savedAt };
+        throw new Error(
+          "No saved study data is available offline. Reconnect once to prepare this device.",
+        );
+      }
+      try {
+        const fresh = await getLearningSnapshot(id);
+        saveLearningSnapshotOffline(id, fresh);
+        return { snapshot: fresh, fromCache: false, cachedAt: Date.now() };
+      } catch (fetchError) {
+        if (cached) return { snapshot: cached.snapshot, fromCache: true, cachedAt: cached.savedAt };
+        throw fetchError;
+      }
+    },
     enabled: Boolean(userId),
     staleTime: 1000 * 60 * 2,
   });
+  const snapshot = snapshotResult?.snapshot;
+  const usingCachedSnapshot = snapshotResult?.fromCache ?? false;
+
+  useEffect(() => {
+    const updateConnection = () => {
+      setIsOnline(navigator.onLine);
+      if (navigator.onLine && userId) void refetch();
+    };
+    window.addEventListener("online", updateConnection);
+    window.addEventListener("offline", updateConnection);
+    return () => {
+      window.removeEventListener("online", updateConnection);
+      window.removeEventListener("offline", updateConnection);
+    };
+  }, [userId, refetch]);
 
   const refresh = () => {
     void refetch();
@@ -429,8 +473,71 @@ export function StudyPlatform() {
   return (
     <AppShell>
       <div className="flex flex-col gap-4">
-        <StudyTopNav activeView={activeView as StudyView} onViewChange={handleViewChange} />
-        <main className="flex-1 pb-8">{views[activeView as StudyView]}</main>
+        <div className="flex items-center justify-between gap-2">
+          <StudyTopNav activeView={activeView as StudyView} onViewChange={handleViewChange} />
+          <div className="flex shrink-0 items-center gap-2">
+            <label className="sr-only" htmlFor="study-language">
+              Study language
+            </label>
+            <select
+              id="study-language"
+              value={studyLanguage}
+              onChange={(event) => setStudyLanguage(event.target.value)}
+              className="h-10 max-w-32 rounded-lg border border-border/60 bg-background px-2 text-xs text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              title="Language for AI-generated study materials"
+            >
+              <option value="">Default language</option>
+              <option value="English">English</option>
+              <option value="Spanish">Español</option>
+              <option value="French">Français</option>
+              <option value="Hindi">हिन्दी</option>
+              <option value="Arabic">العربية</option>
+            </select>
+            <label className="sr-only" htmlFor="study-text-scale">
+              Study text size
+            </label>
+            <select
+              id="study-text-scale"
+              value={studyTextScale}
+              onChange={(event) => setStudyTextScale(event.target.value)}
+              className="h-10 max-w-24 rounded-lg border border-border/60 bg-background px-2 text-xs text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              title="Study text size"
+            >
+              <option value="100">Text 100%</option>
+              <option value="115">Text 115%</option>
+              <option value="130">Text 130%</option>
+            </select>
+            {userId && <StudyFocusSession userId={userId} />}
+          </div>
+        </div>
+        {(usingCachedSnapshot || !isOnline) && (
+          <div
+            role="status"
+            className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-200"
+          >
+            <span>
+              {!isOnline
+                ? "Offline: showing study data saved on this device."
+                : "Showing your saved study data because a fresh sync failed."}{" "}
+              {snapshotResult?.cachedAt
+                ? `Saved ${new Date(snapshotResult.cachedAt).toLocaleString()}.`
+                : ""}{" "}
+              New answers and AI features need a connection.
+            </span>
+            {userId && (
+              <button
+                type="button"
+                onClick={() => clearLearningSnapshotOffline(userId)}
+                className="underline underline-offset-2"
+              >
+                Clear offline copy
+              </button>
+            )}
+          </div>
+        )}
+        <main className={`study-content study-text-scale-${studyTextScale} flex-1 pb-8`}>
+          {views[activeView as StudyView]}
+        </main>
       </div>
     </AppShell>
   );

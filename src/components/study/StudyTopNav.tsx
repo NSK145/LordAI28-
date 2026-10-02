@@ -31,7 +31,10 @@ const VIEW_ICONS: Record<StudyView, React.ElementType> = {
 
 export function StudyTopNav({ activeView, onViewChange }: StudyTopNavProps) {
   return (
-    <nav className="flex-shrink-0 border-b border-border/40 bg-background/60 backdrop-blur-sm">
+    <nav
+      className="min-w-0 flex-1 border-b border-border/40 bg-background/60 backdrop-blur-sm"
+      aria-label="Study sections"
+    >
       <div className="mx-auto max-w-6xl">
         <div className="flex items-center gap-1 px-2 py-1.5 overflow-x-auto">
           {STUDY_VIEWS.map(({ id, label }) => {

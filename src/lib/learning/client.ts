@@ -4,6 +4,7 @@ import type { Json } from "@/integrations/supabase/types";
 import { authenticatedFetch } from "@/lib/authenticated-fetch";
 import { nextMastery } from "./mastery";
 import { classToGradeBand } from "./class";
+import { getStudyLanguagePreference } from "./preferences";
 import type {
   LearningConcept,
   Mastery,
@@ -165,6 +166,10 @@ export async function getLearningSnapshot(userId: string): Promise<LearningSnaps
       .order("created_at", { ascending: false })
       .limit(50),
   ]);
+
+  if (results.every((result) => result.status === "rejected")) {
+    throw new Error("Learning data is unavailable while offline.");
+  }
 
   const [
     concepts,
@@ -653,7 +658,13 @@ export async function generateFlashcards(
   const response = await authenticatedFetch(`${getApiBaseUrl()}/api/learning/flashcards`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ action: "generate", conceptId, count, sourceText }),
+    body: JSON.stringify({
+      action: "generate",
+      conceptId,
+      count,
+      sourceText,
+      language: getStudyLanguagePreference(),
+    }),
   });
   if (!response.ok) throw new Error("Failed to generate flashcards");
   return response.json();

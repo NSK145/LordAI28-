@@ -305,12 +305,17 @@ cp .env.example .env
 | `SUPABASE_URL`                            | ✅       | Server | Supabase project URL (server)          |
 | `SUPABASE_PUBLISHABLE_KEY`                | ✅       | Server | Supabase anon/publishable key (server) |
 | `OPENROUTER_API_KEY`                      | ✅       | Server | OpenRouter API key for AI (secret)     |
+| `TAVILY_API_KEY`                          | ⬜       | Server | Optional cited web search (secret; Sources toggle) |
 | `SUPABASE_SERVICE_ROLE_KEY`               | ⬜       | Server | Admin client (bypasses RLS)            |
 | `SUPABASE_PROJECT_ID`                     | ⬜       | Both   | Supabase CLI / tooling                 |
 | `OPENROUTER_REFERER` / `OPENROUTER_TITLE` | ⬜       | Server | OpenRouter attribution headers         |
 
 > Only `VITE_`-prefixed variables reach the browser. Keep `OPENROUTER_API_KEY` and
 > service-role keys server-side only.
+
+The chat **Sources** toggle requires `TAVILY_API_KEY`. Tavily currently lists a free plan
+with 1,000 monthly API credits and no credit card; web search stops when its quota is
+exhausted. Chat models continue to use LORD's free-only model routing.
 
 ---
 

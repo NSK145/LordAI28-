@@ -1,4 +1,6 @@
 import { monitoring } from "./monitoring-service";
+import { Capacitor } from "@capacitor/core";
+import { getApiBaseUrl } from "./api-config";
 
 /**
  * LORD API Interceptor
@@ -13,10 +15,45 @@ export function setupApiInterceptor() {
 
   window.fetch = async (...args) => {
     const start = Date.now();
-    const url = typeof args[0] === "string" ? args[0] : (args[0] as Request).url;
+    const requestUrl = typeof args[0] === "string" ? args[0] : (args[0] as Request).url;
+    let input = args[0];
+    let url = requestUrl;
+
+    if (Capacitor.isNativePlatform() && requestUrl.startsWith("/api/")) {
+      const apiBase = getApiBaseUrl();
+      if (!apiBase) {
+        throw new Error(
+          "LORD cannot reach its server from this Android build. Configure VITE_API_BASE_URL with the deployed HTTPS URL and rebuild.",
+        );
+      }
+      url = new URL(requestUrl, `${apiBase}/`).toString();
+      input = url;
+    }
+
+    const init = args[1] ?? {};
+    const method = (init.method ?? (input instanceof Request ? input.method : "GET")).toUpperCase();
+    const safeToRetry = method === "GET" || method === "HEAD";
 
     try {
-      const response = await originalFetch(...args);
+      let response: Response | undefined;
+      let lastError: unknown;
+      for (let attempt = 0; attempt < (safeToRetry ? 3 : 1); attempt++) {
+        try {
+          response = await originalFetch(input, init);
+          if (
+            !safeToRetry ||
+            ![408, 425, 429, 500, 502, 503, 504].includes(response.status) ||
+            attempt === 2
+          ) {
+            break;
+          }
+        } catch (error) {
+          lastError = error;
+          if (init.signal?.aborted || !safeToRetry || attempt === 2) throw error;
+        }
+        await new Promise((resolve) => setTimeout(resolve, 300 * 2 ** attempt));
+      }
+      if (!response) throw lastError ?? new Error("Network request failed");
       const latency = Date.now() - start;
 
       monitoring.updateLatency(latency);

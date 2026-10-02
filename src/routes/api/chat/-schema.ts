@@ -24,6 +24,7 @@ export const ChatRequestSchema = z.object({
       workflow: z.string().max(200).nullable().optional(),
       projectId: z.string().uuid().optional().nullable(),
       responseStyle: z.enum(RESPONSE_STYLES).optional(),
+      webSearch: z.boolean().optional(),
     })
     .passthrough()
     .optional(),

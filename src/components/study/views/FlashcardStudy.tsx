@@ -3,11 +3,13 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Brain, Check, X, PauseCircle, SkipForward, RotateCw, BarChart3 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useCurrentUser } from "@/hooks/use-current-user";
-import { getDueFlashcards, reviewFlashcard, listFlashcards } from "@/lib/learning/client";
+import { getDueFlashcards, reviewFlashcard } from "@/lib/learning/client";
 import { StudyHeader } from "../StudyHeader";
 import { LoadingState } from "../ui/LoadingState";
 import { EmptyState } from "../ui/EmptyState";
 import type { LearningSnapshot, StudyView, Flashcard } from "../types";
+import { toast } from "sonner";
+import { mapDueFlashcards } from "@/lib/learning/flashcards";
 
 interface FlashcardStudyProps {
   snapshot: LearningSnapshot | undefined;
@@ -19,6 +21,7 @@ interface FlashcardStudyProps {
 }
 
 type FL = 0 | 1 | 2 | 3 | 4 | 5;
+type StudyCard = Flashcard & { reviewId?: string };
 const QUALITY_LABELS: Record<FL, string> = {
   0: "Blackout",
   1: "Incorrect",
@@ -37,9 +40,18 @@ const QUALITY_COLORS: Record<FL, string> = {
   5: "bg-emerald-500",
 };
 
-export function FlashcardStudy({ snapshot, userId, onBack, refresh }: FlashcardStudyProps) {
+export function FlashcardStudy({
+  snapshot,
+  userId,
+  onBack,
+  onNavigate,
+  refresh,
+}: FlashcardStudyProps) {
   const { user } = useCurrentUser();
-  const [cards, setCards] = useState<Flashcard[]>([]);
+  const [cards, setCards] = useState<StudyCard[]>([]);
+  const [isOnline, setIsOnline] = useState(
+    () => typeof navigator === "undefined" || navigator.onLine,
+  );
   const [currentIndex, setCurrentIndex] = useState(0);
   const [flipped, setFlipped] = useState(false);
   const [showRating, setShowRating] = useState(false);
@@ -47,40 +59,56 @@ export function FlashcardStudy({ snapshot, userId, onBack, refresh }: FlashcardS
   const [studied, setStudied] = useState(0);
 
   useEffect(() => {
+    const update = () => setIsOnline(navigator.onLine);
+    window.addEventListener("online", update);
+    window.addEventListener("offline", update);
+    return () => {
+      window.removeEventListener("online", update);
+      window.removeEventListener("offline", update);
+    };
+  }, []);
+
+  useEffect(() => {
     if (!user?.id || !snapshot) return;
 
     const loadCards = async () => {
       setLoading(true);
       try {
-        const due = await getDueFlashcards(user.id, 30);
-        if (due && due.length > 0) {
-          setCards(due);
-        } else {
-          const all = await listFlashcards(user.id, undefined, 30);
-          setCards(all ?? []);
+        if (!navigator.onLine) {
+          setCards(snapshot.flashcards ?? []);
+          return;
         }
+        const due = await getDueFlashcards(user.id, 30);
+        setCards(mapDueFlashcards(due));
       } catch {
-        setCards([]);
+        setCards(snapshot.flashcards ?? []);
       } finally {
         setLoading(false);
       }
     };
 
     void loadCards();
-  }, [user?.id, snapshot]);
+  }, [user?.id, snapshot, isOnline]);
 
   const handleRate = useCallback(
     async (quality: FL) => {
-      if (!user?.id || !cards[currentIndex]) return;
+      const reviewId = cards[currentIndex]?.reviewId;
+      if (!user?.id || !reviewId || !isOnline) return;
 
       const card = cards[currentIndex];
       try {
-        await reviewFlashcard(card.id, quality, 2500);
-      } catch {
-        // ignore
+        await reviewFlashcard(reviewId, quality, 2500);
+      } catch (error) {
+        toast.error(
+          error instanceof Error
+            ? `Review was not saved: ${error.message}`
+            : "Review could not be saved. Check your connection and retry.",
+        );
+        return;
       }
 
       setStudied((s) => s + 1);
+      refresh();
       setFlipped(false);
       setShowRating(false);
 
@@ -90,7 +118,7 @@ export function FlashcardStudy({ snapshot, userId, onBack, refresh }: FlashcardS
         setCards([]);
       }
     },
-    [user?.id, cards, currentIndex],
+    [user?.id, cards, currentIndex, refresh, isOnline],
   );
 
   const handleFlip = () => {
@@ -140,6 +168,16 @@ export function FlashcardStudy({ snapshot, userId, onBack, refresh }: FlashcardS
         icon={<Brain className="h-6 w-6 text-primary" />}
       />
 
+      {!isOnline && (
+        <p
+          role="status"
+          className="mb-4 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-sm text-amber-200"
+        >
+          Offline study mode: cached flashcards are available to read. Ratings will be available
+          after reconnecting.
+        </p>
+      )}
+
       {cards.length === 0 && !loading && (
         <EmptyState
           icon={<Brain className="h-8 w-8" />}
@@ -147,7 +185,7 @@ export function FlashcardStudy({ snapshot, userId, onBack, refresh }: FlashcardS
           description="You have no flashcards scheduled for review today. Generate new ones from the Concept Library."
           action={
             <button
-              onClick={() => {}}
+              onClick={() => onNavigate("concepts")}
               className="rounded-lg bg-primary px-4 py-2 text-xs font-semibold text-primary-foreground"
             >
               Browse Concepts
@@ -177,6 +215,19 @@ export function FlashcardStudy({ snapshot, userId, onBack, refresh }: FlashcardS
                 transition={{ duration: 0.3 }}
                 className="relative h-64 cursor-pointer rounded-2xl border border-border/40 bg-card/50 p-8"
                 onClick={handleFlip}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter" || event.key === " ") {
+                    event.preventDefault();
+                    handleFlip();
+                  }
+                }}
+                role="button"
+                tabIndex={0}
+                aria-label={
+                  flipped
+                    ? "Flashcard answer. Activate to show question."
+                    : "Flashcard question. Activate to reveal answer."
+                }
               >
                 <div
                   className={cn(
@@ -209,7 +260,7 @@ export function FlashcardStudy({ snapshot, userId, onBack, refresh }: FlashcardS
               </motion.div>
             </AnimatePresence>
 
-            {showRating && (
+            {showRating && isOnline && cards[currentIndex]?.reviewId && (
               <motion.div
                 initial={{ opacity: 0, y: 8 }}
                 animate={{ opacity: 1, y: 0 }}
@@ -219,7 +270,7 @@ export function FlashcardStudy({ snapshot, userId, onBack, refresh }: FlashcardS
                 <p className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                   How well did you know this?
                 </p>
-                <div className="grid grid-cols-5 gap-1.5">
+                <div className="grid grid-cols-3 gap-1.5 sm:grid-cols-6">
                   {([0, 1, 2, 3, 4, 5] as FL[]).map((q) => (
                     <motion.button
                       key={q}
@@ -252,7 +303,7 @@ export function FlashcardStudy({ snapshot, userId, onBack, refresh }: FlashcardS
               </motion.div>
             )}
 
-            {!showRating && (
+            {(!showRating || !isOnline || !cards[currentIndex]?.reviewId) && (
               <div className="mt-3 flex justify-center gap-3 text-xs text-muted-foreground">
                 <span>Tap to flip</span>
                 <span>·</span>

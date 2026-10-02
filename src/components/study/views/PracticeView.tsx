@@ -66,7 +66,15 @@ export function PracticeView({ snapshot, userId, conceptId, onBack, refresh }: P
       const res = await callLearningSession({
         action: "question",
         conceptId: concept,
-        difficulty: 3,
+        difficulty: Math.max(
+          1,
+          Math.min(
+            5,
+            Math.round(
+              (snapshot?.mastery.find((item) => item.concept_id === concept)?.score ?? 0.35) * 4,
+            ) + 1,
+          ),
+        ),
       });
 
       const q = (res as { question: Question })?.question;

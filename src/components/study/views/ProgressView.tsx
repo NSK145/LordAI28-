@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import React from "react";
 import { motion } from "framer-motion";
 import {
@@ -36,6 +36,7 @@ import { EmptyState } from "../ui/EmptyState";
 import { LearningJourney } from "../ui/LearningJourney";
 import { getLearnerStats } from "@/lib/learning/gamification";
 import { buildLearningJourney } from "@/lib/learning/journey";
+import { getFocusRecords, type FocusRecord } from "@/lib/learning/focus-sessions";
 import type { LearningSnapshot, StudyView } from "../types";
 
 interface ProgressViewProps {
@@ -47,6 +48,20 @@ interface ProgressViewProps {
 }
 
 export function ProgressView({ snapshot, userId, onNavigate, onBack, refresh }: ProgressViewProps) {
+  const [focusRecords, setFocusRecords] = useState<FocusRecord[]>(() =>
+    userId ? getFocusRecords(userId) : [],
+  );
+  useEffect(() => {
+    if (!userId) return;
+    setFocusRecords(getFocusRecords(userId));
+    const update = (event: Event) => {
+      if ((event as CustomEvent<{ userId?: string }>).detail?.userId === userId) {
+        setFocusRecords(getFocusRecords(userId));
+      }
+    };
+    window.addEventListener("lord:focus-session-complete", update);
+    return () => window.removeEventListener("lord:focus-session-complete", update);
+  }, [userId]);
   if (!snapshot || !userId) {
     return (
       <div className="p-6">
@@ -74,13 +89,15 @@ export function ProgressView({ snapshot, userId, onNavigate, onBack, refresh }: 
   const avgScore = totalAttempts > 0 ? Math.round((correctAttempts / totalAttempts) * 100) : 0;
 
   const totalStudyTime = analytics?.reduce((sum, a) => sum + (a.study_time_seconds ?? 0), 0) ?? 0;
-  const totalStudyMinutes = Math.floor(totalStudyTime / 60);
+  const focusMinutes = focusRecords.reduce((sum, item) => sum + item.minutes, 0);
+  const totalStudyMinutes = Math.floor(totalStudyTime / 60) + focusMinutes;
 
   let streak = 0;
   const cursor = new Date();
-  const activeDays = new Set(
-    [...sessions, ...attempts].map((item) => new Date(item.created_at).toDateString()),
-  );
+  const activeDays = new Set([
+    ...[...sessions, ...attempts].map((item) => new Date(item.created_at).toDateString()),
+    ...focusRecords.map((item) => new Date(item.completedAt).toDateString()),
+  ]);
   while (activeDays.has(cursor.toDateString())) {
     streak++;
     cursor.setDate(cursor.getDate() - 1);

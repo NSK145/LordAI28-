@@ -1,6 +1,7 @@
 import { authenticatedFetch } from "@/lib/authenticated-fetch";
 import { getApiBaseUrl } from "@/lib/api-config";
 import type { SessionResponse } from "@/components/study/types";
+import { getStudyLanguagePreference } from "@/lib/learning/preferences";
 
 export interface SessionOptions {
   action:
@@ -34,13 +35,14 @@ export interface SessionOptions {
   sourceContext?: string;
   sourceText?: string;
   format?: string;
+  language?: "English" | "Spanish" | "French" | "Hindi" | "Arabic";
 }
 
 export async function callLearningSession(body: SessionOptions): Promise<SessionResponse> {
   const response = await authenticatedFetch(`${getApiBaseUrl()}/api/learning/session`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body),
+    body: JSON.stringify({ ...body, language: body.language ?? getStudyLanguagePreference() }),
   });
 
   if (!response.ok) {

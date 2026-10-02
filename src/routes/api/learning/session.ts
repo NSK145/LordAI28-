@@ -45,6 +45,7 @@ function getOpenRouterProvider() {
 const RequestSchema = z.discriminatedUnion("action", [
   z.object({
     action: z.literal("question"),
+    language: z.enum(["English", "Spanish", "French", "Hindi", "Arabic"]).optional(),
     conceptId: z.string().min(1),
     difficulty: z.number().int().min(1).max(5).optional(),
     topic: z.string().optional(),
@@ -52,6 +53,7 @@ const RequestSchema = z.discriminatedUnion("action", [
   }),
   z.object({
     action: z.literal("plan"),
+    language: z.enum(["English", "Spanish", "French", "Hindi", "Arabic"]).optional(),
     conceptIds: z.array(z.string().min(1)).min(1).max(12),
     weeklyMinutes: z.number().int().min(30).max(1680).optional(),
     examDate: z.string().optional(),
@@ -59,12 +61,14 @@ const RequestSchema = z.discriminatedUnion("action", [
   }),
   z.object({
     action: z.literal("flashcards"),
+    language: z.enum(["English", "Spanish", "French", "Hindi", "Arabic"]).optional(),
     conceptId: z.string().min(1),
     count: z.number().int().min(1).max(20).optional(),
     difficulty: z.number().int().min(1).max(5).optional(),
   }),
   z.object({
     action: z.literal("exam"),
+    language: z.enum(["English", "Spanish", "French", "Hindi", "Arabic"]).optional(),
     conceptIds: z.array(z.string().min(1)).min(1).max(20),
     examType: z.enum(["mock", "chapter", "full_syllabus", "custom", "timed_quiz"]).optional(),
     questionCount: z.number().int().min(5).max(50).optional(),
@@ -73,6 +77,7 @@ const RequestSchema = z.discriminatedUnion("action", [
   }),
   z.object({
     action: z.literal("tutor"),
+    language: z.enum(["English", "Spanish", "French", "Hindi", "Arabic"]).optional(),
     conceptId: z.string().optional(),
     mode: z
       .enum(["socratic", "direct", "hint", "worked_example", "simplified", "analogy", "diagnostic"])
@@ -95,6 +100,7 @@ const RequestSchema = z.discriminatedUnion("action", [
   }),
   z.object({
     action: z.literal("summary"),
+    language: z.enum(["English", "Spanish", "French", "Hindi", "Arabic"]).optional(),
     conceptId: z.string().min(1),
     sourceText: z.string().min(50),
     format: z.enum(["summary", "key_points", "cheat_sheet", "flashcards"]).optional(),
@@ -181,12 +187,13 @@ async function generateAIQuestion(
   difficulty: number,
   topic: string | undefined,
   questionType: "mcq" | "numerical" | "short_answer" | "diagram" | "essay",
+  language?: string,
 ): Promise<Question> {
   const provider = getOpenRouterProvider();
 
   const { text } = await generateText({
     model: provider(OPENROUTER_DEFAULT_MODEL),
-    system: `You are a ${["", "introductory", "foundational", "standard", "advanced", "mastery"][difficulty] ?? "standard"}-level ${concept.framework} assessment designer. Output ONLY strict JSON. No markdown. No extra text.`,
+    system: `You are a ${["", "introductory", "foundational", "standard", "advanced", "mastery"][difficulty] ?? "standard"}-level ${concept.framework} assessment designer. Output ONLY strict JSON. No markdown. No extra text.${language ? ` Write all student-facing text in ${language}; keep JSON keys unchanged.` : ""}`,
     messages: [
       {
         role: "user",
@@ -350,6 +357,7 @@ async function generateFlashcards(
   count: number,
   difficulty: number,
   supabase: any,
+  language?: string,
 ) {
   const provider = getOpenRouterProvider();
   const diffLabels = ["", "introductory", "foundational", "standard", "advanced", "mastery"];
@@ -357,7 +365,7 @@ async function generateFlashcards(
 
   const { text } = await generateText({
     model: provider(OPENROUTER_DEFAULT_MODEL),
-    system: `You are a ${diffLabel}-level ${concept.framework} flashcard creator. Output ONLY strict JSON array. No markdown. No extra text.`,
+    system: `You are a ${diffLabel}-level ${concept.framework} flashcard creator. Output ONLY strict JSON array. No markdown. No extra text.${language ? ` Write all card text in ${language}; keep JSON keys unchanged.` : ""}`,
     messages: [
       {
         role: "user",
@@ -383,14 +391,28 @@ async function generateExam(
   timeLimitMinutes: number | undefined,
   difficulty: number,
   supabase: any,
+  language?: string,
 ) {
   const concepts = await Promise.all(conceptIds.map((id) => resolveConcept(supabase, id)));
   const validConcepts = concepts.filter((c): c is LearningConcept => c !== null);
 
-  const questions = [];
-  const questionsPerConcept = Math.max(1, Math.floor(questionCount / validConcepts.length));
+  const questions: Array<{
+    concept_id: string;
+    question: Question;
+    question_type: "mcq";
+    difficulty: number;
+    points: number;
+    order_index: number;
+  }> = [];
+  if (validConcepts.length === 0) {
+    return {
+      title: `${examType.charAt(0).toUpperCase() + examType.slice(1)} exam`,
+      questions,
+      timeLimitSeconds: timeLimitMinutes ? timeLimitMinutes * 60 : null,
+    };
+  }
 
-  for (const concept of validConcepts) {
+  for (const [conceptIndex, concept] of validConcepts.entries()) {
     const masteryResult = await supabase
       .from("learning_mastery")
       .select("*")
@@ -398,11 +420,23 @@ async function generateExam(
       .maybeSingle();
     const mastery = masteryResult.data;
 
-    for (let i = 0; i < questionsPerConcept && questions.length < questionCount; i++) {
+    const questionsForConcept =
+      Math.floor(questionCount / validConcepts.length) +
+      (conceptIndex < questionCount % validConcepts.length ? 1 : 0);
+    for (let i = 0; i < questionsForConcept; i++) {
       let question: Question;
       try {
-        question = await generateAIQuestion(concept, mastery, difficulty, undefined, "mcq");
+        question = await generateAIQuestion(
+          concept,
+          mastery,
+          difficulty,
+          undefined,
+          "mcq",
+          language,
+        );
       } catch {
+        if (language)
+          throw new Error("Could not generate exam questions in the selected language.");
         question = fallbackQuestion(concept, difficulty, undefined, "mcq");
       }
       questions.push({
@@ -433,6 +467,7 @@ async function generateTutorResponse(
   gradeBand: "middle" | "high",
   curriculum: string,
   sourceContext: string | undefined,
+  language?: string,
 ): Promise<{ answer: string; sourcesUsed: string[] }> {
   const provider = getOpenRouterProvider();
 
@@ -462,6 +497,7 @@ async function generateTutorResponse(
     `You are LORD, a safe and encouraging ${gradeBand}-school ${curriculum} ${subject} tutor.`,
     `Teaching mode: ${modeInstructions[mode]}`,
     `Explanation depth: ${depthGuidance[explanationDepth]}`,
+    language ? `Write the complete explanation in ${language}.` : "",
     `Current concept: ${concept?.title ?? "not selected"} - ${concept?.description ?? "N/A"}`,
     "Guidelines:",
     "- Use short, clear chunks. Ask one useful question before giving a final answer unless the student explicitly asks to check work.",
@@ -497,6 +533,7 @@ async function generateSummary(
   concept: LearningConcept,
   sourceText: string,
   format: "summary" | "key_points" | "cheat_sheet" | "flashcards",
+  language?: string,
 ): Promise<string> {
   const provider = getOpenRouterProvider();
 
@@ -512,7 +549,7 @@ async function generateSummary(
 
   const { text } = await generateText({
     model: provider(OPENROUTER_DEFAULT_MODEL),
-    system: `You are a ${concept.framework} study material creator. Output only the requested format. No extra commentary.`,
+    system: `You are a ${concept.framework} study material creator. Output only the requested format. No extra commentary.${language ? ` Write student-facing content in ${language}; preserve any required JSON keys.` : ""}`,
     messages: [
       {
         role: "user",
@@ -664,8 +701,17 @@ export const Route = createFileRoute("/api/learning/session")({
                 parsed.data.difficulty ?? 2,
                 parsed.data.topic,
                 parsed.data.questionType ?? "mcq",
+                parsed.data.language,
               );
             } catch {
+              if (parsed.data.language) {
+                return apiErrorResponse(
+                  503,
+                  "AI_UPSTREAM_ERROR",
+                  "Could not generate a practice question in the selected language. Please retry.",
+                  requestId,
+                );
+              }
               question = fallbackQuestion(
                 concept,
                 parsed.data.difficulty ?? 2,
@@ -706,6 +752,7 @@ export const Route = createFileRoute("/api/learning/session")({
               parsed.data.count ?? 8,
               parsed.data.difficulty ?? 3,
               db,
+              parsed.data.language,
             );
             return Response.json({ cards, aiGenerated: true });
           }
@@ -718,6 +765,7 @@ export const Route = createFileRoute("/api/learning/session")({
               parsed.data.timeLimitMinutes,
               parsed.data.difficulty ?? 3,
               db,
+              parsed.data.language,
             );
             return Response.json(exam);
           }
@@ -738,6 +786,7 @@ export const Route = createFileRoute("/api/learning/session")({
               parsed.data.gradeBand ?? "high",
               parsed.data.curriculum ?? "CBSE",
               parsed.data.sourceContext,
+              parsed.data.language,
             );
 
             return Response.json(result);
@@ -752,6 +801,7 @@ export const Route = createFileRoute("/api/learning/session")({
               concept,
               parsed.data.sourceText,
               parsed.data.format ?? "summary",
+              parsed.data.language,
             );
             return Response.json({ content: result, format: parsed.data.format });
           }

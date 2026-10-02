@@ -6,12 +6,14 @@ import { recordModelAttempt } from "./model-availability";
 import { createLordError } from "../lord-error";
 import { MODELS } from "./models";
 import type { ChatMessage } from "./types";
+import { buildSourcesFooter, type WebSource } from "./web-sources";
 
 export function streamChat(
   messages: readonly ChatMessage[],
   signal?: AbortSignal,
   candidateModelIds: readonly string[] = [MODELS.DEFAULT],
   requestId = crypto.randomUUID(),
+  sources: readonly WebSource[] = [],
 ): Response {
   const startedAt = Date.now();
   const models = candidateModelIds.length > 0 ? candidateModelIds : [MODELS.DEFAULT];
@@ -111,6 +113,9 @@ export function streamChat(
           }
         }
         if (!completed) throw new Error("No configured model candidate completed the request.");
+        const sourcesFooter = buildSourcesFooter(sources);
+        if (sourcesFooter)
+          writer.write({ type: "text-delta", id: messageId, delta: sourcesFooter });
         writer.write({ type: "text-end", id: messageId });
       } catch (error) {
         const normalized = normalizeOpenRouterError(error);

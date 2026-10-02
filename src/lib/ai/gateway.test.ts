@@ -77,6 +77,20 @@ describe("streamChat", () => {
     expect(mocks.streamChat).toHaveBeenCalledTimes(2);
   });
 
+  it("appends the exact searched sources after the generated answer", async () => {
+    mocks.streamChat.mockImplementationOnce(() => tokens("The current fact is supported [S1]."));
+    const response = streamChat(
+      [{ role: "user", content: "hello" }],
+      undefined,
+      ["free-model:free"],
+      "00000000-0000-4000-8000-000000000004",
+      [{ title: "Reference", url: "https://example.com/source", content: "Evidence" }],
+    );
+    const body = await response.text();
+    expect(body).toContain("The current fact is supported [S1].");
+    expect(body).toContain("[Reference](https://example.com/source)");
+  });
+
   it("returns a structured, correlated error after all candidates fail", async () => {
     mocks.streamChat.mockImplementation(async function* () {
       yield "";

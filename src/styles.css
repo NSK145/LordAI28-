@@ -5,6 +5,28 @@
 
 @custom-variant dark (&:is(.dark *));
 
+/* User-controlled reading size within the study workspace. */
+.study-content.study-text-scale-115 .text-xs {
+  font-size: 0.875rem;
+  line-height: 1.35rem;
+}
+.study-content.study-text-scale-115 .text-sm {
+  font-size: 1.0625rem;
+  line-height: 1.6rem;
+}
+.study-content.study-text-scale-130 .text-xs {
+  font-size: 1rem;
+  line-height: 1.5rem;
+}
+.study-content.study-text-scale-130 .text-sm {
+  font-size: 1.125rem;
+  line-height: 1.7rem;
+}
+.study-content.study-text-scale-130 .text-base {
+  font-size: 1.25rem;
+  line-height: 1.8rem;
+}
+
 /* ============================================================
    LORD AI OS — Design System
    Cinematic JARVIS / Stark Industries inspired HUD theme

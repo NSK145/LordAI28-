@@ -5,7 +5,6 @@ import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { useCurrentUser } from "@/hooks/use-current-user";
 import { completePlanTask } from "@/lib/learning/client";
-import { callLearningSession } from "../lib/session-api";
 import { StudyHeader } from "../StudyHeader";
 import { LoadingState } from "../ui/LoadingState";
 import { EmptyState } from "../ui/EmptyState";
@@ -31,7 +30,7 @@ import { PlanActionsMenu } from "../planner/PlanActionsMenu";
 import { LordPlanAssistant } from "../planner/LordPlanAssistant";
 import { PlanHealth } from "../planner/PlanHealth";
 import { SmartSuggestions } from "../planner/SmartSuggestions";
-import { listStudyPlans, getStudyPlan } from "@/lib/study-plans";
+import { createStudyPlan, generateAIPlan, listStudyPlans, getStudyPlan } from "@/lib/study-plans";
 
 type ViewMode = "list" | "calendar" | "timeline";
 
@@ -144,12 +143,41 @@ export function PlannerView({ snapshot, userId, onNavigate, onBack, refresh }: P
     if (!userId || !snapshot) return;
     setGenerating(true);
     try {
-      await callLearningSession({
-        action: "plan",
-        conceptIds: (snapshot.concepts ?? []).slice(0, 8).map((c) => c.id),
-        weeklyMinutes: 180,
+      const conceptIds = (snapshot.concepts ?? [])
+        .map((concept) => ({
+          id: concept.id,
+          score: snapshot.mastery.find((item) => item.concept_id === concept.id)?.score ?? 0.3,
+        }))
+        .sort((left, right) => left.score - right.score)
+        .slice(0, 8)
+        .map((concept) => concept.id);
+      if (conceptIds.length === 0) {
+        toast("Add a concept before generating a study plan.");
+        return;
+      }
+      const startDate = new Date();
+      const targetDate = new Date(startDate.getTime() + 30 * 86_400_000);
+      const start = startDate.toISOString().slice(0, 10);
+      const target = targetDate.toISOString().slice(0, 10);
+      const dailyMinutes = 30;
+      const plan = await createStudyPlan({
+        title: "Adaptive study plan",
+        description: "A 30-day plan prioritizing topics that need the most review.",
+        startDate: start,
+        targetDate: target,
+        dailyMinutes,
+        source: "ai",
+        conceptIds,
       });
-      await loadPlans();
+      await generateAIPlan(plan.id, {
+        conceptIds,
+        weeklyMinutes: dailyMinutes * 7,
+        startDate: start,
+        targetDate: target,
+        dailyMinutes,
+        planName: plan.title,
+      });
+      await handleCreatePlan(plan.id);
       refresh();
       toast("Adaptive plan generated!");
     } catch {
