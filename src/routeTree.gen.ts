@@ -9,123 +9,122 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
-import { Route as SitemapDotxmlRouteImport } from './routes/sitemap[.]xml'
-import { Route as ResetPasswordRouteImport } from './routes/reset-password'
-import { Route as AuthRouteImport } from './routes/auth'
-import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
 import { Route as IndexRouteImport } from './routes/index'
-import { Route as ShareTokenRouteImport } from './routes/share/$token'
-import { Route as ApiTitleRouteImport } from './routes/api/title'
-import { Route as ApiSharesRouteImport } from './routes/api/shares'
-import { Route as ApiSearchRouteImport } from './routes/api/search'
-import { Route as ApiOpenrouterTestRouteImport } from './routes/api/openrouter-test'
-import { Route as ApiImagesRouteImport } from './routes/api/images'
-import { Route as ApiHealthRouteImport } from './routes/api/health'
-import { Route as ApiChatRouteImport } from './routes/api/chat'
-import { Route as AuthenticatedVoiceRouteImport } from './routes/_authenticated/voice'
-import { Route as AuthenticatedTasksRouteImport } from './routes/_authenticated/tasks'
-import { Route as AuthenticatedStudyRouteImport } from './routes/_authenticated/study'
-import { Route as AuthenticatedStatisticsRouteImport } from './routes/_authenticated/statistics'
-import { Route as AuthenticatedSettingsRouteImport } from './routes/_authenticated/settings'
-import { Route as AuthenticatedSearchRouteImport } from './routes/_authenticated/search'
-import { Route as AuthenticatedProgressRouteImport } from './routes/_authenticated/progress'
-import { Route as AuthenticatedProductivityRouteImport } from './routes/_authenticated/productivity'
-import { Route as AuthenticatedPracticeRouteImport } from './routes/_authenticated/practice'
-import { Route as AuthenticatedPlanRouteImport } from './routes/_authenticated/plan'
-import { Route as AuthenticatedMemoryRouteImport } from './routes/_authenticated/memory'
-import { Route as AuthenticatedLearnRouteImport } from './routes/_authenticated/learn'
-import { Route as AuthenticatedImagesRouteImport } from './routes/_authenticated/images'
-import { Route as AuthenticatedFeedRouteImport } from './routes/_authenticated/feed'
-import { Route as AuthenticatedDocumentsRouteImport } from './routes/_authenticated/documents'
-import { Route as AuthenticatedChatRouteImport } from './routes/_authenticated/chat'
-import { Route as AuthenticatedCalendarRouteImport } from './routes/_authenticated/calendar'
+import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
+import { Route as AuthRouteImport } from './routes/auth'
+import { Route as ResetPasswordRouteImport } from './routes/reset-password'
+import { Route as SitemapDotxmlRouteImport } from './routes/sitemap[.]xml'
 import { Route as AuthenticatedBoardsRouteImport } from './routes/_authenticated/boards'
+import { Route as AuthenticatedCalendarRouteImport } from './routes/_authenticated/calendar'
+import { Route as AuthenticatedChatRouteImport } from './routes/_authenticated/chat'
 import { Route as AuthenticatedCommandCenterRouteRouteImport } from './routes/_authenticated/command-center/route'
-import { Route as ApiStudyPlansIndexRouteImport } from './routes/api/study-plans/index'
-import { Route as ApiProjectsIndexRouteImport } from './routes/api/projects/index'
-import { Route as ApiKnowledgeIndexRouteImport } from './routes/api/knowledge/index'
-import { Route as ApiDashboardsIndexRouteImport } from './routes/api/dashboards/index'
-import { Route as ApiCanvasIndexRouteImport } from './routes/api/canvas/index'
-import { Route as AuthenticatedProjectsIndexRouteImport } from './routes/_authenticated/projects/index'
-import { Route as AuthenticatedObservabilityIndexRouteImport } from './routes/_authenticated/observability/index'
-import { Route as AuthenticatedKnowledge2IndexRouteImport } from './routes/_authenticated/knowledge2/index'
-import { Route as AuthenticatedDashboardsIndexRouteImport } from './routes/_authenticated/dashboards/index'
-import { Route as AuthenticatedCommandCenterIndexRouteImport } from './routes/_authenticated/command-center/index'
+import { Route as AuthenticatedDocumentsRouteImport } from './routes/_authenticated/documents'
+import { Route as AuthenticatedFeedRouteImport } from './routes/_authenticated/feed'
+import { Route as AuthenticatedImagesRouteImport } from './routes/_authenticated/images'
+import { Route as AuthenticatedLearnRouteImport } from './routes/_authenticated/learn'
+import { Route as AuthenticatedMemoryRouteImport } from './routes/_authenticated/memory'
+import { Route as AuthenticatedPlanRouteImport } from './routes/_authenticated/plan'
+import { Route as AuthenticatedPracticeRouteImport } from './routes/_authenticated/practice'
+import { Route as AuthenticatedProductivityRouteImport } from './routes/_authenticated/productivity'
+import { Route as AuthenticatedProgressRouteImport } from './routes/_authenticated/progress'
+import { Route as AuthenticatedSearchRouteImport } from './routes/_authenticated/search'
+import { Route as AuthenticatedSettingsRouteImport } from './routes/_authenticated/settings'
+import { Route as AuthenticatedStatisticsRouteImport } from './routes/_authenticated/statistics'
+import { Route as AuthenticatedStudyRouteImport } from './routes/_authenticated/study'
+import { Route as AuthenticatedTasksRouteImport } from './routes/_authenticated/tasks'
+import { Route as AuthenticatedVoiceRouteImport } from './routes/_authenticated/voice'
+import { Route as ApiChatRouteImport } from './routes/api/chat'
+import { Route as ApiHealthRouteImport } from './routes/api/health'
+import { Route as ApiImagesRouteImport } from './routes/api/images'
+import { Route as ApiOpenrouterTestRouteImport } from './routes/api/openrouter-test'
+import { Route as ApiSearchRouteImport } from './routes/api/search'
+import { Route as ApiSharesRouteImport } from './routes/api/shares'
+import { Route as ApiTitleRouteImport } from './routes/api/title'
+import { Route as ShareTokenRouteImport } from './routes/share/$token'
 import { Route as AuthenticatedCanvasIndexRouteImport } from './routes/_authenticated/canvas/index'
-import { Route as ApiStudyPlansIdRouteImport } from './routes/api/study-plans/$id'
-import { Route as ApiSharesTokenRouteImport } from './routes/api/shares/$token'
-import { Route as ApiSharedTokenRouteImport } from './routes/api/shared/$token'
-import { Route as ApiProjectsIdRouteImport } from './routes/api/projects/$id'
-import { Route as ApiObservabilityHealthRouteImport } from './routes/api/observability/health'
-import { Route as ApiLordToolRouteImport } from './routes/api/lord/tool'
-import { Route as ApiLordStatusRouteImport } from './routes/api/lord/status'
-import { Route as ApiLordFilesRouteImport } from './routes/api/lord/files'
-import { Route as ApiLordFileRouteImport } from './routes/api/lord/file'
-import { Route as ApiLordAutomationRouteImport } from './routes/api/lord/automation'
-import { Route as ApiLordActivityRouteImport } from './routes/api/lord/activity'
-import { Route as ApiLearningWhiteboardRouteImport } from './routes/api/learning/whiteboard'
-import { Route as ApiLearningVoiceRouteImport } from './routes/api/learning/voice'
-import { Route as ApiLearningSessionRouteImport } from './routes/api/learning/session'
-import { Route as ApiLearningRevisionRouteImport } from './routes/api/learning/revision'
-import { Route as ApiLearningOcrRouteImport } from './routes/api/learning/ocr'
-import { Route as ApiLearningNotesRouteImport } from './routes/api/learning/notes'
-import { Route as ApiLearningMemoryRouteImport } from './routes/api/learning/memory'
-import { Route as ApiLearningGoalsRouteImport } from './routes/api/learning/goals'
-import { Route as ApiLearningFlashcardsRouteImport } from './routes/api/learning/flashcards'
-import { Route as ApiLearningFeaturesRouteImport } from './routes/api/learning/features'
-import { Route as ApiLearningExamsRouteImport } from './routes/api/learning/exams'
-import { Route as ApiLearningAnalyticsRouteImport } from './routes/api/learning/analytics'
-import { Route as ApiKnowledge2RelationsRouteImport } from './routes/api/knowledge2/relations'
-import { Route as ApiKnowledge2EntitiesRouteImport } from './routes/api/knowledge2/entities'
-import { Route as ApiKnowledgeUploadRouteImport } from './routes/api/knowledge/upload'
-import { Route as ApiKnowledgeIdRouteImport } from './routes/api/knowledge/$id'
-import { Route as ApiImagesRegenerateRouteImport } from './routes/api/images/regenerate'
-import { Route as ApiImagesModelsRouteImport } from './routes/api/images/models'
-import { Route as ApiImagesIdRouteImport } from './routes/api/images/$id'
-import { Route as ApiImageHealthRouteImport } from './routes/api/image/health'
-import { Route as ApiCommandPaletteSearchRouteImport } from './routes/api/command-palette/search'
-import { Route as ApiCanvasVersionsRouteImport } from './routes/api/canvas/versions'
-import { Route as ApiCanvasStreamRouteImport } from './routes/api/canvas/stream'
-import { Route as ApiBrainContextRouteImport } from './routes/api/brain/context'
-import { Route as ApiAdminGatewayRouteImport } from './routes/api/admin/gateway'
-import { Route as AuthenticatedProjectsIdRouteImport } from './routes/_authenticated/projects/$id'
-import { Route as AuthenticatedCommandCenterVisionRouteImport } from './routes/_authenticated/command-center/vision'
-import { Route as AuthenticatedCommandCenterSmartHomeRouteImport } from './routes/_authenticated/command-center/smart-home'
-import { Route as AuthenticatedCommandCenterSettingsRouteImport } from './routes/_authenticated/command-center/settings'
-import { Route as AuthenticatedCommandCenterPcRouteImport } from './routes/_authenticated/command-center/pc'
-import { Route as AuthenticatedCommandCenterOfficeRouteImport } from './routes/_authenticated/command-center/office'
-import { Route as AuthenticatedCommandCenterMobileRouteImport } from './routes/_authenticated/command-center/mobile'
-import { Route as AuthenticatedCommandCenterFilesRouteImport } from './routes/_authenticated/command-center/files'
-import { Route as AuthenticatedCommandCenterBrowserRouteImport } from './routes/_authenticated/command-center/browser'
-import { Route as AuthenticatedCommandCenterAutomationsRouteImport } from './routes/_authenticated/command-center/automations'
 import { Route as AuthenticatedCanvasIdRouteImport } from './routes/_authenticated/canvas/$id'
-import { Route as ApiLordVisionWebcamRouteImport } from './routes/api/lord/vision/webcam'
-import { Route as ApiLordVisionScreenRouteImport } from './routes/api/lord/vision/screen'
-import { Route as ApiLordOfficePowerpointRouteImport } from './routes/api/lord/office/powerpoint'
-import { Route as ApiLordOfficeExcelRouteImport } from './routes/api/lord/office/excel'
-import { Route as ApiLordMobileStatusRouteImport } from './routes/api/lord/mobile/status'
-import { Route as ApiLordMobilePairRouteImport } from './routes/api/lord/mobile/pair'
-import { Route as ApiLordIotDevicesRouteImport } from './routes/api/lord/iot/devices'
-import { Route as ApiLordBrowserActionRouteImport } from './routes/api/lord/browser/action'
-import { Route as ApiLordAgentStopRouteImport } from './routes/api/lord/agent/stop'
-import { Route as ApiLordAgentExecuteRouteImport } from './routes/api/lord/agent/execute'
+import { Route as AuthenticatedCommandCenterIndexRouteImport } from './routes/_authenticated/command-center/index'
+import { Route as AuthenticatedCommandCenterAutomationsRouteImport } from './routes/_authenticated/command-center/automations'
+import { Route as AuthenticatedCommandCenterBrowserRouteImport } from './routes/_authenticated/command-center/browser'
+import { Route as AuthenticatedCommandCenterFilesRouteImport } from './routes/_authenticated/command-center/files'
+import { Route as AuthenticatedCommandCenterMobileRouteImport } from './routes/_authenticated/command-center/mobile'
+import { Route as AuthenticatedCommandCenterOfficeRouteImport } from './routes/_authenticated/command-center/office'
+import { Route as AuthenticatedCommandCenterPcRouteImport } from './routes/_authenticated/command-center/pc'
+import { Route as AuthenticatedCommandCenterSettingsRouteImport } from './routes/_authenticated/command-center/settings'
+import { Route as AuthenticatedCommandCenterSmartHomeRouteImport } from './routes/_authenticated/command-center/smart-home'
+import { Route as AuthenticatedCommandCenterVisionRouteImport } from './routes/_authenticated/command-center/vision'
+import { Route as AuthenticatedDashboardsIndexRouteImport } from './routes/_authenticated/dashboards/index'
+import { Route as AuthenticatedKnowledge2IndexRouteImport } from './routes/_authenticated/knowledge2/index'
+import { Route as AuthenticatedObservabilityIndexRouteImport } from './routes/_authenticated/observability/index'
+import { Route as AuthenticatedProjectsIndexRouteImport } from './routes/_authenticated/projects/index'
+import { Route as AuthenticatedProjectsIdRouteImport } from './routes/_authenticated/projects/$id'
+import { Route as ApiAdminGatewayRouteImport } from './routes/api/admin/gateway'
+import { Route as ApiBrainContextRouteImport } from './routes/api/brain/context'
+import { Route as ApiCanvasIndexRouteImport } from './routes/api/canvas/index'
+import { Route as ApiCanvasStreamRouteImport } from './routes/api/canvas/stream'
+import { Route as ApiCanvasVersionsRouteImport } from './routes/api/canvas/versions'
+import { Route as ApiCommandPaletteSearchRouteImport } from './routes/api/command-palette/search'
+import { Route as ApiDashboardsIndexRouteImport } from './routes/api/dashboards/index'
+import { Route as ApiImageHealthRouteImport } from './routes/api/image/health'
+import { Route as ApiImagesIdRouteImport } from './routes/api/images/$id'
+import { Route as ApiImagesModelsRouteImport } from './routes/api/images/models'
+import { Route as ApiImagesRegenerateRouteImport } from './routes/api/images/regenerate'
+import { Route as ApiKnowledgeIndexRouteImport } from './routes/api/knowledge/index'
+import { Route as ApiKnowledgeIdRouteImport } from './routes/api/knowledge/$id'
+import { Route as ApiKnowledgeUploadRouteImport } from './routes/api/knowledge/upload'
+import { Route as ApiKnowledge2EntitiesRouteImport } from './routes/api/knowledge2/entities'
+import { Route as ApiKnowledge2RelationsRouteImport } from './routes/api/knowledge2/relations'
+import { Route as ApiLearningAnalyticsRouteImport } from './routes/api/learning/analytics'
+import { Route as ApiLearningExamsRouteImport } from './routes/api/learning/exams'
+import { Route as ApiLearningFeaturesRouteImport } from './routes/api/learning/features'
+import { Route as ApiLearningFlashcardsRouteImport } from './routes/api/learning/flashcards'
+import { Route as ApiLearningGoalsRouteImport } from './routes/api/learning/goals'
+import { Route as ApiLearningMemoryRouteImport } from './routes/api/learning/memory'
+import { Route as ApiLearningNotesRouteImport } from './routes/api/learning/notes'
+import { Route as ApiLearningOcrRouteImport } from './routes/api/learning/ocr'
+import { Route as ApiLearningRevisionRouteImport } from './routes/api/learning/revision'
+import { Route as ApiLearningSessionRouteImport } from './routes/api/learning/session'
+import { Route as ApiLearningVoiceRouteImport } from './routes/api/learning/voice'
+import { Route as ApiLearningWhiteboardRouteImport } from './routes/api/learning/whiteboard'
+import { Route as ApiLordActivityRouteImport } from './routes/api/lord/activity'
+import { Route as ApiLordAutomationRouteImport } from './routes/api/lord/automation'
+import { Route as ApiLordFileRouteImport } from './routes/api/lord/file'
+import { Route as ApiLordFilesRouteImport } from './routes/api/lord/files'
+import { Route as ApiLordStatusRouteImport } from './routes/api/lord/status'
+import { Route as ApiLordToolRouteImport } from './routes/api/lord/tool'
+import { Route as ApiObservabilityHealthRouteImport } from './routes/api/observability/health'
+import { Route as ApiProjectsIndexRouteImport } from './routes/api/projects/index'
+import { Route as ApiProjectsIdRouteImport } from './routes/api/projects/$id'
+import { Route as ApiSharedTokenRouteImport } from './routes/api/shared/$token'
+import { Route as ApiSharesTokenRouteImport } from './routes/api/shares/$token'
+import { Route as ApiStudyPlansIndexRouteImport } from './routes/api/study-plans/index'
+import { Route as ApiStudyPlansIdRouteImport } from './routes/api/study-plans/$id'
 import { Route as ApiLearningSourcesIngestRouteImport } from './routes/api/learning/sources/ingest'
-import { Route as ApiStudyPlansIdTasksIndexRouteImport } from './routes/api/study-plans/$id/tasks/index'
-import { Route as ApiResearchIdSourcesIndexRouteImport } from './routes/api/research/$id/sources/index'
-import { Route as ApiStudyPlansIdTasksTaskIdRouteImport } from './routes/api/study-plans/$id/tasks/$taskId'
-import { Route as ApiStudyPlansIdAiSuggestRouteImport } from './routes/api/study-plans/$id/ai/suggest'
-import { Route as ApiStudyPlansIdAiOptimizeRouteImport } from './routes/api/study-plans/$id/ai/optimize'
-import { Route as ApiStudyPlansIdAiGenerateRouteImport } from './routes/api/study-plans/$id/ai/generate'
+import { Route as ApiLordAgentExecuteRouteImport } from './routes/api/lord/agent/execute'
+import { Route as ApiLordAgentStopRouteImport } from './routes/api/lord/agent/stop'
+import { Route as ApiLordBrowserActionRouteImport } from './routes/api/lord/browser/action'
+import { Route as ApiLordIotDevicesRouteImport } from './routes/api/lord/iot/devices'
+import { Route as ApiLordMobilePairRouteImport } from './routes/api/lord/mobile/pair'
+import { Route as ApiLordMobileStatusRouteImport } from './routes/api/lord/mobile/status'
+import { Route as ApiLordOfficeExcelRouteImport } from './routes/api/lord/office/excel'
+import { Route as ApiLordOfficePowerpointRouteImport } from './routes/api/lord/office/powerpoint'
+import { Route as ApiLordVisionScreenRouteImport } from './routes/api/lord/vision/screen'
+import { Route as ApiLordVisionWebcamRouteImport } from './routes/api/lord/vision/webcam'
 import { Route as ApiLordIotDeviceActionRouteImport } from './routes/api/lord/iot/device/action'
+import { Route as ApiResearchIdSourcesIndexRouteImport } from './routes/api/research/$id/sources/index'
+import { Route as ApiStudyPlansIdAiGenerateRouteImport } from './routes/api/study-plans/$id/ai/generate'
+import { Route as ApiStudyPlansIdAiOptimizeRouteImport } from './routes/api/study-plans/$id/ai/optimize'
+import { Route as ApiStudyPlansIdAiSuggestRouteImport } from './routes/api/study-plans/$id/ai/suggest'
+import { Route as ApiStudyPlansIdTasksIndexRouteImport } from './routes/api/study-plans/$id/tasks/index'
+import { Route as ApiStudyPlansIdTasksTaskIdRouteImport } from './routes/api/study-plans/$id/tasks/$taskId'
 
-const SitemapDotxmlRoute = SitemapDotxmlRouteImport.update({
-  id: '/sitemap.xml',
-  path: '/sitemap.xml',
+const IndexRoute = IndexRouteImport.update({
+  id: '/',
+  path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ResetPasswordRoute = ResetPasswordRouteImport.update({
-  id: '/reset-password',
-  path: '/reset-password',
+const AuthenticatedRouteRoute = AuthenticatedRouteRouteImport.update({
+  id: '/_authenticated',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AuthRoute = AuthRouteImport.update({
@@ -133,134 +132,19 @@ const AuthRoute = AuthRouteImport.update({
   path: '/auth',
   getParentRoute: () => rootRouteImport,
 } as any)
-const AuthenticatedRouteRoute = AuthenticatedRouteRouteImport.update({
-  id: '/_authenticated',
+const ResetPasswordRoute = ResetPasswordRouteImport.update({
+  id: '/reset-password',
+  path: '/reset-password',
   getParentRoute: () => rootRouteImport,
 } as any)
-const IndexRoute = IndexRouteImport.update({
-  id: '/',
-  path: '/',
+const SitemapDotxmlRoute = SitemapDotxmlRouteImport.update({
+  id: '/sitemap.xml',
+  path: '/sitemap.xml',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ShareTokenRoute = ShareTokenRouteImport.update({
-  id: '/share/$token',
-  path: '/share/$token',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ApiTitleRoute = ApiTitleRouteImport.update({
-  id: '/api/title',
-  path: '/api/title',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ApiSharesRoute = ApiSharesRouteImport.update({
-  id: '/api/shares',
-  path: '/api/shares',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ApiSearchRoute = ApiSearchRouteImport.update({
-  id: '/api/search',
-  path: '/api/search',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ApiOpenrouterTestRoute = ApiOpenrouterTestRouteImport.update({
-  id: '/api/openrouter-test',
-  path: '/api/openrouter-test',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ApiImagesRoute = ApiImagesRouteImport.update({
-  id: '/api/images',
-  path: '/api/images',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ApiHealthRoute = ApiHealthRouteImport.update({
-  id: '/api/health',
-  path: '/api/health',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ApiChatRoute = ApiChatRouteImport.update({
-  id: '/api/chat',
-  path: '/api/chat',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const AuthenticatedVoiceRoute = AuthenticatedVoiceRouteImport.update({
-  id: '/voice',
-  path: '/voice',
-  getParentRoute: () => AuthenticatedRouteRoute,
-} as any)
-const AuthenticatedTasksRoute = AuthenticatedTasksRouteImport.update({
-  id: '/tasks',
-  path: '/tasks',
-  getParentRoute: () => AuthenticatedRouteRoute,
-} as any)
-const AuthenticatedStudyRoute = AuthenticatedStudyRouteImport.update({
-  id: '/study',
-  path: '/study',
-  getParentRoute: () => AuthenticatedRouteRoute,
-} as any)
-const AuthenticatedStatisticsRoute = AuthenticatedStatisticsRouteImport.update({
-  id: '/statistics',
-  path: '/statistics',
-  getParentRoute: () => AuthenticatedRouteRoute,
-} as any)
-const AuthenticatedSettingsRoute = AuthenticatedSettingsRouteImport.update({
-  id: '/settings',
-  path: '/settings',
-  getParentRoute: () => AuthenticatedRouteRoute,
-} as any)
-const AuthenticatedSearchRoute = AuthenticatedSearchRouteImport.update({
-  id: '/search',
-  path: '/search',
-  getParentRoute: () => AuthenticatedRouteRoute,
-} as any)
-const AuthenticatedProgressRoute = AuthenticatedProgressRouteImport.update({
-  id: '/progress',
-  path: '/progress',
-  getParentRoute: () => AuthenticatedRouteRoute,
-} as any)
-const AuthenticatedProductivityRoute =
-  AuthenticatedProductivityRouteImport.update({
-    id: '/productivity',
-    path: '/productivity',
-    getParentRoute: () => AuthenticatedRouteRoute,
-  } as any)
-const AuthenticatedPracticeRoute = AuthenticatedPracticeRouteImport.update({
-  id: '/practice',
-  path: '/practice',
-  getParentRoute: () => AuthenticatedRouteRoute,
-} as any)
-const AuthenticatedPlanRoute = AuthenticatedPlanRouteImport.update({
-  id: '/plan',
-  path: '/plan',
-  getParentRoute: () => AuthenticatedRouteRoute,
-} as any)
-const AuthenticatedMemoryRoute = AuthenticatedMemoryRouteImport.update({
-  id: '/memory',
-  path: '/memory',
-  getParentRoute: () => AuthenticatedRouteRoute,
-} as any)
-const AuthenticatedLearnRoute = AuthenticatedLearnRouteImport.update({
-  id: '/learn',
-  path: '/learn',
-  getParentRoute: () => AuthenticatedRouteRoute,
-} as any)
-const AuthenticatedImagesRoute = AuthenticatedImagesRouteImport.update({
-  id: '/images',
-  path: '/images',
-  getParentRoute: () => AuthenticatedRouteRoute,
-} as any)
-const AuthenticatedFeedRoute = AuthenticatedFeedRouteImport.update({
-  id: '/feed',
-  path: '/feed',
-  getParentRoute: () => AuthenticatedRouteRoute,
-} as any)
-const AuthenticatedDocumentsRoute = AuthenticatedDocumentsRouteImport.update({
-  id: '/documents',
-  path: '/documents',
-  getParentRoute: () => AuthenticatedRouteRoute,
-} as any)
-const AuthenticatedChatRoute = AuthenticatedChatRouteImport.update({
-  id: '/chat',
-  path: '/chat',
+const AuthenticatedBoardsRoute = AuthenticatedBoardsRouteImport.update({
+  id: '/boards',
+  path: '/boards',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
 const AuthenticatedCalendarRoute = AuthenticatedCalendarRouteImport.update({
@@ -268,9 +152,9 @@ const AuthenticatedCalendarRoute = AuthenticatedCalendarRouteImport.update({
   path: '/calendar',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
-const AuthenticatedBoardsRoute = AuthenticatedBoardsRouteImport.update({
-  id: '/boards',
-  path: '/boards',
+const AuthenticatedChatRoute = AuthenticatedChatRouteImport.update({
+  id: '/chat',
+  path: '/chat',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
 const AuthenticatedCommandCenterRouteRoute =
@@ -279,298 +163,137 @@ const AuthenticatedCommandCenterRouteRoute =
     path: '/command-center',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
-const ApiStudyPlansIndexRoute = ApiStudyPlansIndexRouteImport.update({
-  id: '/api/study-plans/',
-  path: '/api/study-plans/',
-  getParentRoute: () => rootRouteImport,
+const AuthenticatedDocumentsRoute = AuthenticatedDocumentsRouteImport.update({
+  id: '/documents',
+  path: '/documents',
+  getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
-const ApiProjectsIndexRoute = ApiProjectsIndexRouteImport.update({
-  id: '/api/projects/',
-  path: '/api/projects/',
-  getParentRoute: () => rootRouteImport,
+const AuthenticatedFeedRoute = AuthenticatedFeedRouteImport.update({
+  id: '/feed',
+  path: '/feed',
+  getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
-const ApiKnowledgeIndexRoute = ApiKnowledgeIndexRouteImport.update({
-  id: '/api/knowledge/',
-  path: '/api/knowledge/',
-  getParentRoute: () => rootRouteImport,
+const AuthenticatedImagesRoute = AuthenticatedImagesRouteImport.update({
+  id: '/images',
+  path: '/images',
+  getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
-const ApiDashboardsIndexRoute = ApiDashboardsIndexRouteImport.update({
-  id: '/api/dashboards/',
-  path: '/api/dashboards/',
-  getParentRoute: () => rootRouteImport,
+const AuthenticatedLearnRoute = AuthenticatedLearnRouteImport.update({
+  id: '/learn',
+  path: '/learn',
+  getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
-const ApiCanvasIndexRoute = ApiCanvasIndexRouteImport.update({
-  id: '/api/canvas/',
-  path: '/api/canvas/',
-  getParentRoute: () => rootRouteImport,
+const AuthenticatedMemoryRoute = AuthenticatedMemoryRouteImport.update({
+  id: '/memory',
+  path: '/memory',
+  getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
-const AuthenticatedProjectsIndexRoute =
-  AuthenticatedProjectsIndexRouteImport.update({
-    id: '/projects/',
-    path: '/projects/',
+const AuthenticatedPlanRoute = AuthenticatedPlanRouteImport.update({
+  id: '/plan',
+  path: '/plan',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedPracticeRoute = AuthenticatedPracticeRouteImport.update({
+  id: '/practice',
+  path: '/practice',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedProductivityRoute =
+  AuthenticatedProductivityRouteImport.update({
+    id: '/productivity',
+    path: '/productivity',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
-const AuthenticatedObservabilityIndexRoute =
-  AuthenticatedObservabilityIndexRouteImport.update({
-    id: '/observability/',
-    path: '/observability/',
-    getParentRoute: () => AuthenticatedRouteRoute,
-  } as any)
-const AuthenticatedKnowledge2IndexRoute =
-  AuthenticatedKnowledge2IndexRouteImport.update({
-    id: '/knowledge2/',
-    path: '/knowledge2/',
-    getParentRoute: () => AuthenticatedRouteRoute,
-  } as any)
-const AuthenticatedDashboardsIndexRoute =
-  AuthenticatedDashboardsIndexRouteImport.update({
-    id: '/dashboards/',
-    path: '/dashboards/',
-    getParentRoute: () => AuthenticatedRouteRoute,
-  } as any)
-const AuthenticatedCommandCenterIndexRoute =
-  AuthenticatedCommandCenterIndexRouteImport.update({
-    id: '/',
-    path: '/',
-    getParentRoute: () => AuthenticatedCommandCenterRouteRoute,
-  } as any)
+const AuthenticatedProgressRoute = AuthenticatedProgressRouteImport.update({
+  id: '/progress',
+  path: '/progress',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedSearchRoute = AuthenticatedSearchRouteImport.update({
+  id: '/search',
+  path: '/search',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedSettingsRoute = AuthenticatedSettingsRouteImport.update({
+  id: '/settings',
+  path: '/settings',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedStatisticsRoute = AuthenticatedStatisticsRouteImport.update({
+  id: '/statistics',
+  path: '/statistics',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedStudyRoute = AuthenticatedStudyRouteImport.update({
+  id: '/study',
+  path: '/study',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedTasksRoute = AuthenticatedTasksRouteImport.update({
+  id: '/tasks',
+  path: '/tasks',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedVoiceRoute = AuthenticatedVoiceRouteImport.update({
+  id: '/voice',
+  path: '/voice',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const ApiChatRoute = ApiChatRouteImport.update({
+  id: '/api/chat',
+  path: '/api/chat',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiHealthRoute = ApiHealthRouteImport.update({
+  id: '/api/health',
+  path: '/api/health',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiImagesRoute = ApiImagesRouteImport.update({
+  id: '/api/images',
+  path: '/api/images',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiOpenrouterTestRoute = ApiOpenrouterTestRouteImport.update({
+  id: '/api/openrouter-test',
+  path: '/api/openrouter-test',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiSearchRoute = ApiSearchRouteImport.update({
+  id: '/api/search',
+  path: '/api/search',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiSharesRoute = ApiSharesRouteImport.update({
+  id: '/api/shares',
+  path: '/api/shares',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiTitleRoute = ApiTitleRouteImport.update({
+  id: '/api/title',
+  path: '/api/title',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ShareTokenRoute = ShareTokenRouteImport.update({
+  id: '/share/$token',
+  path: '/share/$token',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AuthenticatedCanvasIndexRoute =
   AuthenticatedCanvasIndexRouteImport.update({
     id: '/canvas/',
     path: '/canvas/',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
-const ApiStudyPlansIdRoute = ApiStudyPlansIdRouteImport.update({
-  id: '/api/study-plans/$id',
-  path: '/api/study-plans/$id',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ApiSharesTokenRoute = ApiSharesTokenRouteImport.update({
-  id: '/$token',
-  path: '/$token',
-  getParentRoute: () => ApiSharesRoute,
-} as any)
-const ApiSharedTokenRoute = ApiSharedTokenRouteImport.update({
-  id: '/api/shared/$token',
-  path: '/api/shared/$token',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ApiProjectsIdRoute = ApiProjectsIdRouteImport.update({
-  id: '/api/projects/$id',
-  path: '/api/projects/$id',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ApiObservabilityHealthRoute = ApiObservabilityHealthRouteImport.update({
-  id: '/api/observability/health',
-  path: '/api/observability/health',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ApiLordToolRoute = ApiLordToolRouteImport.update({
-  id: '/api/lord/tool',
-  path: '/api/lord/tool',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ApiLordStatusRoute = ApiLordStatusRouteImport.update({
-  id: '/api/lord/status',
-  path: '/api/lord/status',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ApiLordFilesRoute = ApiLordFilesRouteImport.update({
-  id: '/api/lord/files',
-  path: '/api/lord/files',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ApiLordFileRoute = ApiLordFileRouteImport.update({
-  id: '/api/lord/file',
-  path: '/api/lord/file',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ApiLordAutomationRoute = ApiLordAutomationRouteImport.update({
-  id: '/api/lord/automation',
-  path: '/api/lord/automation',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ApiLordActivityRoute = ApiLordActivityRouteImport.update({
-  id: '/api/lord/activity',
-  path: '/api/lord/activity',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ApiLearningWhiteboardRoute = ApiLearningWhiteboardRouteImport.update({
-  id: '/api/learning/whiteboard',
-  path: '/api/learning/whiteboard',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ApiLearningVoiceRoute = ApiLearningVoiceRouteImport.update({
-  id: '/api/learning/voice',
-  path: '/api/learning/voice',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ApiLearningSessionRoute = ApiLearningSessionRouteImport.update({
-  id: '/api/learning/session',
-  path: '/api/learning/session',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ApiLearningRevisionRoute = ApiLearningRevisionRouteImport.update({
-  id: '/api/learning/revision',
-  path: '/api/learning/revision',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ApiLearningOcrRoute = ApiLearningOcrRouteImport.update({
-  id: '/api/learning/ocr',
-  path: '/api/learning/ocr',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ApiLearningNotesRoute = ApiLearningNotesRouteImport.update({
-  id: '/api/learning/notes',
-  path: '/api/learning/notes',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ApiLearningMemoryRoute = ApiLearningMemoryRouteImport.update({
-  id: '/api/learning/memory',
-  path: '/api/learning/memory',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ApiLearningGoalsRoute = ApiLearningGoalsRouteImport.update({
-  id: '/api/learning/goals',
-  path: '/api/learning/goals',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ApiLearningFlashcardsRoute = ApiLearningFlashcardsRouteImport.update({
-  id: '/api/learning/flashcards',
-  path: '/api/learning/flashcards',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ApiLearningFeaturesRoute = ApiLearningFeaturesRouteImport.update({
-  id: '/api/learning/features',
-  path: '/api/learning/features',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ApiLearningExamsRoute = ApiLearningExamsRouteImport.update({
-  id: '/api/learning/exams',
-  path: '/api/learning/exams',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ApiLearningAnalyticsRoute = ApiLearningAnalyticsRouteImport.update({
-  id: '/api/learning/analytics',
-  path: '/api/learning/analytics',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ApiKnowledge2RelationsRoute = ApiKnowledge2RelationsRouteImport.update({
-  id: '/api/knowledge2/relations',
-  path: '/api/knowledge2/relations',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ApiKnowledge2EntitiesRoute = ApiKnowledge2EntitiesRouteImport.update({
-  id: '/api/knowledge2/entities',
-  path: '/api/knowledge2/entities',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ApiKnowledgeUploadRoute = ApiKnowledgeUploadRouteImport.update({
-  id: '/api/knowledge/upload',
-  path: '/api/knowledge/upload',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ApiKnowledgeIdRoute = ApiKnowledgeIdRouteImport.update({
-  id: '/api/knowledge/$id',
-  path: '/api/knowledge/$id',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ApiImagesRegenerateRoute = ApiImagesRegenerateRouteImport.update({
-  id: '/regenerate',
-  path: '/regenerate',
-  getParentRoute: () => ApiImagesRoute,
-} as any)
-const ApiImagesModelsRoute = ApiImagesModelsRouteImport.update({
-  id: '/models',
-  path: '/models',
-  getParentRoute: () => ApiImagesRoute,
-} as any)
-const ApiImagesIdRoute = ApiImagesIdRouteImport.update({
-  id: '/$id',
-  path: '/$id',
-  getParentRoute: () => ApiImagesRoute,
-} as any)
-const ApiImageHealthRoute = ApiImageHealthRouteImport.update({
-  id: '/api/image/health',
-  path: '/api/image/health',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ApiCommandPaletteSearchRoute = ApiCommandPaletteSearchRouteImport.update({
-  id: '/api/command-palette/search',
-  path: '/api/command-palette/search',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ApiCanvasVersionsRoute = ApiCanvasVersionsRouteImport.update({
-  id: '/api/canvas/versions',
-  path: '/api/canvas/versions',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ApiCanvasStreamRoute = ApiCanvasStreamRouteImport.update({
-  id: '/api/canvas/stream',
-  path: '/api/canvas/stream',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ApiBrainContextRoute = ApiBrainContextRouteImport.update({
-  id: '/api/brain/context',
-  path: '/api/brain/context',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ApiAdminGatewayRoute = ApiAdminGatewayRouteImport.update({
-  id: '/api/admin/gateway',
-  path: '/api/admin/gateway',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const AuthenticatedProjectsIdRoute = AuthenticatedProjectsIdRouteImport.update({
-  id: '/projects/$id',
-  path: '/projects/$id',
+const AuthenticatedCanvasIdRoute = AuthenticatedCanvasIdRouteImport.update({
+  id: '/canvas/$id',
+  path: '/canvas/$id',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
-const AuthenticatedCommandCenterVisionRoute =
-  AuthenticatedCommandCenterVisionRouteImport.update({
-    id: '/vision',
-    path: '/vision',
-    getParentRoute: () => AuthenticatedCommandCenterRouteRoute,
-  } as any)
-const AuthenticatedCommandCenterSmartHomeRoute =
-  AuthenticatedCommandCenterSmartHomeRouteImport.update({
-    id: '/smart-home',
-    path: '/smart-home',
-    getParentRoute: () => AuthenticatedCommandCenterRouteRoute,
-  } as any)
-const AuthenticatedCommandCenterSettingsRoute =
-  AuthenticatedCommandCenterSettingsRouteImport.update({
-    id: '/settings',
-    path: '/settings',
-    getParentRoute: () => AuthenticatedCommandCenterRouteRoute,
-  } as any)
-const AuthenticatedCommandCenterPcRoute =
-  AuthenticatedCommandCenterPcRouteImport.update({
-    id: '/pc',
-    path: '/pc',
-    getParentRoute: () => AuthenticatedCommandCenterRouteRoute,
-  } as any)
-const AuthenticatedCommandCenterOfficeRoute =
-  AuthenticatedCommandCenterOfficeRouteImport.update({
-    id: '/office',
-    path: '/office',
-    getParentRoute: () => AuthenticatedCommandCenterRouteRoute,
-  } as any)
-const AuthenticatedCommandCenterMobileRoute =
-  AuthenticatedCommandCenterMobileRouteImport.update({
-    id: '/mobile',
-    path: '/mobile',
-    getParentRoute: () => AuthenticatedCommandCenterRouteRoute,
-  } as any)
-const AuthenticatedCommandCenterFilesRoute =
-  AuthenticatedCommandCenterFilesRouteImport.update({
-    id: '/files',
-    path: '/files',
-    getParentRoute: () => AuthenticatedCommandCenterRouteRoute,
-  } as any)
-const AuthenticatedCommandCenterBrowserRoute =
-  AuthenticatedCommandCenterBrowserRouteImport.update({
-    id: '/browser',
-    path: '/browser',
+const AuthenticatedCommandCenterIndexRoute =
+  AuthenticatedCommandCenterIndexRouteImport.update({
+    id: '/',
+    path: '/',
     getParentRoute: () => AuthenticatedCommandCenterRouteRoute,
   } as any)
 const AuthenticatedCommandCenterAutomationsRoute =
@@ -579,59 +302,286 @@ const AuthenticatedCommandCenterAutomationsRoute =
     path: '/automations',
     getParentRoute: () => AuthenticatedCommandCenterRouteRoute,
   } as any)
-const AuthenticatedCanvasIdRoute = AuthenticatedCanvasIdRouteImport.update({
-  id: '/canvas/$id',
-  path: '/canvas/$id',
+const AuthenticatedCommandCenterBrowserRoute =
+  AuthenticatedCommandCenterBrowserRouteImport.update({
+    id: '/browser',
+    path: '/browser',
+    getParentRoute: () => AuthenticatedCommandCenterRouteRoute,
+  } as any)
+const AuthenticatedCommandCenterFilesRoute =
+  AuthenticatedCommandCenterFilesRouteImport.update({
+    id: '/files',
+    path: '/files',
+    getParentRoute: () => AuthenticatedCommandCenterRouteRoute,
+  } as any)
+const AuthenticatedCommandCenterMobileRoute =
+  AuthenticatedCommandCenterMobileRouteImport.update({
+    id: '/mobile',
+    path: '/mobile',
+    getParentRoute: () => AuthenticatedCommandCenterRouteRoute,
+  } as any)
+const AuthenticatedCommandCenterOfficeRoute =
+  AuthenticatedCommandCenterOfficeRouteImport.update({
+    id: '/office',
+    path: '/office',
+    getParentRoute: () => AuthenticatedCommandCenterRouteRoute,
+  } as any)
+const AuthenticatedCommandCenterPcRoute =
+  AuthenticatedCommandCenterPcRouteImport.update({
+    id: '/pc',
+    path: '/pc',
+    getParentRoute: () => AuthenticatedCommandCenterRouteRoute,
+  } as any)
+const AuthenticatedCommandCenterSettingsRoute =
+  AuthenticatedCommandCenterSettingsRouteImport.update({
+    id: '/settings',
+    path: '/settings',
+    getParentRoute: () => AuthenticatedCommandCenterRouteRoute,
+  } as any)
+const AuthenticatedCommandCenterSmartHomeRoute =
+  AuthenticatedCommandCenterSmartHomeRouteImport.update({
+    id: '/smart-home',
+    path: '/smart-home',
+    getParentRoute: () => AuthenticatedCommandCenterRouteRoute,
+  } as any)
+const AuthenticatedCommandCenterVisionRoute =
+  AuthenticatedCommandCenterVisionRouteImport.update({
+    id: '/vision',
+    path: '/vision',
+    getParentRoute: () => AuthenticatedCommandCenterRouteRoute,
+  } as any)
+const AuthenticatedDashboardsIndexRoute =
+  AuthenticatedDashboardsIndexRouteImport.update({
+    id: '/dashboards/',
+    path: '/dashboards/',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
+const AuthenticatedKnowledge2IndexRoute =
+  AuthenticatedKnowledge2IndexRouteImport.update({
+    id: '/knowledge2/',
+    path: '/knowledge2/',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
+const AuthenticatedObservabilityIndexRoute =
+  AuthenticatedObservabilityIndexRouteImport.update({
+    id: '/observability/',
+    path: '/observability/',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
+const AuthenticatedProjectsIndexRoute =
+  AuthenticatedProjectsIndexRouteImport.update({
+    id: '/projects/',
+    path: '/projects/',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
+const AuthenticatedProjectsIdRoute = AuthenticatedProjectsIdRouteImport.update({
+  id: '/projects/$id',
+  path: '/projects/$id',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
-const ApiLordVisionWebcamRoute = ApiLordVisionWebcamRouteImport.update({
-  id: '/api/lord/vision/webcam',
-  path: '/api/lord/vision/webcam',
+const ApiAdminGatewayRoute = ApiAdminGatewayRouteImport.update({
+  id: '/api/admin/gateway',
+  path: '/api/admin/gateway',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ApiLordVisionScreenRoute = ApiLordVisionScreenRouteImport.update({
-  id: '/api/lord/vision/screen',
-  path: '/api/lord/vision/screen',
+const ApiBrainContextRoute = ApiBrainContextRouteImport.update({
+  id: '/api/brain/context',
+  path: '/api/brain/context',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ApiLordOfficePowerpointRoute = ApiLordOfficePowerpointRouteImport.update({
-  id: '/api/lord/office/powerpoint',
-  path: '/api/lord/office/powerpoint',
+const ApiCanvasIndexRoute = ApiCanvasIndexRouteImport.update({
+  id: '/api/canvas/',
+  path: '/api/canvas/',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ApiLordOfficeExcelRoute = ApiLordOfficeExcelRouteImport.update({
-  id: '/api/lord/office/excel',
-  path: '/api/lord/office/excel',
+const ApiCanvasStreamRoute = ApiCanvasStreamRouteImport.update({
+  id: '/api/canvas/stream',
+  path: '/api/canvas/stream',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ApiLordMobileStatusRoute = ApiLordMobileStatusRouteImport.update({
-  id: '/api/lord/mobile/status',
-  path: '/api/lord/mobile/status',
+const ApiCanvasVersionsRoute = ApiCanvasVersionsRouteImport.update({
+  id: '/api/canvas/versions',
+  path: '/api/canvas/versions',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ApiLordMobilePairRoute = ApiLordMobilePairRouteImport.update({
-  id: '/api/lord/mobile/pair',
-  path: '/api/lord/mobile/pair',
+const ApiCommandPaletteSearchRoute = ApiCommandPaletteSearchRouteImport.update({
+  id: '/api/command-palette/search',
+  path: '/api/command-palette/search',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ApiLordIotDevicesRoute = ApiLordIotDevicesRouteImport.update({
-  id: '/api/lord/iot/devices',
-  path: '/api/lord/iot/devices',
+const ApiDashboardsIndexRoute = ApiDashboardsIndexRouteImport.update({
+  id: '/api/dashboards/',
+  path: '/api/dashboards/',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ApiLordBrowserActionRoute = ApiLordBrowserActionRouteImport.update({
-  id: '/api/lord/browser/action',
-  path: '/api/lord/browser/action',
+const ApiImageHealthRoute = ApiImageHealthRouteImport.update({
+  id: '/api/image/health',
+  path: '/api/image/health',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ApiLordAgentStopRoute = ApiLordAgentStopRouteImport.update({
-  id: '/api/lord/agent/stop',
-  path: '/api/lord/agent/stop',
+const ApiImagesIdRoute = ApiImagesIdRouteImport.update({
+  id: '/$id',
+  path: '/$id',
+  getParentRoute: () => ApiImagesRoute,
+} as any)
+const ApiImagesModelsRoute = ApiImagesModelsRouteImport.update({
+  id: '/models',
+  path: '/models',
+  getParentRoute: () => ApiImagesRoute,
+} as any)
+const ApiImagesRegenerateRoute = ApiImagesRegenerateRouteImport.update({
+  id: '/regenerate',
+  path: '/regenerate',
+  getParentRoute: () => ApiImagesRoute,
+} as any)
+const ApiKnowledgeIndexRoute = ApiKnowledgeIndexRouteImport.update({
+  id: '/api/knowledge/',
+  path: '/api/knowledge/',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ApiLordAgentExecuteRoute = ApiLordAgentExecuteRouteImport.update({
-  id: '/api/lord/agent/execute',
-  path: '/api/lord/agent/execute',
+const ApiKnowledgeIdRoute = ApiKnowledgeIdRouteImport.update({
+  id: '/api/knowledge/$id',
+  path: '/api/knowledge/$id',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiKnowledgeUploadRoute = ApiKnowledgeUploadRouteImport.update({
+  id: '/api/knowledge/upload',
+  path: '/api/knowledge/upload',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiKnowledge2EntitiesRoute = ApiKnowledge2EntitiesRouteImport.update({
+  id: '/api/knowledge2/entities',
+  path: '/api/knowledge2/entities',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiKnowledge2RelationsRoute = ApiKnowledge2RelationsRouteImport.update({
+  id: '/api/knowledge2/relations',
+  path: '/api/knowledge2/relations',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiLearningAnalyticsRoute = ApiLearningAnalyticsRouteImport.update({
+  id: '/api/learning/analytics',
+  path: '/api/learning/analytics',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiLearningExamsRoute = ApiLearningExamsRouteImport.update({
+  id: '/api/learning/exams',
+  path: '/api/learning/exams',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiLearningFeaturesRoute = ApiLearningFeaturesRouteImport.update({
+  id: '/api/learning/features',
+  path: '/api/learning/features',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiLearningFlashcardsRoute = ApiLearningFlashcardsRouteImport.update({
+  id: '/api/learning/flashcards',
+  path: '/api/learning/flashcards',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiLearningGoalsRoute = ApiLearningGoalsRouteImport.update({
+  id: '/api/learning/goals',
+  path: '/api/learning/goals',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiLearningMemoryRoute = ApiLearningMemoryRouteImport.update({
+  id: '/api/learning/memory',
+  path: '/api/learning/memory',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiLearningNotesRoute = ApiLearningNotesRouteImport.update({
+  id: '/api/learning/notes',
+  path: '/api/learning/notes',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiLearningOcrRoute = ApiLearningOcrRouteImport.update({
+  id: '/api/learning/ocr',
+  path: '/api/learning/ocr',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiLearningRevisionRoute = ApiLearningRevisionRouteImport.update({
+  id: '/api/learning/revision',
+  path: '/api/learning/revision',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiLearningSessionRoute = ApiLearningSessionRouteImport.update({
+  id: '/api/learning/session',
+  path: '/api/learning/session',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiLearningVoiceRoute = ApiLearningVoiceRouteImport.update({
+  id: '/api/learning/voice',
+  path: '/api/learning/voice',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiLearningWhiteboardRoute = ApiLearningWhiteboardRouteImport.update({
+  id: '/api/learning/whiteboard',
+  path: '/api/learning/whiteboard',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiLordActivityRoute = ApiLordActivityRouteImport.update({
+  id: '/api/lord/activity',
+  path: '/api/lord/activity',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiLordAutomationRoute = ApiLordAutomationRouteImport.update({
+  id: '/api/lord/automation',
+  path: '/api/lord/automation',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiLordFileRoute = ApiLordFileRouteImport.update({
+  id: '/api/lord/file',
+  path: '/api/lord/file',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiLordFilesRoute = ApiLordFilesRouteImport.update({
+  id: '/api/lord/files',
+  path: '/api/lord/files',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiLordStatusRoute = ApiLordStatusRouteImport.update({
+  id: '/api/lord/status',
+  path: '/api/lord/status',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiLordToolRoute = ApiLordToolRouteImport.update({
+  id: '/api/lord/tool',
+  path: '/api/lord/tool',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiObservabilityHealthRoute = ApiObservabilityHealthRouteImport.update({
+  id: '/api/observability/health',
+  path: '/api/observability/health',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiProjectsIndexRoute = ApiProjectsIndexRouteImport.update({
+  id: '/api/projects/',
+  path: '/api/projects/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiProjectsIdRoute = ApiProjectsIdRouteImport.update({
+  id: '/api/projects/$id',
+  path: '/api/projects/$id',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiSharedTokenRoute = ApiSharedTokenRouteImport.update({
+  id: '/api/shared/$token',
+  path: '/api/shared/$token',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiSharesTokenRoute = ApiSharesTokenRouteImport.update({
+  id: '/$token',
+  path: '/$token',
+  getParentRoute: () => ApiSharesRoute,
+} as any)
+const ApiStudyPlansIndexRoute = ApiStudyPlansIndexRouteImport.update({
+  id: '/api/study-plans/',
+  path: '/api/study-plans/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiStudyPlansIdRoute = ApiStudyPlansIdRouteImport.update({
+  id: '/api/study-plans/$id',
+  path: '/api/study-plans/$id',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiLearningSourcesIngestRoute =
@@ -640,28 +590,71 @@ const ApiLearningSourcesIngestRoute =
     path: '/api/learning/sources/ingest',
     getParentRoute: () => rootRouteImport,
   } as any)
-const ApiStudyPlansIdTasksIndexRoute =
-  ApiStudyPlansIdTasksIndexRouteImport.update({
-    id: '/tasks/',
-    path: '/tasks/',
-    getParentRoute: () => ApiStudyPlansIdRoute,
-  } as any)
+const ApiLordAgentExecuteRoute = ApiLordAgentExecuteRouteImport.update({
+  id: '/api/lord/agent/execute',
+  path: '/api/lord/agent/execute',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiLordAgentStopRoute = ApiLordAgentStopRouteImport.update({
+  id: '/api/lord/agent/stop',
+  path: '/api/lord/agent/stop',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiLordBrowserActionRoute = ApiLordBrowserActionRouteImport.update({
+  id: '/api/lord/browser/action',
+  path: '/api/lord/browser/action',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiLordIotDevicesRoute = ApiLordIotDevicesRouteImport.update({
+  id: '/api/lord/iot/devices',
+  path: '/api/lord/iot/devices',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiLordMobilePairRoute = ApiLordMobilePairRouteImport.update({
+  id: '/api/lord/mobile/pair',
+  path: '/api/lord/mobile/pair',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiLordMobileStatusRoute = ApiLordMobileStatusRouteImport.update({
+  id: '/api/lord/mobile/status',
+  path: '/api/lord/mobile/status',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiLordOfficeExcelRoute = ApiLordOfficeExcelRouteImport.update({
+  id: '/api/lord/office/excel',
+  path: '/api/lord/office/excel',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiLordOfficePowerpointRoute = ApiLordOfficePowerpointRouteImport.update({
+  id: '/api/lord/office/powerpoint',
+  path: '/api/lord/office/powerpoint',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiLordVisionScreenRoute = ApiLordVisionScreenRouteImport.update({
+  id: '/api/lord/vision/screen',
+  path: '/api/lord/vision/screen',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiLordVisionWebcamRoute = ApiLordVisionWebcamRouteImport.update({
+  id: '/api/lord/vision/webcam',
+  path: '/api/lord/vision/webcam',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiLordIotDeviceActionRoute = ApiLordIotDeviceActionRouteImport.update({
+  id: '/api/lord/iot/device/action',
+  path: '/api/lord/iot/device/action',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiResearchIdSourcesIndexRoute =
   ApiResearchIdSourcesIndexRouteImport.update({
     id: '/api/research/$id/sources/',
     path: '/api/research/$id/sources/',
     getParentRoute: () => rootRouteImport,
   } as any)
-const ApiStudyPlansIdTasksTaskIdRoute =
-  ApiStudyPlansIdTasksTaskIdRouteImport.update({
-    id: '/tasks/$taskId',
-    path: '/tasks/$taskId',
-    getParentRoute: () => ApiStudyPlansIdRoute,
-  } as any)
-const ApiStudyPlansIdAiSuggestRoute =
-  ApiStudyPlansIdAiSuggestRouteImport.update({
-    id: '/ai/suggest',
-    path: '/ai/suggest',
+const ApiStudyPlansIdAiGenerateRoute =
+  ApiStudyPlansIdAiGenerateRouteImport.update({
+    id: '/ai/generate',
+    path: '/ai/generate',
     getParentRoute: () => ApiStudyPlansIdRoute,
   } as any)
 const ApiStudyPlansIdAiOptimizeRoute =
@@ -670,17 +663,24 @@ const ApiStudyPlansIdAiOptimizeRoute =
     path: '/ai/optimize',
     getParentRoute: () => ApiStudyPlansIdRoute,
   } as any)
-const ApiStudyPlansIdAiGenerateRoute =
-  ApiStudyPlansIdAiGenerateRouteImport.update({
-    id: '/ai/generate',
-    path: '/ai/generate',
+const ApiStudyPlansIdAiSuggestRoute =
+  ApiStudyPlansIdAiSuggestRouteImport.update({
+    id: '/ai/suggest',
+    path: '/ai/suggest',
     getParentRoute: () => ApiStudyPlansIdRoute,
   } as any)
-const ApiLordIotDeviceActionRoute = ApiLordIotDeviceActionRouteImport.update({
-  id: '/api/lord/iot/device/action',
-  path: '/api/lord/iot/device/action',
-  getParentRoute: () => rootRouteImport,
-} as any)
+const ApiStudyPlansIdTasksIndexRoute =
+  ApiStudyPlansIdTasksIndexRouteImport.update({
+    id: '/tasks/',
+    path: '/tasks/',
+    getParentRoute: () => ApiStudyPlansIdRoute,
+  } as any)
+const ApiStudyPlansIdTasksTaskIdRoute =
+  ApiStudyPlansIdTasksTaskIdRouteImport.update({
+    id: '/tasks/$taskId',
+    path: '/tasks/$taskId',
+    getParentRoute: () => ApiStudyPlansIdRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -1408,25 +1408,11 @@ export interface RootRouteChildren {
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
-    '/sitemap.xml': {
-      id: '/sitemap.xml'
-      path: '/sitemap.xml'
-      fullPath: '/sitemap.xml'
-      preLoaderRoute: typeof SitemapDotxmlRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/reset-password': {
-      id: '/reset-password'
-      path: '/reset-password'
-      fullPath: '/reset-password'
-      preLoaderRoute: typeof ResetPasswordRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/auth': {
-      id: '/auth'
-      path: '/auth'
-      fullPath: '/auth'
-      preLoaderRoute: typeof AuthRouteImport
+    '/': {
+      id: '/'
+      path: '/'
+      fullPath: '/'
+      preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/_authenticated': {
@@ -1436,179 +1422,32 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedRouteRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/': {
-      id: '/'
-      path: '/'
-      fullPath: '/'
-      preLoaderRoute: typeof IndexRouteImport
+    '/auth': {
+      id: '/auth'
+      path: '/auth'
+      fullPath: '/auth'
+      preLoaderRoute: typeof AuthRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/share/$token': {
-      id: '/share/$token'
-      path: '/share/$token'
-      fullPath: '/share/$token'
-      preLoaderRoute: typeof ShareTokenRouteImport
+    '/reset-password': {
+      id: '/reset-password'
+      path: '/reset-password'
+      fullPath: '/reset-password'
+      preLoaderRoute: typeof ResetPasswordRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/api/title': {
-      id: '/api/title'
-      path: '/api/title'
-      fullPath: '/api/title'
-      preLoaderRoute: typeof ApiTitleRouteImport
+    '/sitemap.xml': {
+      id: '/sitemap.xml'
+      path: '/sitemap.xml'
+      fullPath: '/sitemap.xml'
+      preLoaderRoute: typeof SitemapDotxmlRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/api/shares': {
-      id: '/api/shares'
-      path: '/api/shares'
-      fullPath: '/api/shares'
-      preLoaderRoute: typeof ApiSharesRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/api/search': {
-      id: '/api/search'
-      path: '/api/search'
-      fullPath: '/api/search'
-      preLoaderRoute: typeof ApiSearchRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/api/openrouter-test': {
-      id: '/api/openrouter-test'
-      path: '/api/openrouter-test'
-      fullPath: '/api/openrouter-test'
-      preLoaderRoute: typeof ApiOpenrouterTestRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/api/images': {
-      id: '/api/images'
-      path: '/api/images'
-      fullPath: '/api/images'
-      preLoaderRoute: typeof ApiImagesRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/api/health': {
-      id: '/api/health'
-      path: '/api/health'
-      fullPath: '/api/health'
-      preLoaderRoute: typeof ApiHealthRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/api/chat': {
-      id: '/api/chat'
-      path: '/api/chat'
-      fullPath: '/api/chat'
-      preLoaderRoute: typeof ApiChatRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/_authenticated/voice': {
-      id: '/_authenticated/voice'
-      path: '/voice'
-      fullPath: '/voice'
-      preLoaderRoute: typeof AuthenticatedVoiceRouteImport
-      parentRoute: typeof AuthenticatedRouteRoute
-    }
-    '/_authenticated/tasks': {
-      id: '/_authenticated/tasks'
-      path: '/tasks'
-      fullPath: '/tasks'
-      preLoaderRoute: typeof AuthenticatedTasksRouteImport
-      parentRoute: typeof AuthenticatedRouteRoute
-    }
-    '/_authenticated/study': {
-      id: '/_authenticated/study'
-      path: '/study'
-      fullPath: '/study'
-      preLoaderRoute: typeof AuthenticatedStudyRouteImport
-      parentRoute: typeof AuthenticatedRouteRoute
-    }
-    '/_authenticated/statistics': {
-      id: '/_authenticated/statistics'
-      path: '/statistics'
-      fullPath: '/statistics'
-      preLoaderRoute: typeof AuthenticatedStatisticsRouteImport
-      parentRoute: typeof AuthenticatedRouteRoute
-    }
-    '/_authenticated/settings': {
-      id: '/_authenticated/settings'
-      path: '/settings'
-      fullPath: '/settings'
-      preLoaderRoute: typeof AuthenticatedSettingsRouteImport
-      parentRoute: typeof AuthenticatedRouteRoute
-    }
-    '/_authenticated/search': {
-      id: '/_authenticated/search'
-      path: '/search'
-      fullPath: '/search'
-      preLoaderRoute: typeof AuthenticatedSearchRouteImport
-      parentRoute: typeof AuthenticatedRouteRoute
-    }
-    '/_authenticated/progress': {
-      id: '/_authenticated/progress'
-      path: '/progress'
-      fullPath: '/progress'
-      preLoaderRoute: typeof AuthenticatedProgressRouteImport
-      parentRoute: typeof AuthenticatedRouteRoute
-    }
-    '/_authenticated/productivity': {
-      id: '/_authenticated/productivity'
-      path: '/productivity'
-      fullPath: '/productivity'
-      preLoaderRoute: typeof AuthenticatedProductivityRouteImport
-      parentRoute: typeof AuthenticatedRouteRoute
-    }
-    '/_authenticated/practice': {
-      id: '/_authenticated/practice'
-      path: '/practice'
-      fullPath: '/practice'
-      preLoaderRoute: typeof AuthenticatedPracticeRouteImport
-      parentRoute: typeof AuthenticatedRouteRoute
-    }
-    '/_authenticated/plan': {
-      id: '/_authenticated/plan'
-      path: '/plan'
-      fullPath: '/plan'
-      preLoaderRoute: typeof AuthenticatedPlanRouteImport
-      parentRoute: typeof AuthenticatedRouteRoute
-    }
-    '/_authenticated/memory': {
-      id: '/_authenticated/memory'
-      path: '/memory'
-      fullPath: '/memory'
-      preLoaderRoute: typeof AuthenticatedMemoryRouteImport
-      parentRoute: typeof AuthenticatedRouteRoute
-    }
-    '/_authenticated/learn': {
-      id: '/_authenticated/learn'
-      path: '/learn'
-      fullPath: '/learn'
-      preLoaderRoute: typeof AuthenticatedLearnRouteImport
-      parentRoute: typeof AuthenticatedRouteRoute
-    }
-    '/_authenticated/images': {
-      id: '/_authenticated/images'
-      path: '/images'
-      fullPath: '/images'
-      preLoaderRoute: typeof AuthenticatedImagesRouteImport
-      parentRoute: typeof AuthenticatedRouteRoute
-    }
-    '/_authenticated/feed': {
-      id: '/_authenticated/feed'
-      path: '/feed'
-      fullPath: '/feed'
-      preLoaderRoute: typeof AuthenticatedFeedRouteImport
-      parentRoute: typeof AuthenticatedRouteRoute
-    }
-    '/_authenticated/documents': {
-      id: '/_authenticated/documents'
-      path: '/documents'
-      fullPath: '/documents'
-      preLoaderRoute: typeof AuthenticatedDocumentsRouteImport
-      parentRoute: typeof AuthenticatedRouteRoute
-    }
-    '/_authenticated/chat': {
-      id: '/_authenticated/chat'
-      path: '/chat'
-      fullPath: '/chat'
-      preLoaderRoute: typeof AuthenticatedChatRouteImport
+    '/_authenticated/boards': {
+      id: '/_authenticated/boards'
+      path: '/boards'
+      fullPath: '/boards'
+      preLoaderRoute: typeof AuthenticatedBoardsRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/calendar': {
@@ -1618,11 +1457,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedCalendarRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
-    '/_authenticated/boards': {
-      id: '/_authenticated/boards'
-      path: '/boards'
-      fullPath: '/boards'
-      preLoaderRoute: typeof AuthenticatedBoardsRouteImport
+    '/_authenticated/chat': {
+      id: '/_authenticated/chat'
+      path: '/chat'
+      fullPath: '/chat'
+      preLoaderRoute: typeof AuthenticatedChatRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/command-center': {
@@ -1632,67 +1471,179 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedCommandCenterRouteRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
-    '/api/study-plans/': {
-      id: '/api/study-plans/'
-      path: '/api/study-plans'
-      fullPath: '/api/study-plans/'
-      preLoaderRoute: typeof ApiStudyPlansIndexRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/api/projects/': {
-      id: '/api/projects/'
-      path: '/api/projects'
-      fullPath: '/api/projects/'
-      preLoaderRoute: typeof ApiProjectsIndexRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/api/knowledge/': {
-      id: '/api/knowledge/'
-      path: '/api/knowledge'
-      fullPath: '/api/knowledge/'
-      preLoaderRoute: typeof ApiKnowledgeIndexRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/api/dashboards/': {
-      id: '/api/dashboards/'
-      path: '/api/dashboards'
-      fullPath: '/api/dashboards/'
-      preLoaderRoute: typeof ApiDashboardsIndexRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/api/canvas/': {
-      id: '/api/canvas/'
-      path: '/api/canvas'
-      fullPath: '/api/canvas/'
-      preLoaderRoute: typeof ApiCanvasIndexRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/_authenticated/projects/': {
-      id: '/_authenticated/projects/'
-      path: '/projects'
-      fullPath: '/projects/'
-      preLoaderRoute: typeof AuthenticatedProjectsIndexRouteImport
+    '/_authenticated/documents': {
+      id: '/_authenticated/documents'
+      path: '/documents'
+      fullPath: '/documents'
+      preLoaderRoute: typeof AuthenticatedDocumentsRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
-    '/_authenticated/observability/': {
-      id: '/_authenticated/observability/'
-      path: '/observability'
-      fullPath: '/observability/'
-      preLoaderRoute: typeof AuthenticatedObservabilityIndexRouteImport
+    '/_authenticated/feed': {
+      id: '/_authenticated/feed'
+      path: '/feed'
+      fullPath: '/feed'
+      preLoaderRoute: typeof AuthenticatedFeedRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
-    '/_authenticated/knowledge2/': {
-      id: '/_authenticated/knowledge2/'
-      path: '/knowledge2'
-      fullPath: '/knowledge2/'
-      preLoaderRoute: typeof AuthenticatedKnowledge2IndexRouteImport
+    '/_authenticated/images': {
+      id: '/_authenticated/images'
+      path: '/images'
+      fullPath: '/images'
+      preLoaderRoute: typeof AuthenticatedImagesRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
-    '/_authenticated/dashboards/': {
-      id: '/_authenticated/dashboards/'
-      path: '/dashboards'
-      fullPath: '/dashboards/'
-      preLoaderRoute: typeof AuthenticatedDashboardsIndexRouteImport
+    '/_authenticated/learn': {
+      id: '/_authenticated/learn'
+      path: '/learn'
+      fullPath: '/learn'
+      preLoaderRoute: typeof AuthenticatedLearnRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/memory': {
+      id: '/_authenticated/memory'
+      path: '/memory'
+      fullPath: '/memory'
+      preLoaderRoute: typeof AuthenticatedMemoryRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/plan': {
+      id: '/_authenticated/plan'
+      path: '/plan'
+      fullPath: '/plan'
+      preLoaderRoute: typeof AuthenticatedPlanRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/practice': {
+      id: '/_authenticated/practice'
+      path: '/practice'
+      fullPath: '/practice'
+      preLoaderRoute: typeof AuthenticatedPracticeRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/productivity': {
+      id: '/_authenticated/productivity'
+      path: '/productivity'
+      fullPath: '/productivity'
+      preLoaderRoute: typeof AuthenticatedProductivityRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/progress': {
+      id: '/_authenticated/progress'
+      path: '/progress'
+      fullPath: '/progress'
+      preLoaderRoute: typeof AuthenticatedProgressRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/search': {
+      id: '/_authenticated/search'
+      path: '/search'
+      fullPath: '/search'
+      preLoaderRoute: typeof AuthenticatedSearchRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/settings': {
+      id: '/_authenticated/settings'
+      path: '/settings'
+      fullPath: '/settings'
+      preLoaderRoute: typeof AuthenticatedSettingsRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/statistics': {
+      id: '/_authenticated/statistics'
+      path: '/statistics'
+      fullPath: '/statistics'
+      preLoaderRoute: typeof AuthenticatedStatisticsRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/study': {
+      id: '/_authenticated/study'
+      path: '/study'
+      fullPath: '/study'
+      preLoaderRoute: typeof AuthenticatedStudyRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/tasks': {
+      id: '/_authenticated/tasks'
+      path: '/tasks'
+      fullPath: '/tasks'
+      preLoaderRoute: typeof AuthenticatedTasksRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/voice': {
+      id: '/_authenticated/voice'
+      path: '/voice'
+      fullPath: '/voice'
+      preLoaderRoute: typeof AuthenticatedVoiceRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/api/chat': {
+      id: '/api/chat'
+      path: '/api/chat'
+      fullPath: '/api/chat'
+      preLoaderRoute: typeof ApiChatRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/health': {
+      id: '/api/health'
+      path: '/api/health'
+      fullPath: '/api/health'
+      preLoaderRoute: typeof ApiHealthRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/images': {
+      id: '/api/images'
+      path: '/api/images'
+      fullPath: '/api/images'
+      preLoaderRoute: typeof ApiImagesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/openrouter-test': {
+      id: '/api/openrouter-test'
+      path: '/api/openrouter-test'
+      fullPath: '/api/openrouter-test'
+      preLoaderRoute: typeof ApiOpenrouterTestRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/search': {
+      id: '/api/search'
+      path: '/api/search'
+      fullPath: '/api/search'
+      preLoaderRoute: typeof ApiSearchRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/shares': {
+      id: '/api/shares'
+      path: '/api/shares'
+      fullPath: '/api/shares'
+      preLoaderRoute: typeof ApiSharesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/title': {
+      id: '/api/title'
+      path: '/api/title'
+      fullPath: '/api/title'
+      preLoaderRoute: typeof ApiTitleRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/share/$token': {
+      id: '/share/$token'
+      path: '/share/$token'
+      fullPath: '/share/$token'
+      preLoaderRoute: typeof ShareTokenRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/_authenticated/canvas/': {
+      id: '/_authenticated/canvas/'
+      path: '/canvas'
+      fullPath: '/canvas/'
+      preLoaderRoute: typeof AuthenticatedCanvasIndexRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/canvas/$id': {
+      id: '/_authenticated/canvas/$id'
+      path: '/canvas/$id'
+      fullPath: '/canvas/$id'
+      preLoaderRoute: typeof AuthenticatedCanvasIdRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/command-center/': {
@@ -1702,319 +1653,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedCommandCenterIndexRouteImport
       parentRoute: typeof AuthenticatedCommandCenterRouteRoute
     }
-    '/_authenticated/canvas/': {
-      id: '/_authenticated/canvas/'
-      path: '/canvas'
-      fullPath: '/canvas/'
-      preLoaderRoute: typeof AuthenticatedCanvasIndexRouteImport
-      parentRoute: typeof AuthenticatedRouteRoute
-    }
-    '/api/study-plans/$id': {
-      id: '/api/study-plans/$id'
-      path: '/api/study-plans/$id'
-      fullPath: '/api/study-plans/$id'
-      preLoaderRoute: typeof ApiStudyPlansIdRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/api/shares/$token': {
-      id: '/api/shares/$token'
-      path: '/$token'
-      fullPath: '/api/shares/$token'
-      preLoaderRoute: typeof ApiSharesTokenRouteImport
-      parentRoute: typeof ApiSharesRoute
-    }
-    '/api/shared/$token': {
-      id: '/api/shared/$token'
-      path: '/api/shared/$token'
-      fullPath: '/api/shared/$token'
-      preLoaderRoute: typeof ApiSharedTokenRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/api/projects/$id': {
-      id: '/api/projects/$id'
-      path: '/api/projects/$id'
-      fullPath: '/api/projects/$id'
-      preLoaderRoute: typeof ApiProjectsIdRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/api/observability/health': {
-      id: '/api/observability/health'
-      path: '/api/observability/health'
-      fullPath: '/api/observability/health'
-      preLoaderRoute: typeof ApiObservabilityHealthRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/api/lord/tool': {
-      id: '/api/lord/tool'
-      path: '/api/lord/tool'
-      fullPath: '/api/lord/tool'
-      preLoaderRoute: typeof ApiLordToolRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/api/lord/status': {
-      id: '/api/lord/status'
-      path: '/api/lord/status'
-      fullPath: '/api/lord/status'
-      preLoaderRoute: typeof ApiLordStatusRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/api/lord/files': {
-      id: '/api/lord/files'
-      path: '/api/lord/files'
-      fullPath: '/api/lord/files'
-      preLoaderRoute: typeof ApiLordFilesRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/api/lord/file': {
-      id: '/api/lord/file'
-      path: '/api/lord/file'
-      fullPath: '/api/lord/file'
-      preLoaderRoute: typeof ApiLordFileRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/api/lord/automation': {
-      id: '/api/lord/automation'
-      path: '/api/lord/automation'
-      fullPath: '/api/lord/automation'
-      preLoaderRoute: typeof ApiLordAutomationRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/api/lord/activity': {
-      id: '/api/lord/activity'
-      path: '/api/lord/activity'
-      fullPath: '/api/lord/activity'
-      preLoaderRoute: typeof ApiLordActivityRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/api/learning/whiteboard': {
-      id: '/api/learning/whiteboard'
-      path: '/api/learning/whiteboard'
-      fullPath: '/api/learning/whiteboard'
-      preLoaderRoute: typeof ApiLearningWhiteboardRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/api/learning/voice': {
-      id: '/api/learning/voice'
-      path: '/api/learning/voice'
-      fullPath: '/api/learning/voice'
-      preLoaderRoute: typeof ApiLearningVoiceRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/api/learning/session': {
-      id: '/api/learning/session'
-      path: '/api/learning/session'
-      fullPath: '/api/learning/session'
-      preLoaderRoute: typeof ApiLearningSessionRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/api/learning/revision': {
-      id: '/api/learning/revision'
-      path: '/api/learning/revision'
-      fullPath: '/api/learning/revision'
-      preLoaderRoute: typeof ApiLearningRevisionRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/api/learning/ocr': {
-      id: '/api/learning/ocr'
-      path: '/api/learning/ocr'
-      fullPath: '/api/learning/ocr'
-      preLoaderRoute: typeof ApiLearningOcrRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/api/learning/notes': {
-      id: '/api/learning/notes'
-      path: '/api/learning/notes'
-      fullPath: '/api/learning/notes'
-      preLoaderRoute: typeof ApiLearningNotesRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/api/learning/memory': {
-      id: '/api/learning/memory'
-      path: '/api/learning/memory'
-      fullPath: '/api/learning/memory'
-      preLoaderRoute: typeof ApiLearningMemoryRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/api/learning/goals': {
-      id: '/api/learning/goals'
-      path: '/api/learning/goals'
-      fullPath: '/api/learning/goals'
-      preLoaderRoute: typeof ApiLearningGoalsRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/api/learning/flashcards': {
-      id: '/api/learning/flashcards'
-      path: '/api/learning/flashcards'
-      fullPath: '/api/learning/flashcards'
-      preLoaderRoute: typeof ApiLearningFlashcardsRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/api/learning/features': {
-      id: '/api/learning/features'
-      path: '/api/learning/features'
-      fullPath: '/api/learning/features'
-      preLoaderRoute: typeof ApiLearningFeaturesRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/api/learning/exams': {
-      id: '/api/learning/exams'
-      path: '/api/learning/exams'
-      fullPath: '/api/learning/exams'
-      preLoaderRoute: typeof ApiLearningExamsRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/api/learning/analytics': {
-      id: '/api/learning/analytics'
-      path: '/api/learning/analytics'
-      fullPath: '/api/learning/analytics'
-      preLoaderRoute: typeof ApiLearningAnalyticsRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/api/knowledge2/relations': {
-      id: '/api/knowledge2/relations'
-      path: '/api/knowledge2/relations'
-      fullPath: '/api/knowledge2/relations'
-      preLoaderRoute: typeof ApiKnowledge2RelationsRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/api/knowledge2/entities': {
-      id: '/api/knowledge2/entities'
-      path: '/api/knowledge2/entities'
-      fullPath: '/api/knowledge2/entities'
-      preLoaderRoute: typeof ApiKnowledge2EntitiesRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/api/knowledge/upload': {
-      id: '/api/knowledge/upload'
-      path: '/api/knowledge/upload'
-      fullPath: '/api/knowledge/upload'
-      preLoaderRoute: typeof ApiKnowledgeUploadRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/api/knowledge/$id': {
-      id: '/api/knowledge/$id'
-      path: '/api/knowledge/$id'
-      fullPath: '/api/knowledge/$id'
-      preLoaderRoute: typeof ApiKnowledgeIdRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/api/images/regenerate': {
-      id: '/api/images/regenerate'
-      path: '/regenerate'
-      fullPath: '/api/images/regenerate'
-      preLoaderRoute: typeof ApiImagesRegenerateRouteImport
-      parentRoute: typeof ApiImagesRoute
-    }
-    '/api/images/models': {
-      id: '/api/images/models'
-      path: '/models'
-      fullPath: '/api/images/models'
-      preLoaderRoute: typeof ApiImagesModelsRouteImport
-      parentRoute: typeof ApiImagesRoute
-    }
-    '/api/images/$id': {
-      id: '/api/images/$id'
-      path: '/$id'
-      fullPath: '/api/images/$id'
-      preLoaderRoute: typeof ApiImagesIdRouteImport
-      parentRoute: typeof ApiImagesRoute
-    }
-    '/api/image/health': {
-      id: '/api/image/health'
-      path: '/api/image/health'
-      fullPath: '/api/image/health'
-      preLoaderRoute: typeof ApiImageHealthRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/api/command-palette/search': {
-      id: '/api/command-palette/search'
-      path: '/api/command-palette/search'
-      fullPath: '/api/command-palette/search'
-      preLoaderRoute: typeof ApiCommandPaletteSearchRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/api/canvas/versions': {
-      id: '/api/canvas/versions'
-      path: '/api/canvas/versions'
-      fullPath: '/api/canvas/versions'
-      preLoaderRoute: typeof ApiCanvasVersionsRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/api/canvas/stream': {
-      id: '/api/canvas/stream'
-      path: '/api/canvas/stream'
-      fullPath: '/api/canvas/stream'
-      preLoaderRoute: typeof ApiCanvasStreamRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/api/brain/context': {
-      id: '/api/brain/context'
-      path: '/api/brain/context'
-      fullPath: '/api/brain/context'
-      preLoaderRoute: typeof ApiBrainContextRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/api/admin/gateway': {
-      id: '/api/admin/gateway'
-      path: '/api/admin/gateway'
-      fullPath: '/api/admin/gateway'
-      preLoaderRoute: typeof ApiAdminGatewayRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/_authenticated/projects/$id': {
-      id: '/_authenticated/projects/$id'
-      path: '/projects/$id'
-      fullPath: '/projects/$id'
-      preLoaderRoute: typeof AuthenticatedProjectsIdRouteImport
-      parentRoute: typeof AuthenticatedRouteRoute
-    }
-    '/_authenticated/command-center/vision': {
-      id: '/_authenticated/command-center/vision'
-      path: '/vision'
-      fullPath: '/command-center/vision'
-      preLoaderRoute: typeof AuthenticatedCommandCenterVisionRouteImport
-      parentRoute: typeof AuthenticatedCommandCenterRouteRoute
-    }
-    '/_authenticated/command-center/smart-home': {
-      id: '/_authenticated/command-center/smart-home'
-      path: '/smart-home'
-      fullPath: '/command-center/smart-home'
-      preLoaderRoute: typeof AuthenticatedCommandCenterSmartHomeRouteImport
-      parentRoute: typeof AuthenticatedCommandCenterRouteRoute
-    }
-    '/_authenticated/command-center/settings': {
-      id: '/_authenticated/command-center/settings'
-      path: '/settings'
-      fullPath: '/command-center/settings'
-      preLoaderRoute: typeof AuthenticatedCommandCenterSettingsRouteImport
-      parentRoute: typeof AuthenticatedCommandCenterRouteRoute
-    }
-    '/_authenticated/command-center/pc': {
-      id: '/_authenticated/command-center/pc'
-      path: '/pc'
-      fullPath: '/command-center/pc'
-      preLoaderRoute: typeof AuthenticatedCommandCenterPcRouteImport
-      parentRoute: typeof AuthenticatedCommandCenterRouteRoute
-    }
-    '/_authenticated/command-center/office': {
-      id: '/_authenticated/command-center/office'
-      path: '/office'
-      fullPath: '/command-center/office'
-      preLoaderRoute: typeof AuthenticatedCommandCenterOfficeRouteImport
-      parentRoute: typeof AuthenticatedCommandCenterRouteRoute
-    }
-    '/_authenticated/command-center/mobile': {
-      id: '/_authenticated/command-center/mobile'
-      path: '/mobile'
-      fullPath: '/command-center/mobile'
-      preLoaderRoute: typeof AuthenticatedCommandCenterMobileRouteImport
-      parentRoute: typeof AuthenticatedCommandCenterRouteRoute
-    }
-    '/_authenticated/command-center/files': {
-      id: '/_authenticated/command-center/files'
-      path: '/files'
-      fullPath: '/command-center/files'
-      preLoaderRoute: typeof AuthenticatedCommandCenterFilesRouteImport
+    '/_authenticated/command-center/automations': {
+      id: '/_authenticated/command-center/automations'
+      path: '/automations'
+      fullPath: '/command-center/automations'
+      preLoaderRoute: typeof AuthenticatedCommandCenterAutomationsRouteImport
       parentRoute: typeof AuthenticatedCommandCenterRouteRoute
     }
     '/_authenticated/command-center/browser': {
@@ -2024,88 +1667,375 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedCommandCenterBrowserRouteImport
       parentRoute: typeof AuthenticatedCommandCenterRouteRoute
     }
-    '/_authenticated/command-center/automations': {
-      id: '/_authenticated/command-center/automations'
-      path: '/automations'
-      fullPath: '/command-center/automations'
-      preLoaderRoute: typeof AuthenticatedCommandCenterAutomationsRouteImport
+    '/_authenticated/command-center/files': {
+      id: '/_authenticated/command-center/files'
+      path: '/files'
+      fullPath: '/command-center/files'
+      preLoaderRoute: typeof AuthenticatedCommandCenterFilesRouteImport
       parentRoute: typeof AuthenticatedCommandCenterRouteRoute
     }
-    '/_authenticated/canvas/$id': {
-      id: '/_authenticated/canvas/$id'
-      path: '/canvas/$id'
-      fullPath: '/canvas/$id'
-      preLoaderRoute: typeof AuthenticatedCanvasIdRouteImport
+    '/_authenticated/command-center/mobile': {
+      id: '/_authenticated/command-center/mobile'
+      path: '/mobile'
+      fullPath: '/command-center/mobile'
+      preLoaderRoute: typeof AuthenticatedCommandCenterMobileRouteImport
+      parentRoute: typeof AuthenticatedCommandCenterRouteRoute
+    }
+    '/_authenticated/command-center/office': {
+      id: '/_authenticated/command-center/office'
+      path: '/office'
+      fullPath: '/command-center/office'
+      preLoaderRoute: typeof AuthenticatedCommandCenterOfficeRouteImport
+      parentRoute: typeof AuthenticatedCommandCenterRouteRoute
+    }
+    '/_authenticated/command-center/pc': {
+      id: '/_authenticated/command-center/pc'
+      path: '/pc'
+      fullPath: '/command-center/pc'
+      preLoaderRoute: typeof AuthenticatedCommandCenterPcRouteImport
+      parentRoute: typeof AuthenticatedCommandCenterRouteRoute
+    }
+    '/_authenticated/command-center/settings': {
+      id: '/_authenticated/command-center/settings'
+      path: '/settings'
+      fullPath: '/command-center/settings'
+      preLoaderRoute: typeof AuthenticatedCommandCenterSettingsRouteImport
+      parentRoute: typeof AuthenticatedCommandCenterRouteRoute
+    }
+    '/_authenticated/command-center/smart-home': {
+      id: '/_authenticated/command-center/smart-home'
+      path: '/smart-home'
+      fullPath: '/command-center/smart-home'
+      preLoaderRoute: typeof AuthenticatedCommandCenterSmartHomeRouteImport
+      parentRoute: typeof AuthenticatedCommandCenterRouteRoute
+    }
+    '/_authenticated/command-center/vision': {
+      id: '/_authenticated/command-center/vision'
+      path: '/vision'
+      fullPath: '/command-center/vision'
+      preLoaderRoute: typeof AuthenticatedCommandCenterVisionRouteImport
+      parentRoute: typeof AuthenticatedCommandCenterRouteRoute
+    }
+    '/_authenticated/dashboards/': {
+      id: '/_authenticated/dashboards/'
+      path: '/dashboards'
+      fullPath: '/dashboards/'
+      preLoaderRoute: typeof AuthenticatedDashboardsIndexRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
-    '/api/lord/vision/webcam': {
-      id: '/api/lord/vision/webcam'
-      path: '/api/lord/vision/webcam'
-      fullPath: '/api/lord/vision/webcam'
-      preLoaderRoute: typeof ApiLordVisionWebcamRouteImport
+    '/_authenticated/knowledge2/': {
+      id: '/_authenticated/knowledge2/'
+      path: '/knowledge2'
+      fullPath: '/knowledge2/'
+      preLoaderRoute: typeof AuthenticatedKnowledge2IndexRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/observability/': {
+      id: '/_authenticated/observability/'
+      path: '/observability'
+      fullPath: '/observability/'
+      preLoaderRoute: typeof AuthenticatedObservabilityIndexRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/projects/': {
+      id: '/_authenticated/projects/'
+      path: '/projects'
+      fullPath: '/projects/'
+      preLoaderRoute: typeof AuthenticatedProjectsIndexRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/projects/$id': {
+      id: '/_authenticated/projects/$id'
+      path: '/projects/$id'
+      fullPath: '/projects/$id'
+      preLoaderRoute: typeof AuthenticatedProjectsIdRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/api/admin/gateway': {
+      id: '/api/admin/gateway'
+      path: '/api/admin/gateway'
+      fullPath: '/api/admin/gateway'
+      preLoaderRoute: typeof ApiAdminGatewayRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/api/lord/vision/screen': {
-      id: '/api/lord/vision/screen'
-      path: '/api/lord/vision/screen'
-      fullPath: '/api/lord/vision/screen'
-      preLoaderRoute: typeof ApiLordVisionScreenRouteImport
+    '/api/brain/context': {
+      id: '/api/brain/context'
+      path: '/api/brain/context'
+      fullPath: '/api/brain/context'
+      preLoaderRoute: typeof ApiBrainContextRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/api/lord/office/powerpoint': {
-      id: '/api/lord/office/powerpoint'
-      path: '/api/lord/office/powerpoint'
-      fullPath: '/api/lord/office/powerpoint'
-      preLoaderRoute: typeof ApiLordOfficePowerpointRouteImport
+    '/api/canvas/': {
+      id: '/api/canvas/'
+      path: '/api/canvas'
+      fullPath: '/api/canvas/'
+      preLoaderRoute: typeof ApiCanvasIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/api/lord/office/excel': {
-      id: '/api/lord/office/excel'
-      path: '/api/lord/office/excel'
-      fullPath: '/api/lord/office/excel'
-      preLoaderRoute: typeof ApiLordOfficeExcelRouteImport
+    '/api/canvas/stream': {
+      id: '/api/canvas/stream'
+      path: '/api/canvas/stream'
+      fullPath: '/api/canvas/stream'
+      preLoaderRoute: typeof ApiCanvasStreamRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/api/lord/mobile/status': {
-      id: '/api/lord/mobile/status'
-      path: '/api/lord/mobile/status'
-      fullPath: '/api/lord/mobile/status'
-      preLoaderRoute: typeof ApiLordMobileStatusRouteImport
+    '/api/canvas/versions': {
+      id: '/api/canvas/versions'
+      path: '/api/canvas/versions'
+      fullPath: '/api/canvas/versions'
+      preLoaderRoute: typeof ApiCanvasVersionsRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/api/lord/mobile/pair': {
-      id: '/api/lord/mobile/pair'
-      path: '/api/lord/mobile/pair'
-      fullPath: '/api/lord/mobile/pair'
-      preLoaderRoute: typeof ApiLordMobilePairRouteImport
+    '/api/command-palette/search': {
+      id: '/api/command-palette/search'
+      path: '/api/command-palette/search'
+      fullPath: '/api/command-palette/search'
+      preLoaderRoute: typeof ApiCommandPaletteSearchRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/api/lord/iot/devices': {
-      id: '/api/lord/iot/devices'
-      path: '/api/lord/iot/devices'
-      fullPath: '/api/lord/iot/devices'
-      preLoaderRoute: typeof ApiLordIotDevicesRouteImport
+    '/api/dashboards/': {
+      id: '/api/dashboards/'
+      path: '/api/dashboards'
+      fullPath: '/api/dashboards/'
+      preLoaderRoute: typeof ApiDashboardsIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/api/lord/browser/action': {
-      id: '/api/lord/browser/action'
-      path: '/api/lord/browser/action'
-      fullPath: '/api/lord/browser/action'
-      preLoaderRoute: typeof ApiLordBrowserActionRouteImport
+    '/api/image/health': {
+      id: '/api/image/health'
+      path: '/api/image/health'
+      fullPath: '/api/image/health'
+      preLoaderRoute: typeof ApiImageHealthRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/api/lord/agent/stop': {
-      id: '/api/lord/agent/stop'
-      path: '/api/lord/agent/stop'
-      fullPath: '/api/lord/agent/stop'
-      preLoaderRoute: typeof ApiLordAgentStopRouteImport
+    '/api/images/$id': {
+      id: '/api/images/$id'
+      path: '/$id'
+      fullPath: '/api/images/$id'
+      preLoaderRoute: typeof ApiImagesIdRouteImport
+      parentRoute: typeof ApiImagesRoute
+    }
+    '/api/images/models': {
+      id: '/api/images/models'
+      path: '/models'
+      fullPath: '/api/images/models'
+      preLoaderRoute: typeof ApiImagesModelsRouteImport
+      parentRoute: typeof ApiImagesRoute
+    }
+    '/api/images/regenerate': {
+      id: '/api/images/regenerate'
+      path: '/regenerate'
+      fullPath: '/api/images/regenerate'
+      preLoaderRoute: typeof ApiImagesRegenerateRouteImport
+      parentRoute: typeof ApiImagesRoute
+    }
+    '/api/knowledge/': {
+      id: '/api/knowledge/'
+      path: '/api/knowledge'
+      fullPath: '/api/knowledge/'
+      preLoaderRoute: typeof ApiKnowledgeIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/api/lord/agent/execute': {
-      id: '/api/lord/agent/execute'
-      path: '/api/lord/agent/execute'
-      fullPath: '/api/lord/agent/execute'
-      preLoaderRoute: typeof ApiLordAgentExecuteRouteImport
+    '/api/knowledge/$id': {
+      id: '/api/knowledge/$id'
+      path: '/api/knowledge/$id'
+      fullPath: '/api/knowledge/$id'
+      preLoaderRoute: typeof ApiKnowledgeIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/knowledge/upload': {
+      id: '/api/knowledge/upload'
+      path: '/api/knowledge/upload'
+      fullPath: '/api/knowledge/upload'
+      preLoaderRoute: typeof ApiKnowledgeUploadRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/knowledge2/entities': {
+      id: '/api/knowledge2/entities'
+      path: '/api/knowledge2/entities'
+      fullPath: '/api/knowledge2/entities'
+      preLoaderRoute: typeof ApiKnowledge2EntitiesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/knowledge2/relations': {
+      id: '/api/knowledge2/relations'
+      path: '/api/knowledge2/relations'
+      fullPath: '/api/knowledge2/relations'
+      preLoaderRoute: typeof ApiKnowledge2RelationsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/learning/analytics': {
+      id: '/api/learning/analytics'
+      path: '/api/learning/analytics'
+      fullPath: '/api/learning/analytics'
+      preLoaderRoute: typeof ApiLearningAnalyticsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/learning/exams': {
+      id: '/api/learning/exams'
+      path: '/api/learning/exams'
+      fullPath: '/api/learning/exams'
+      preLoaderRoute: typeof ApiLearningExamsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/learning/features': {
+      id: '/api/learning/features'
+      path: '/api/learning/features'
+      fullPath: '/api/learning/features'
+      preLoaderRoute: typeof ApiLearningFeaturesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/learning/flashcards': {
+      id: '/api/learning/flashcards'
+      path: '/api/learning/flashcards'
+      fullPath: '/api/learning/flashcards'
+      preLoaderRoute: typeof ApiLearningFlashcardsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/learning/goals': {
+      id: '/api/learning/goals'
+      path: '/api/learning/goals'
+      fullPath: '/api/learning/goals'
+      preLoaderRoute: typeof ApiLearningGoalsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/learning/memory': {
+      id: '/api/learning/memory'
+      path: '/api/learning/memory'
+      fullPath: '/api/learning/memory'
+      preLoaderRoute: typeof ApiLearningMemoryRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/learning/notes': {
+      id: '/api/learning/notes'
+      path: '/api/learning/notes'
+      fullPath: '/api/learning/notes'
+      preLoaderRoute: typeof ApiLearningNotesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/learning/ocr': {
+      id: '/api/learning/ocr'
+      path: '/api/learning/ocr'
+      fullPath: '/api/learning/ocr'
+      preLoaderRoute: typeof ApiLearningOcrRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/learning/revision': {
+      id: '/api/learning/revision'
+      path: '/api/learning/revision'
+      fullPath: '/api/learning/revision'
+      preLoaderRoute: typeof ApiLearningRevisionRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/learning/session': {
+      id: '/api/learning/session'
+      path: '/api/learning/session'
+      fullPath: '/api/learning/session'
+      preLoaderRoute: typeof ApiLearningSessionRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/learning/voice': {
+      id: '/api/learning/voice'
+      path: '/api/learning/voice'
+      fullPath: '/api/learning/voice'
+      preLoaderRoute: typeof ApiLearningVoiceRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/learning/whiteboard': {
+      id: '/api/learning/whiteboard'
+      path: '/api/learning/whiteboard'
+      fullPath: '/api/learning/whiteboard'
+      preLoaderRoute: typeof ApiLearningWhiteboardRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/lord/activity': {
+      id: '/api/lord/activity'
+      path: '/api/lord/activity'
+      fullPath: '/api/lord/activity'
+      preLoaderRoute: typeof ApiLordActivityRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/lord/automation': {
+      id: '/api/lord/automation'
+      path: '/api/lord/automation'
+      fullPath: '/api/lord/automation'
+      preLoaderRoute: typeof ApiLordAutomationRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/lord/file': {
+      id: '/api/lord/file'
+      path: '/api/lord/file'
+      fullPath: '/api/lord/file'
+      preLoaderRoute: typeof ApiLordFileRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/lord/files': {
+      id: '/api/lord/files'
+      path: '/api/lord/files'
+      fullPath: '/api/lord/files'
+      preLoaderRoute: typeof ApiLordFilesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/lord/status': {
+      id: '/api/lord/status'
+      path: '/api/lord/status'
+      fullPath: '/api/lord/status'
+      preLoaderRoute: typeof ApiLordStatusRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/lord/tool': {
+      id: '/api/lord/tool'
+      path: '/api/lord/tool'
+      fullPath: '/api/lord/tool'
+      preLoaderRoute: typeof ApiLordToolRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/observability/health': {
+      id: '/api/observability/health'
+      path: '/api/observability/health'
+      fullPath: '/api/observability/health'
+      preLoaderRoute: typeof ApiObservabilityHealthRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/projects/': {
+      id: '/api/projects/'
+      path: '/api/projects'
+      fullPath: '/api/projects/'
+      preLoaderRoute: typeof ApiProjectsIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/projects/$id': {
+      id: '/api/projects/$id'
+      path: '/api/projects/$id'
+      fullPath: '/api/projects/$id'
+      preLoaderRoute: typeof ApiProjectsIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/shared/$token': {
+      id: '/api/shared/$token'
+      path: '/api/shared/$token'
+      fullPath: '/api/shared/$token'
+      preLoaderRoute: typeof ApiSharedTokenRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/shares/$token': {
+      id: '/api/shares/$token'
+      path: '/$token'
+      fullPath: '/api/shares/$token'
+      preLoaderRoute: typeof ApiSharesTokenRouteImport
+      parentRoute: typeof ApiSharesRoute
+    }
+    '/api/study-plans/': {
+      id: '/api/study-plans/'
+      path: '/api/study-plans'
+      fullPath: '/api/study-plans/'
+      preLoaderRoute: typeof ApiStudyPlansIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/study-plans/$id': {
+      id: '/api/study-plans/$id'
+      path: '/api/study-plans/$id'
+      fullPath: '/api/study-plans/$id'
+      preLoaderRoute: typeof ApiStudyPlansIdRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/learning/sources/ingest': {
@@ -2115,12 +2045,82 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiLearningSourcesIngestRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/api/study-plans/$id/tasks/': {
-      id: '/api/study-plans/$id/tasks/'
-      path: '/tasks'
-      fullPath: '/api/study-plans/$id/tasks/'
-      preLoaderRoute: typeof ApiStudyPlansIdTasksIndexRouteImport
-      parentRoute: typeof ApiStudyPlansIdRoute
+    '/api/lord/agent/execute': {
+      id: '/api/lord/agent/execute'
+      path: '/api/lord/agent/execute'
+      fullPath: '/api/lord/agent/execute'
+      preLoaderRoute: typeof ApiLordAgentExecuteRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/lord/agent/stop': {
+      id: '/api/lord/agent/stop'
+      path: '/api/lord/agent/stop'
+      fullPath: '/api/lord/agent/stop'
+      preLoaderRoute: typeof ApiLordAgentStopRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/lord/browser/action': {
+      id: '/api/lord/browser/action'
+      path: '/api/lord/browser/action'
+      fullPath: '/api/lord/browser/action'
+      preLoaderRoute: typeof ApiLordBrowserActionRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/lord/iot/devices': {
+      id: '/api/lord/iot/devices'
+      path: '/api/lord/iot/devices'
+      fullPath: '/api/lord/iot/devices'
+      preLoaderRoute: typeof ApiLordIotDevicesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/lord/mobile/pair': {
+      id: '/api/lord/mobile/pair'
+      path: '/api/lord/mobile/pair'
+      fullPath: '/api/lord/mobile/pair'
+      preLoaderRoute: typeof ApiLordMobilePairRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/lord/mobile/status': {
+      id: '/api/lord/mobile/status'
+      path: '/api/lord/mobile/status'
+      fullPath: '/api/lord/mobile/status'
+      preLoaderRoute: typeof ApiLordMobileStatusRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/lord/office/excel': {
+      id: '/api/lord/office/excel'
+      path: '/api/lord/office/excel'
+      fullPath: '/api/lord/office/excel'
+      preLoaderRoute: typeof ApiLordOfficeExcelRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/lord/office/powerpoint': {
+      id: '/api/lord/office/powerpoint'
+      path: '/api/lord/office/powerpoint'
+      fullPath: '/api/lord/office/powerpoint'
+      preLoaderRoute: typeof ApiLordOfficePowerpointRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/lord/vision/screen': {
+      id: '/api/lord/vision/screen'
+      path: '/api/lord/vision/screen'
+      fullPath: '/api/lord/vision/screen'
+      preLoaderRoute: typeof ApiLordVisionScreenRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/lord/vision/webcam': {
+      id: '/api/lord/vision/webcam'
+      path: '/api/lord/vision/webcam'
+      fullPath: '/api/lord/vision/webcam'
+      preLoaderRoute: typeof ApiLordVisionWebcamRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/lord/iot/device/action': {
+      id: '/api/lord/iot/device/action'
+      path: '/api/lord/iot/device/action'
+      fullPath: '/api/lord/iot/device/action'
+      preLoaderRoute: typeof ApiLordIotDeviceActionRouteImport
+      parentRoute: typeof rootRouteImport
     }
     '/api/research/$id/sources/': {
       id: '/api/research/$id/sources/'
@@ -2129,18 +2129,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiResearchIdSourcesIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/api/study-plans/$id/tasks/$taskId': {
-      id: '/api/study-plans/$id/tasks/$taskId'
-      path: '/tasks/$taskId'
-      fullPath: '/api/study-plans/$id/tasks/$taskId'
-      preLoaderRoute: typeof ApiStudyPlansIdTasksTaskIdRouteImport
-      parentRoute: typeof ApiStudyPlansIdRoute
-    }
-    '/api/study-plans/$id/ai/suggest': {
-      id: '/api/study-plans/$id/ai/suggest'
-      path: '/ai/suggest'
-      fullPath: '/api/study-plans/$id/ai/suggest'
-      preLoaderRoute: typeof ApiStudyPlansIdAiSuggestRouteImport
+    '/api/study-plans/$id/ai/generate': {
+      id: '/api/study-plans/$id/ai/generate'
+      path: '/ai/generate'
+      fullPath: '/api/study-plans/$id/ai/generate'
+      preLoaderRoute: typeof ApiStudyPlansIdAiGenerateRouteImport
       parentRoute: typeof ApiStudyPlansIdRoute
     }
     '/api/study-plans/$id/ai/optimize': {
@@ -2150,19 +2143,26 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiStudyPlansIdAiOptimizeRouteImport
       parentRoute: typeof ApiStudyPlansIdRoute
     }
-    '/api/study-plans/$id/ai/generate': {
-      id: '/api/study-plans/$id/ai/generate'
-      path: '/ai/generate'
-      fullPath: '/api/study-plans/$id/ai/generate'
-      preLoaderRoute: typeof ApiStudyPlansIdAiGenerateRouteImport
+    '/api/study-plans/$id/ai/suggest': {
+      id: '/api/study-plans/$id/ai/suggest'
+      path: '/ai/suggest'
+      fullPath: '/api/study-plans/$id/ai/suggest'
+      preLoaderRoute: typeof ApiStudyPlansIdAiSuggestRouteImport
       parentRoute: typeof ApiStudyPlansIdRoute
     }
-    '/api/lord/iot/device/action': {
-      id: '/api/lord/iot/device/action'
-      path: '/api/lord/iot/device/action'
-      fullPath: '/api/lord/iot/device/action'
-      preLoaderRoute: typeof ApiLordIotDeviceActionRouteImport
-      parentRoute: typeof rootRouteImport
+    '/api/study-plans/$id/tasks/': {
+      id: '/api/study-plans/$id/tasks/'
+      path: '/tasks'
+      fullPath: '/api/study-plans/$id/tasks/'
+      preLoaderRoute: typeof ApiStudyPlansIdTasksIndexRouteImport
+      parentRoute: typeof ApiStudyPlansIdRoute
+    }
+    '/api/study-plans/$id/tasks/$taskId': {
+      id: '/api/study-plans/$id/tasks/$taskId'
+      path: '/tasks/$taskId'
+      fullPath: '/api/study-plans/$id/tasks/$taskId'
+      preLoaderRoute: typeof ApiStudyPlansIdTasksTaskIdRouteImport
+      parentRoute: typeof ApiStudyPlansIdRoute
     }
   }
 }
