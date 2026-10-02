@@ -3,6 +3,7 @@ import type { UIMessage } from "ai";
 import { requireSupabaseRequestAuth } from "@/integrations/supabase/auth-middleware";
 import { streamChat, isAIConfigurationError, isOpenRouterError } from "@/lib/ai/gateway";
 import { OpenRouterError } from "@/lib/ai/errors";
+import { preferAvailableModels } from "@/lib/ai/model-availability";
 import { apiErrorResponse } from "@/lib/api-error";
 import { buildChatContextMessages } from "./-context";
 import {
@@ -16,6 +17,7 @@ import {
 } from "@/config/lord-config";
 import { buildMemoryPrompt } from "./-memory";
 import { ChatRequestSchema } from "./-schema";
+import { RESPONSE_STYLE_INSTRUCTIONS, type ResponseStyle } from "@/lib/ai/response-style";
 
 export function createChatRoute() {
   return createFileRoute("/api/chat")({
@@ -101,12 +103,12 @@ export function createChatRoute() {
                 );
               }),
             );
-            const freeRoute = hasImage
-              ? null
-              : buildRouteDecision(lastUserText || "general", mode);
-            const modelCandidates = hasImage
+            const freeRoute = hasImage ? null : buildRouteDecision(lastUserText || "general", mode);
+            const rankedModelCandidates = hasImage
               ? [
                   "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+                  "google/gemma-4-31b-it:free",
+                  "google/gemma-4-26b-a4b-it:free",
                 ]
               : freeRoute?.candidates.length
                 ? freeRoute.candidates
@@ -135,6 +137,11 @@ export function createChatRoute() {
                       );
                     })
                     .map((candidate) => candidate.modelId);
+            const modelCandidates = preferAvailableModels(
+              rankedModelCandidates.map((modelId) => ({ modelId })),
+            )
+              .map(({ modelId }) => modelId)
+              .slice(0, 3);
 
             console.info(
               JSON.stringify({
@@ -166,7 +173,7 @@ export function createChatRoute() {
             const chatMessages = buildChatContextMessages(
               parsed.data.messages as unknown as UIMessage[],
               {
-                systemPrompt: LORD_SYSTEM_PROMPT,
+                systemPrompt: `${LORD_SYSTEM_PROMPT}\n\nRESPONSE STYLE\n${RESPONSE_STYLE_INSTRUCTIONS[(context?.responseStyle as ResponseStyle | undefined) ?? "balanced"]}`,
                 memoryPrompt,
                 contextBudgetTokens: Math.floor(contextLimit * 0.7),
                 application: {
@@ -181,7 +188,7 @@ export function createChatRoute() {
               },
             );
 
-            return streamChat(chatMessages, request.signal, selectedCandidates);
+            return streamChat(chatMessages, request.signal, selectedCandidates, requestId);
           } catch (error) {
             console.error(
               JSON.stringify({

@@ -18,7 +18,9 @@ import { ToolsMenu } from "./ToolsMenu";
 import { ModelSelector } from "./ModelSelector";
 import { VoiceRecorder } from "./VoiceRecorder";
 import { CalendarModal } from "@/components/lord/CalendarModal";
+import { toast } from "sonner";
 import type { LordMode } from "@/lib/modes";
+import type { ResponseStyle } from "@/lib/ai/response-style";
 
 type OpenMenu = "attach" | "tools" | null;
 
@@ -33,6 +35,8 @@ function kindOf(file: File): AttachmentKind {
 
 const MAX_HEIGHT = 160;
 const MIN_HEIGHT = 44;
+const MAX_ATTACHMENTS = 10;
+const MAX_FILE_BYTES = 20 * 1024 * 1024;
 
 export function ChatInput({
   value,
@@ -43,6 +47,8 @@ export function ChatInput({
   disabled,
   mode,
   onModeChange,
+  responseStyle,
+  onResponseStyleChange,
 }: {
   value: string;
   onChange: (v: string) => void;
@@ -52,6 +58,8 @@ export function ChatInput({
   disabled?: boolean;
   mode: LordMode;
   onModeChange: (mode: LordMode) => void;
+  responseStyle: ResponseStyle;
+  onResponseStyleChange: (style: ResponseStyle) => void;
 }) {
   const taRef = useRef<HTMLTextAreaElement>(null);
   const rootRef = useRef<HTMLDivElement>(null);
@@ -60,6 +68,7 @@ export function ChatInput({
   const [openMenu, setOpenMenu] = useState<OpenMenu>(null);
   const [dragging, setDragging] = useState(false);
   const [calendarOpen, setCalendarOpen] = useState(false);
+  const previewUrlsRef = useRef(new Set<string>());
 
   useLayoutEffect(() => {
     const ta = taRef.current;
@@ -74,6 +83,20 @@ export function ChatInput({
     };
     const onKey = (e: globalThis.KeyboardEvent) => {
       if (e.key === "Escape") setOpenMenu(null);
+      if (
+        e.key === "/" &&
+        !e.ctrlKey &&
+        !e.metaKey &&
+        !e.altKey &&
+        !(
+          e.target instanceof HTMLInputElement ||
+          e.target instanceof HTMLTextAreaElement ||
+          (e.target instanceof HTMLElement && e.target.isContentEditable)
+        )
+      ) {
+        e.preventDefault();
+        taRef.current?.focus();
+      }
     };
     document.addEventListener("mousedown", onDown);
     document.addEventListener("keydown", onKey);
@@ -84,8 +107,22 @@ export function ChatInput({
   }, []);
 
   const addFiles = (files: FileList | File[]) => {
-    const next: Attachment[] = Array.from(files).map((file) => {
+    const currentCount = attachments.length;
+    const candidates = Array.from(files)
+      .filter((file) => {
+        if (file.size > MAX_FILE_BYTES) {
+          toast.error(`${file.name} is larger than the 20 MB attachment limit.`);
+          return false;
+        }
+        return true;
+      })
+      .slice(0, Math.max(0, MAX_ATTACHMENTS - currentCount));
+    if (candidates.length < Array.from(files).filter((file) => file.size <= MAX_FILE_BYTES).length)
+      toast.error(`You can attach up to ${MAX_ATTACHMENTS} files per message.`);
+    const next: Attachment[] = candidates.map((file) => {
       const kind = kindOf(file);
+      const previewUrl = kind === "image" ? URL.createObjectURL(file) : undefined;
+      if (previewUrl) previewUrlsRef.current.add(previewUrl);
       return {
         id:
           typeof crypto !== "undefined" && "randomUUID" in crypto
@@ -95,7 +132,7 @@ export function ChatInput({
         size: file.size,
         kind,
         file,
-        previewUrl: kind === "image" ? URL.createObjectURL(file) : undefined,
+        previewUrl,
       };
     });
     setAttachments((prev) => [...prev, ...next]);
@@ -104,16 +141,20 @@ export function ChatInput({
   const removeAttachment = (id: string) => {
     setAttachments((prev) => {
       const found = prev.find((a) => a.id === id);
-      if (found?.previewUrl) URL.revokeObjectURL(found.previewUrl);
+      if (found?.previewUrl) {
+        URL.revokeObjectURL(found.previewUrl);
+        previewUrlsRef.current.delete(found.previewUrl);
+      }
       return prev.filter((a) => a.id !== id);
     });
   };
 
   useEffect(() => {
+    const urls = previewUrlsRef.current;
     return () => {
-      attachments.forEach((a) => a.previewUrl && URL.revokeObjectURL(a.previewUrl));
+      urls.forEach((url) => URL.revokeObjectURL(url));
+      urls.clear();
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const handleSend = () => {
@@ -125,6 +166,12 @@ export function ChatInput({
     if (!text || disabled) return;
     onSend({ text, attachments, tool: activeTool });
     onChange("");
+    attachments.forEach((file) => {
+      if (file.previewUrl) {
+        URL.revokeObjectURL(file.previewUrl);
+        previewUrlsRef.current.delete(file.previewUrl);
+      }
+    });
     setAttachments([]);
   };
 
@@ -277,11 +324,27 @@ export function ChatInput({
             onPaste={handlePaste}
             rows={1}
             placeholder="Ask LordAI anything..."
+            aria-label="Message LORD AI"
+            aria-describedby="chat-input-hint"
             className="max-h-40 min-h-[44px] flex-1 resize-none bg-transparent px-1 py-2.5 text-sm leading-6 text-white outline-none placeholder:text-white/40"
           />
+          <span id="chat-input-hint" className="sr-only">
+            Press Enter to send, Shift plus Enter for a new line, or slash to focus the message box.
+          </span>
 
           <div className="flex items-center gap-1.5">
             <ModelSelector value={mode} onChange={onModeChange} />
+            <select
+              aria-label="Response style"
+              value={responseStyle}
+              onChange={(event) => onResponseStyleChange(event.target.value as ResponseStyle)}
+              className="h-9 max-w-28 rounded-full border border-white/10 bg-slate-900 px-2 text-xs text-white/75 outline-none focus-visible:ring-2 focus-visible:ring-cyan-400"
+            >
+              <option value="balanced">Balanced</option>
+              <option value="concise">Concise</option>
+              <option value="detailed">Detailed</option>
+              <option value="step-by-step">Step by step</option>
+            </select>
             <motion.button
               type="button"
               onClick={() => setCalendarOpen(true)}

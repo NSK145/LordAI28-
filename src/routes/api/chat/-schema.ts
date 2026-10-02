@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { LORD_MODES, type LordMode } from "@/lib/ai/models";
+import { RESPONSE_STYLES } from "@/lib/ai/response-style";
 
 export const MODE_ENUM: [LordMode, ...LordMode[]] = [...LORD_MODES];
 
@@ -22,6 +23,7 @@ export const ChatRequestSchema = z.object({
       page: z.string().max(200).optional(),
       workflow: z.string().max(200).nullable().optional(),
       projectId: z.string().uuid().optional().nullable(),
+      responseStyle: z.enum(RESPONSE_STYLES).optional(),
     })
     .passthrough()
     .optional(),

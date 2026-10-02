@@ -63,4 +63,27 @@ describe("chat context builder", () => {
       content: "Now continue the authentication system.",
     });
   });
+
+  it("keeps attached image bytes on the latest user turn for fallback and retry", () => {
+    const imageUrl = "data:image/png;base64,aGVsbG8=";
+    const current: UIMessage = {
+      id: "image-question",
+      role: "user",
+      parts: [
+        { type: "text", text: "What is in this image?" },
+        {
+          type: "file",
+          mediaType: "image/png",
+          filename: "question.png",
+          url: imageUrl,
+        },
+      ],
+    };
+
+    expect(buildChatContextMessages([current], options).at(-1)).toEqual({
+      role: "user",
+      content: "What is in this image?",
+      images: [imageUrl],
+    });
+  });
 });

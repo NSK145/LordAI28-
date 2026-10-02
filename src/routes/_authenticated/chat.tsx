@@ -3,7 +3,16 @@ import { useChat } from "@ai-sdk/react";
 import { DefaultChatTransport, type UIMessage } from "ai";
 import { useState, useRef, useEffect, useMemo, useCallback } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { LayoutPanelLeft, Copy, Check, RefreshCcw } from "lucide-react";
+import {
+  LayoutPanelLeft,
+  Copy,
+  Check,
+  RefreshCcw,
+  Search,
+  Pin,
+  ThumbsUp,
+  ThumbsDown,
+} from "lucide-react";
 import { toast } from "sonner";
 import { AppShell } from "@/components/lord/AppShell";
 import { Toaster } from "@/components/ui/sonner";
@@ -40,6 +49,11 @@ import { cn } from "@/lib/utils";
 import { parseLordError, formatUserFacingError, type LordError } from "@/lib/lord-error";
 import { useMessageRealtime } from "@/lib/realtime/use-realtime-sync";
 import { createClientTag, markClientTagSent } from "@/lib/realtime/client-tag";
+import {
+  RESPONSE_STYLES,
+  RESPONSE_STYLE_INSTRUCTIONS,
+  type ResponseStyle,
+} from "@/lib/ai/response-style";
 import {
   detectMemories,
   detectSensitive,
@@ -153,6 +167,22 @@ function messagesEqual(a: UIMessage[], b: UIMessage[]): boolean {
   for (let i = 0; i < a.length; i++) {
     if (a[i].id !== b[i].id || a[i].role !== b[i].role) return false;
     if (getMessageText(a[i]) !== getMessageText(b[i])) return false;
+    const filesA = a[i].parts.filter((part) => part.type === "file");
+    const filesB = b[i].parts.filter((part) => part.type === "file");
+    if (filesA.length !== filesB.length) return false;
+    for (let fileIndex = 0; fileIndex < filesA.length; fileIndex++) {
+      const left = filesA[fileIndex];
+      const right = filesB[fileIndex];
+      if (
+        left.type !== "file" ||
+        right.type !== "file" ||
+        left.filename !== right.filename ||
+        left.mediaType !== right.mediaType ||
+        left.url !== right.url
+      ) {
+        return false;
+      }
+    }
   }
   return true;
 }
@@ -174,6 +204,32 @@ function ChatPage() {
   const calendar = useCalendar();
 
   const [mode, setMode] = usePersistedState<LordMode>("chat-mode", DEFAULT_MODE);
+  const [responseStyle, setResponseStyle] = usePersistedState<ResponseStyle>(
+    "chat-response-style",
+    "balanced",
+  );
+  const [messageSearch, setMessageSearch] = useState("");
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [pinnedMessages, setPinnedMessages] = usePersistedState<string[]>(
+    `chat-pins-${user.id}`,
+    [],
+  );
+  const [messageFeedback, setMessageFeedback] = usePersistedState<Record<string, "up" | "down">>(
+    `chat-feedback-${user.id}`,
+    {},
+  );
+  const searchInputRef = useRef<HTMLInputElement>(null);
+  useEffect(() => {
+    const onShortcut = (event: KeyboardEvent) => {
+      if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "f") {
+        event.preventDefault();
+        setSearchOpen(true);
+        requestAnimationFrame(() => searchInputRef.current?.focus());
+      }
+    };
+    window.addEventListener("keydown", onShortcut);
+    return () => window.removeEventListener("keydown", onShortcut);
+  }, []);
   const { data: userSettings } = useQuery({
     queryKey: ["user_settings"],
     queryFn: getUserSettings,
@@ -287,12 +343,12 @@ function ChatPage() {
   const modeRef = useRef<LordMode>(mode);
   const requestBodyRef = useRef({
     mode,
-    context: { page: currentRoute, workflow: activeWorkflow, metrics, history },
+    context: { page: currentRoute, workflow: activeWorkflow, metrics, history, responseStyle },
   });
 
   requestBodyRef.current = {
     mode,
-    context: { page: currentRoute, workflow: activeWorkflow, metrics, history },
+    context: { page: currentRoute, workflow: activeWorkflow, metrics, history, responseStyle },
   };
   modeRef.current = mode;
 
@@ -1696,11 +1752,20 @@ function ChatPage() {
       <ul className="flex w-full flex-col gap-4">
         {safeMessages.map((m, idx) => {
           const isLast = idx === safeMessages.length - 1;
+          const isLatestUser =
+            m.role === "user" && !safeMessages.slice(idx + 1).some((item) => item.role === "user");
           const text = m.parts
             .filter((p) => (p as { type: string }).type === "text")
             .map((p) => (p as { text?: string }).text ?? "")
             .join("");
+          const fileParts = m.parts
+            .filter((part) => (part as { type?: string }).type === "file")
+            .map((part) => part as { filename?: string; mediaType?: string; url?: string });
           const isStreaming = isLast && m.role === "assistant" && busy;
+          const isPinned = pinnedMessages.includes(m.id);
+          const searchMatch = Boolean(
+            messageSearch.trim() && text.toLowerCase().includes(messageSearch.trim().toLowerCase()),
+          );
           // AI-SDK embeds backend failures as `error` parts (text is a JSON
           // `LordError`). Render them with the real, request-correlated message
           // instead of silently dropping them (which previously left the user
@@ -1720,6 +1785,8 @@ function ChatPage() {
               className={cn(
                 "flex min-w-0 gap-2 md:gap-3",
                 m.role === "user" ? "justify-end" : "justify-start",
+                searchMatch && "rounded-xl ring-2 ring-cyan-400/70",
+                isPinned && "border-l-2 border-amber-400 pl-2",
               )}
             >
               {m.role === "assistant" && <Avatar />}
@@ -1730,8 +1797,52 @@ function ChatPage() {
                 )}
               >
                 {m.role === "user" ? (
-                  <div className="whitespace-pre-wrap rounded-[24px] bg-primary px-3 py-2.5 text-sm leading-relaxed text-primary-foreground md:px-4">
-                    {text}
+                  <div className="max-w-full">
+                    <div className="rounded-[24px] bg-primary px-3 py-2.5 text-sm leading-relaxed text-primary-foreground md:px-4">
+                      {text && <div className="whitespace-pre-wrap">{text}</div>}
+                      {fileParts.length > 0 && (
+                        <div className={cn("space-y-2", text && "mt-3")}>
+                          {fileParts.map((file, fileIndex) =>
+                            file.mediaType?.startsWith("image/") &&
+                            file.url?.startsWith("data:image/") ? (
+                              <img
+                                key={`${file.filename ?? "image"}-${fileIndex}`}
+                                src={file.url}
+                                alt={file.filename || "Attached image"}
+                                loading="lazy"
+                                className="max-h-72 max-w-full rounded-xl object-contain"
+                              />
+                            ) : (
+                              <div
+                                key={`${file.filename ?? "file"}-${fileIndex}`}
+                                className="rounded-lg bg-black/10 px-2 py-1 text-xs"
+                              >
+                                {file.filename || "Attached file"}
+                              </div>
+                            ),
+                          )}
+                        </div>
+                      )}
+                    </div>
+                    {isLatestUser && !busy && text.trim() && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setInput(text);
+                          requestAnimationFrame(() =>
+                            document
+                              .querySelector<HTMLTextAreaElement>(
+                                'textarea[aria-label="Message LORD AI"]',
+                              )
+                              ?.focus(),
+                          );
+                        }}
+                        aria-label="Edit last message and send a revised version"
+                        className="mt-1 rounded-md px-2 py-1 text-[11px] text-muted-foreground hover:bg-primary/10 hover:text-primary"
+                      >
+                        Edit prompt
+                      </button>
+                    )}
                   </div>
                 ) : (
                   <div className="text-sm text-foreground">
@@ -1762,6 +1873,25 @@ function ChatPage() {
                         text={text}
                         canRegenerate={isLast && !busy}
                         onRegenerate={regenerateLast}
+                        pinned={isPinned}
+                        feedback={messageFeedback[m.id]}
+                        onPin={() =>
+                          setPinnedMessages((prev) =>
+                            isPinned ? prev.filter((id) => id !== m.id) : [...prev, m.id],
+                          )
+                        }
+                        onFeedback={(value) =>
+                          setMessageFeedback((prev) => ({ ...prev, [m.id]: value }))
+                        }
+                        onStudy={(kind) => {
+                          const prompts = {
+                            flashcards:
+                              "Turn your previous answer into 8 concise flashcards. Format each as Question — Answer, with no extra preface.",
+                            quiz: "Create a 5-question quiz based on your previous answer. Include an answer key after the questions.",
+                            plan: "Turn your previous answer into a practical 7-day study plan with daily goals and short practice tasks.",
+                          };
+                          void submit({ text: prompts[kind], attachments: [], tool: null });
+                        }}
                       />
                     )}
                   </div>
@@ -1868,8 +1998,54 @@ function ChatPage() {
                     conversations.find((c) => c.id === conversationId)?.title ?? "New conversation"
                   }
                 />
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSearchOpen((open) => !open);
+                    requestAnimationFrame(() => searchInputRef.current?.focus());
+                  }}
+                  aria-label="Search this conversation (Ctrl+F)"
+                  className="rounded-md p-2 text-muted-foreground hover:bg-primary/10 hover:text-primary"
+                >
+                  <Search className="h-4 w-4" />
+                </button>
               </div>
             </div>
+            {searchOpen && (
+              <div className="flex items-center gap-2 px-3 pb-2 md:px-6">
+                <input
+                  ref={searchInputRef}
+                  value={messageSearch}
+                  onChange={(event) => setMessageSearch(event.target.value)}
+                  placeholder="Search this conversation…"
+                  aria-label="Search messages"
+                  className="h-9 flex-1 rounded-lg border border-border bg-background/60 px-3 text-sm"
+                />
+                <span className="text-xs text-muted-foreground">
+                  {messageSearch
+                    ? safeMessages.filter((item) =>
+                        item.parts.some(
+                          (part) =>
+                            (part as { type?: string }).type === "text" &&
+                            ((part as { text?: string }).text ?? "")
+                              .toLowerCase()
+                              .includes(messageSearch.toLowerCase()),
+                        ),
+                      ).length + " matches"
+                    : "Ctrl+F"}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSearchOpen(false);
+                    setMessageSearch("");
+                  }}
+                  className="text-xs text-muted-foreground"
+                >
+                  Close
+                </button>
+              </div>
+            )}
 
             <div className="relative flex min-h-0 flex-1 flex-col">
               <div
@@ -1919,6 +2095,8 @@ function ChatPage() {
                   streaming={streaming}
                   disabled={savingMessage}
                   mode={mode}
+                  responseStyle={responseStyle}
+                  onResponseStyleChange={setResponseStyle}
                   onModeChange={(m) => {
                     setMode(m);
                     emitDashboardEvent("ai");
@@ -1948,10 +2126,20 @@ function MessageActions({
   text,
   canRegenerate,
   onRegenerate,
+  pinned,
+  feedback,
+  onPin,
+  onFeedback,
+  onStudy,
 }: {
   text: string;
   canRegenerate: boolean;
   onRegenerate: () => void;
+  pinned: boolean;
+  feedback?: "up" | "down";
+  onPin: () => void;
+  onFeedback: (value: "up" | "down") => void;
+  onStudy: (kind: "flashcards" | "quiz" | "plan") => void;
 }) {
   const [copied, setCopied] = useState(false);
   const copy = async () => {
@@ -1988,6 +2176,71 @@ function MessageActions({
           Regenerate
         </button>
       )}
+      <button
+        type="button"
+        onClick={onPin}
+        aria-pressed={pinned}
+        aria-label={pinned ? "Unpin answer" : "Pin answer"}
+        className={cn(
+          "inline-flex items-center gap-1 rounded-md px-2 py-1 text-[11px]",
+          pinned ? "text-amber-400" : "text-muted-foreground hover:text-primary",
+        )}
+      >
+        <Pin className="h-3 w-3" />
+        {pinned ? "Pinned" : "Pin"}
+      </button>
+      <button
+        type="button"
+        onClick={() => onFeedback("up")}
+        aria-label="Helpful answer"
+        aria-pressed={feedback === "up"}
+        className={cn(
+          "rounded-md p-1",
+          feedback === "up" ? "text-emerald-400" : "text-muted-foreground hover:text-primary",
+        )}
+      >
+        <ThumbsUp className="h-3 w-3" />
+      </button>
+      <button
+        type="button"
+        onClick={() => onFeedback("down")}
+        aria-label="Unhelpful answer"
+        aria-pressed={feedback === "down"}
+        className={cn(
+          "rounded-md p-1",
+          feedback === "down" ? "text-rose-400" : "text-muted-foreground hover:text-primary",
+        )}
+      >
+        <ThumbsDown className="h-3 w-3" />
+      </button>
+      <details className="relative">
+        <summary className="cursor-pointer list-none rounded-md px-2 py-1 text-[11px] text-muted-foreground hover:text-primary">
+          Study tools ▾
+        </summary>
+        <div className="absolute left-0 z-20 mt-1 flex min-w-36 flex-col rounded-lg border border-border bg-background p-1 shadow-xl">
+          <button
+            type="button"
+            onClick={() => onStudy("flashcards")}
+            className="rounded px-2 py-1.5 text-left text-xs hover:bg-primary/10"
+          >
+            Make flashcards
+          </button>
+          <button
+            type="button"
+            onClick={() => onStudy("quiz")}
+            className="rounded px-2 py-1.5 text-left text-xs hover:bg-primary/10"
+          >
+            Create a quiz
+          </button>
+          <button
+            type="button"
+            onClick={() => onStudy("plan")}
+            className="rounded px-2 py-1.5 text-left text-xs hover:bg-primary/10"
+          >
+            Build study plan
+          </button>
+        </div>
+      </details>
     </div>
   );
 }
