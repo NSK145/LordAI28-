@@ -31,6 +31,7 @@ export function normalizeOpenRouterError(error: unknown): OpenRouterError {
 export function errorFromStatus(status: number, cause?: unknown): OpenRouterError {
   if (status === 401) return new OpenRouterError("invalid_api_key", status, cause);
   if (status === 429) return new OpenRouterError("rate_limit", status, cause);
+  if (status === 404) return new OpenRouterError("unavailable", status, cause);
   if (status >= 500) return new OpenRouterError("unavailable", status, cause);
   return new OpenRouterError("request", status, cause);
 }

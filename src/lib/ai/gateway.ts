@@ -45,10 +45,18 @@ export function streamChat(
         let completed = false;
         for (const [index, modelId] of models.entries()) {
           activeModel = modelId;
+          const attempt = createModelAttemptSignal(signal, 45_000);
+          let attemptEmittedText = false;
           try {
-            for await (const token of client.streamChat(messages, modelId, signal)) {
-              if (token) emittedText = true;
+            for await (const token of client.streamChat(messages, modelId, attempt.signal)) {
+              if (token) {
+                emittedText = true;
+                attemptEmittedText = true;
+              }
               writer.write({ type: "text-delta", id: messageId, delta: token });
+            }
+            if (!attemptEmittedText) {
+              throw new OpenRouterError("unavailable");
             }
             completed = true;
             break;
@@ -60,7 +68,8 @@ export function streamChat(
               index < models.length - 1 &&
               (normalized.kind === "network" ||
                 normalized.kind === "rate_limit" ||
-                normalized.kind === "unavailable");
+                normalized.kind === "unavailable" ||
+                normalized.kind === "request");
             if (!canRetry) throw error;
             console.warn("Model candidate failed; trying configured fallback", {
               model: modelId,
@@ -68,6 +77,8 @@ export function streamChat(
               error: normalized.message,
               status: normalized.status,
             });
+          } finally {
+            attempt.dispose();
           }
         }
         if (!completed) throw new Error("No configured model candidate completed the request.");
@@ -93,6 +104,32 @@ export function streamChat(
   });
 
   return createUIMessageStreamResponse({ stream });
+}
+
+function createModelAttemptSignal(
+  requestSignal: AbortSignal | undefined,
+  timeoutMs: number,
+): { signal: AbortSignal; dispose: () => void } {
+  const controller = new AbortController();
+  const abortFromRequest = () => controller.abort(requestSignal?.reason);
+  const timeout = setTimeout(
+    () => controller.abort(new DOMException("Model request timed out.", "TimeoutError")),
+    timeoutMs,
+  );
+
+  if (requestSignal?.aborted) {
+    abortFromRequest();
+  } else {
+    requestSignal?.addEventListener("abort", abortFromRequest, { once: true });
+  }
+
+  return {
+    signal: controller.signal,
+    dispose: () => {
+      clearTimeout(timeout);
+      requestSignal?.removeEventListener("abort", abortFromRequest);
+    },
+  };
 }
 
 export function isAIConfigurationError(error: unknown): error is AIConfigurationError {

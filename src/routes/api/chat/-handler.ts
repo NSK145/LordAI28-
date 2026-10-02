@@ -9,7 +9,7 @@ import {
   CHAT_MODEL_MAP,
   DEFAULT_MODEL_ID,
   classifyTask,
-  findBestFreeModel,
+  buildRouteDecision,
   getModeCandidates,
   LORD_IDENTITY,
   LORD_SYSTEM_PROMPT,
@@ -101,15 +101,29 @@ export function createChatRoute() {
                 );
               }),
             );
-            const bestFreeModel = hasImage
+            const freeRoute = hasImage
               ? null
-              : findBestFreeModel(lastUserText || "general", taskType, mode);
-            // OpenRouter's free router selects only $0 models and filters for image
-            // understanding when an image part is included in the request.
+              : buildRouteDecision(lastUserText || "general", mode);
             const modelCandidates = hasImage
-              ? ["google/gemma-4-26b-a4b-it:free", "openrouter/free"]
-              : bestFreeModel
-                ? [bestFreeModel.modelId]
+              ? [
+                  "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+                ]
+              : freeRoute?.candidates.length
+                ? freeRoute.candidates
+                    .map((modelId) => ({
+                      modelId,
+                      provider: CHAT_MODEL_MAP.get(modelId)?.provider,
+                      definition: CHAT_MODEL_MAP.get(modelId),
+                    }))
+                    .filter((candidate) => {
+                      return (
+                        candidate.provider === "openrouter" &&
+                        candidate.definition !== undefined &&
+                        candidate.definition.pricing.inputPer1MTokens === 0 &&
+                        candidate.definition.pricing.outputPer1MTokens === 0
+                      );
+                    })
+                    .map((candidate) => candidate.modelId)
                 : getModeCandidates(mode, parsed.data.modelId)
                     .filter((candidate) => {
                       const definition = CHAT_MODEL_MAP.get(candidate.modelId);
@@ -122,7 +136,16 @@ export function createChatRoute() {
                     })
                     .map((candidate) => candidate.modelId);
 
-            if (!hasImage && bestFreeModel === null && modelCandidates.length === 0) {
+            console.info(
+              JSON.stringify({
+                event: "chat_model_selection",
+                requestId,
+                hasImage,
+                candidates: modelCandidates,
+              }),
+            );
+
+            if (!hasImage && modelCandidates.length === 0) {
               return apiErrorResponse(
                 503,
                 "AI_NOT_CONFIGURED",

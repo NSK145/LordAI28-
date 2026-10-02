@@ -99,6 +99,10 @@ function isOptimisticId(id: string): boolean {
   return id.startsWith(OPTIMISTIC_ID_PREFIX);
 }
 
+function isUuid(value: string): boolean {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
+}
+
 function createOptimisticConversation(userId: string, title: string): OptimisticConversationRow {
   const now = new Date().toISOString();
   return {
@@ -544,6 +548,13 @@ function ChatPage() {
             );
             setPersistenceError(insertError.message);
           } else {
+            if (assistantMessage) {
+              setMessages((prev) =>
+                prev.map((item) =>
+                  item.id === assistantMessage.id ? { ...item, id: assistantMessageId } : item,
+                ),
+              );
+            }
             console.info(
               JSON.stringify({
                 event: "supabase_insert_success",
@@ -1558,7 +1569,12 @@ function ChatPage() {
     try {
       setPersistenceError(null);
       setSavingMessage(true);
-      if (activeConversationId && !isOptimisticId(activeConversationId) && lastAssistant) {
+      if (
+        activeConversationId &&
+        !isOptimisticId(activeConversationId) &&
+        lastAssistant &&
+        isUuid(lastAssistant.id)
+      ) {
         const { error: deleteError } = await supabase
           .from("messages")
           .delete()
