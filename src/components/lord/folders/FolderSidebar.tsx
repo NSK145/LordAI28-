@@ -373,7 +373,7 @@ export function FolderSidebar({
         <button
           onClick={openNewDialog}
           aria-label="New folder"
-          className="rounded-md border border-border/60 bg-background/40 p-1.5 text-muted-foreground transition hover:text-primary"
+          className="rounded-xl border border-border bg-card/60 p-2 text-muted-foreground transition-colors duration-200 hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/70"
         >
           <FolderPlus className="h-3.5 w-3.5" />
         </button>
@@ -381,7 +381,7 @@ export function FolderSidebar({
     >
       <button
         onClick={onNew}
-        className="flex items-center justify-center gap-2 rounded-md bg-primary/20 px-3 py-2 text-xs font-semibold text-primary transition hover:bg-primary/30"
+        className="flex items-center justify-center gap-2 rounded-xl bg-primary px-3 py-2.5 text-sm font-semibold text-primary-foreground transition-colors duration-200 hover:bg-primary/90 active:scale-[0.99] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/70"
       >
         <Plus className="h-3.5 w-3.5" />
         New Chat
@@ -393,7 +393,7 @@ export function FolderSidebar({
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           placeholder="Search chats & folders…"
-          className="w-full rounded-md border border-border/60 bg-background/40 py-1.5 pl-7 pr-2 text-xs outline-none focus:border-primary"
+          className="w-full rounded-xl border border-border bg-background/70 py-2.5 pl-8 pr-3 text-sm text-foreground outline-none transition-colors placeholder:text-muted-foreground focus:border-primary/60 focus:ring-2 focus:ring-primary/15"
         />
       </div>
 

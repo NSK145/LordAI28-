@@ -25,6 +25,8 @@ import type { ConversationWithFolder } from "@/lib/folders";
 import { RichMessage } from "@/components/lord/RichMessage";
 import { TypingDots } from "@/components/lord/TypingDots";
 import { ChatInput } from "@/components/lord/chat/input/ChatInput";
+import { ModelSelector } from "@/components/lord/chat/input/ModelSelector";
+import { ChatAttachmentPreview, type ChatAttachmentReference } from "@/components/lord/chat/ChatAttachmentPreview";
 import { ChatErrorBoundary } from "@/components/lord/ChatErrorBoundary";
 import ImageGenModal from "@/components/lord/ImageGenModal";
 import { detectImageIntent } from "@/lib/ai/image";
@@ -42,12 +44,21 @@ import { tokenUsageStore, type TokenUsageEvent } from "@/lib/token-usage-store";
 import { getUserSettings } from "@/lib/user-settings.functions";
 import { supabase } from "@/integrations/supabase/client";
 import { getApiBaseUrl } from "@/lib/api-config";
-import { getSupabaseAuthHeaders } from "@/lib/authenticated-fetch";
+import {
+  getOfflineConversations,
+  getOfflineMessages,
+  hydrateOfflineConversations,
+  hydrateOfflineMessages,
+  saveOfflineConversations,
+  saveOfflineMessages,
+} from "@/lib/chat-offline-cache";
+import { authenticatedFetch, getSupabaseAuthHeaders } from "@/lib/authenticated-fetch";
 import { emitDashboardEvent } from "@/lib/dashboard-service";
 import { generateChatTitle, shouldGenerateTitle } from "@/lib/chat-title";
 import { cancelTitleGeneration, generateConversationTitle } from "@/lib/title-service";
 import { cn } from "@/lib/utils";
 import { parseLordError, formatUserFacingError, type LordError } from "@/lib/lord-error";
+import { getSafeErrorMessage } from "@/lib/api-error";
 import { useMessageRealtime } from "@/lib/realtime/use-realtime-sync";
 import { createClientTag, markClientTagSent } from "@/lib/realtime/client-tag";
 import {
@@ -118,6 +129,43 @@ function isUuid(value: string): boolean {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
 }
 
+const fileDataUrlCache = new WeakMap<File, Promise<string>>();
+
+function fileAsDataUrl(file: File): Promise<string> {
+  const cached = fileDataUrlCache.get(file);
+  if (cached) return cached;
+  const promise = new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result));
+    reader.onerror = () => reject(new Error(`Could not read ${file.name}.`));
+    reader.readAsDataURL(file);
+  });
+  fileDataUrlCache.set(file, promise);
+  void promise.catch(() => fileDataUrlCache.delete(file));
+  return promise;
+}
+
+function attachmentReferences(metadata: unknown): ChatAttachmentReference[] {
+  if (!metadata || typeof metadata !== "object") return [];
+  const raw = (metadata as { chatAttachments?: unknown }).chatAttachments;
+  if (!Array.isArray(raw)) return [];
+  return raw.filter(
+    (item): item is ChatAttachmentReference =>
+      Boolean(item) &&
+      typeof item === "object" &&
+      typeof (item as ChatAttachmentReference).filename === "string" &&
+      typeof (item as ChatAttachmentReference).mediaType === "string" &&
+      typeof (item as ChatAttachmentReference).size === "number" &&
+      typeof (item as ChatAttachmentReference).storagePath === "string",
+  );
+}
+
+function metadataColumnMissing(error: unknown): boolean {
+  const message = getSafeErrorMessage(error).toLowerCase();
+  return message.includes("metadata") &&
+    (message.includes("column") || message.includes("schema cache"));
+}
+
 function createOptimisticConversation(userId: string, title: string): OptimisticConversationRow {
   const now = new Date().toISOString();
   return {
@@ -141,6 +189,7 @@ interface MessageRow {
   created_at: string;
   streaming?: boolean;
   client_tag?: string | null;
+  metadata?: Record<string, unknown> | null;
 }
 
 // Stable empty references so that a `useQuery` result with no data does NOT
@@ -205,7 +254,7 @@ function ChatPage() {
   const calendar = useCalendar();
 
   const [mode, setMode] = usePersistedState<LordMode>("chat-mode", DEFAULT_MODE);
-  const [responseStyle, setResponseStyle] = usePersistedState<ResponseStyle>(
+  const [responseStyle] = usePersistedState<ResponseStyle>(
     "chat-response-style",
     "balanced",
   );
@@ -246,13 +295,42 @@ function ChatPage() {
     }
   }, [userSettings, setMode]);
   const [input, setInput] = useState("");
+  const [editingMessageId, setEditingMessageId] = useState<string | null>(null);
   const [imageModalOpen, setImageModalOpen] = useState(false);
   const [imagePrompt, setImagePrompt] = useState("");
   const [conversationId, setConversationId] = useState<string | null>(null);
 
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [persistenceError, setPersistenceError] = useState<string | null>(null);
+  const [failedPayload, setFailedPayload] = useState<ChatSubmitPayload | null>(null);
+  const [networkOnline, setNetworkOnline] = useState(() =>
+    typeof navigator === "undefined" ? true : navigator.onLine,
+  );
   const [savingMessage, setSavingMessage] = useState(false);
+  const [processingLabel, setProcessingLabel] = useState<string | null>(null);
+  const [composerResetKey, setComposerResetKey] = useState(0);
+  const [composerResetAttachmentIds, setComposerResetAttachmentIds] = useState<string[]>([]);
+  useEffect(() => {
+    const updateNetworkStatus = () => setNetworkOnline(navigator.onLine);
+    window.addEventListener("online", updateNetworkStatus);
+    window.addEventListener("offline", updateNetworkStatus);
+    let disposed = false;
+    let removeNativeListener: () => void = () => {};
+    void import("@/lib/mobile-native").then(async ({ isNativeMobile, mobileNetwork }) => {
+      if (!isNativeMobile()) return;
+      const nativeStatus = await mobileNetwork.status().catch(() => null);
+      if (nativeStatus) setNetworkOnline(nativeStatus.connected);
+      const listener = await mobileNetwork.listen(({ connected }) => setNetworkOnline(connected));
+      if (disposed) void listener.remove();
+      else removeNativeListener = () => void listener.remove();
+    });
+    return () => {
+      disposed = true;
+      window.removeEventListener("online", updateNetworkStatus);
+      window.removeEventListener("offline", updateNetworkStatus);
+      removeNativeListener();
+    };
+  }, []);
   const [pendingInitialSend, setPendingInitialSend] = useState<{
     conversationId: string;
     message: UIMessage;
@@ -371,6 +449,10 @@ function ChatPage() {
   // Conversations list (Supabase)
   const { data: conversationsData } = useQuery({
     queryKey: ["conversations", user.id],
+    initialData: () => {
+      const cached = getOfflineConversations<ConversationRow>(user.id);
+      return cached.length ? cached : undefined;
+    },
     queryFn: async () => {
       const { data, error } = await supabase
         .from("conversations")
@@ -380,6 +462,21 @@ function ChatPage() {
       return data as ConversationRow[];
     },
   });
+  useEffect(() => {
+    if (conversationsData) saveOfflineConversations(user.id, conversationsData);
+  }, [conversationsData, user.id]);
+  useEffect(() => {
+    let active = true;
+    const queryKey = ["conversations", user.id] as const;
+    if (!qc.getQueryData(queryKey)) {
+      void hydrateOfflineConversations<ConversationRow>(user.id).then((rows) => {
+        if (active && rows.length && !qc.getQueryData(queryKey)) qc.setQueryData(queryKey, rows);
+      });
+    }
+    return () => {
+      active = false;
+    };
+  }, [qc, user.id]);
   const conversations = conversationsData ?? EMPTY_CONVERSATIONS;
   // Keep the key stable and shared by every cache mutation in this route.
   const conversationsQueryKey = useMemo(() => ["conversations", user.id] as const, [user.id]);
@@ -416,6 +513,11 @@ function ChatPage() {
     isFetching: messagesFetching,
   } = useQuery({
     queryKey: ["messages", conversationId],
+    initialData: () => {
+      if (!conversationId || isOptimisticId(conversationId)) return undefined;
+      const cached = getOfflineMessages<MessageRow>(user.id, conversationId);
+      return cached.length ? cached : undefined;
+    },
     // Temporary ids are UI-only. In particular, never serialize one into a
     // PostgREST filter for the UUID conversation_id column.
     enabled: !!conversationId && !isOptimisticId(conversationId),
@@ -429,6 +531,22 @@ function ChatPage() {
       return data as MessageRow[];
     },
   });
+  useEffect(() => {
+    if (!conversationId || isOptimisticId(conversationId)) return;
+    if (storedMessagesData) saveOfflineMessages(user.id, conversationId, storedMessagesData);
+    let active = true;
+    const queryKey = ["messages", conversationId] as const;
+    if (!qc.getQueryData(queryKey)) {
+      void hydrateOfflineMessages<MessageRow>(user.id, conversationId).then((rows) => {
+        if (active && rows.length && !qc.getQueryData(queryKey)) {
+          qc.setQueryData(queryKey, rows);
+        }
+      });
+    }
+    return () => {
+      active = false;
+    };
+  }, [conversationId, qc, storedMessagesData, user.id]);
   // Fall back to a *stable* empty array (not a fresh `[]` each render) so that
   // `initialMessages` keeps a stable identity while the query has no data.
   const storedMessages = storedMessagesData ?? EMPTY_STORED_MESSAGES;
@@ -441,6 +559,7 @@ function ChatPage() {
           id: m.id,
           role: m.role as "user" | "assistant",
           parts: [{ type: "text", text: m.content }],
+          metadata: m.metadata ?? undefined,
         })),
     [storedMessages],
   );
@@ -528,6 +647,23 @@ function ChatPage() {
           .filter((p) => p.type === "text")
           .map((p) => (p as { text: string }).text)
           .join("") ?? "";
+      const assistantSupport = {
+        chatSources:
+          assistantMessage?.parts
+            .filter((part) => part.type === "source-url")
+            .map((part) => {
+              const source = part as { sourceId: string; url: string; title?: string };
+              return { sourceId: source.sourceId, url: source.url, title: source.title ?? "" };
+            }) ?? [],
+        chatReasoning:
+          assistantMessage?.parts
+            .filter((part) => part.type === "reasoning")
+            .map((part) => (part as { text?: string }).text ?? "")
+            .join("\n") ?? "",
+      };
+      const hasAssistantSupport =
+        assistantSupport.chatSources.length > 0 || Boolean(assistantSupport.chatReasoning.trim());
+      const supportJson = assistantSupport as unknown as import("@/integrations/supabase/types").Json;
 
       // Finalize cross-device streaming: if `onChunk` already created the
       // assistant row incrementally, flip `streaming` off and write the final
@@ -544,10 +680,22 @@ function ChatPage() {
         if (wasStreaming) {
           const tag = createClientTag();
           markClientTagSent(tag);
-          const { error: finErr } = await supabase
+          let finishUpdate = await supabase
             .from("messages")
-            .update({ content, streaming: false, client_tag: tag })
+            .update({
+              content,
+              ...(hasAssistantSupport ? { metadata: supportJson } : {}),
+              streaming: false,
+              client_tag: tag,
+            })
             .eq("id", streamingMsgId!);
+          if (finishUpdate.error && hasAssistantSupport && metadataColumnMissing(finishUpdate.error)) {
+            finishUpdate = await supabase
+              .from("messages")
+              .update({ content, streaming: false, client_tag: tag })
+              .eq("id", streamingMsgId!);
+          }
+          const finErr = finishUpdate.error;
           if (finErr) {
             console.error(
               JSON.stringify({
@@ -597,7 +745,7 @@ function ChatPage() {
               mode: requestMode,
             }),
           );
-          const { error: insertError } = await supabase.from("messages").insert({
+          const assistantRow = {
             id: assistantMessageId,
             conversation_id: dbActiveConversationId,
             user_id: user.id,
@@ -605,7 +753,14 @@ function ChatPage() {
             content,
             model: requestMode,
             client_tag: tag,
-          });
+          };
+          let assistantInsert = hasAssistantSupport
+            ? await supabase.from("messages").insert({ ...assistantRow, metadata: supportJson })
+            : await supabase.from("messages").insert(assistantRow);
+          if (assistantInsert.error && hasAssistantSupport && metadataColumnMissing(assistantInsert.error)) {
+            assistantInsert = await supabase.from("messages").insert(assistantRow);
+          }
+          const insertError = assistantInsert.error;
           if (insertError) {
             console.error(
               JSON.stringify({
@@ -668,11 +823,11 @@ function ChatPage() {
   const creationPromiseByTempRef = useRef<Record<string, Promise<ConversationRow>>>({});
 
   const ensureConversation = async (firstMessage: string): Promise<string> => {
-    if (!conversationId) {
+    if (!activeConversationIdRef.current && !conversationId) {
       createConversationOptimistic(firstMessage.slice(0, 60) || "New conversation");
     }
 
-    const selectedId = activeConversationIdRef.current;
+    const selectedId = activeConversationIdRef.current ?? conversationId;
     if (!selectedId) throw new Error("Conversation creation did not select a conversation.");
     if (!isOptimisticId(selectedId)) return selectedId;
 
@@ -1071,6 +1226,7 @@ function ChatPage() {
     // Clean up the conversation we are leaving (if it is empty) before resetting.
     leaveConversation(activeConversationIdRef.current);
     setPersistenceError(null);
+    setEditingMessageId(null);
     setSavingMessage(false);
     setPendingInitialSend(null);
     setPendingEvent(null);
@@ -1100,6 +1256,7 @@ function ChatPage() {
     // Clean up the conversation we are switching away from (if it is empty).
     leaveConversation(activeConversationIdRef.current);
     setPersistenceError(null);
+    setEditingMessageId(null);
     setPendingInitialSend(null);
     setPendingEvent(null);
     setConversationId(id);
@@ -1139,10 +1296,16 @@ function ChatPage() {
 
   // Convert a cached/stored DB message row into the UIMessage shape used by the
   // in-memory `useChat` message list. Shared by the realtime merge + load path.
-  const dbRowToUIMessage = (row: { id: string; role: string; content: string }): UIMessage => ({
+  const dbRowToUIMessage = (row: {
+    id: string;
+    role: string;
+    content: string;
+    metadata?: Record<string, unknown> | null;
+  }): UIMessage => ({
     id: row.id,
     role: row.role as "user" | "assistant",
     parts: [{ type: "text", text: row.content }],
+    metadata: row.metadata ?? undefined,
   });
 
   // Track whether the user is pinned to the bottom of the scroll area. Used to
@@ -1190,6 +1353,7 @@ function ChatPage() {
       role: string;
       content: string;
       streaming?: boolean;
+      metadata?: Record<string, unknown> | null;
     } | null;
     if (!row) return;
     const uiMessage = dbRowToUIMessage(row);
@@ -1217,6 +1381,12 @@ function ChatPage() {
   };
 
   const busy = savingMessage || status === "submitted" || status === "streaming";
+
+  useEffect(() => {
+    if (status === "streaming" || (status === "ready" && !savingMessage)) {
+      setProcessingLabel(null);
+    }
+  }, [status, savingMessage]);
 
   // Cross-device streaming persistence. As the assistant streams on THIS device,
   // we keep its Supabase row updated so OTHER devices render the same tokens in
@@ -1433,30 +1603,45 @@ function ChatPage() {
     );
   };
 
-  const submit = async (payload: ChatSubmitPayload) => {
-    if (requestInFlightRef.current || busy) return;
+  const submit = async (payload: ChatSubmitPayload): Promise<boolean> => {
+    if (requestInFlightRef.current || busy) return false;
+    if (!networkOnline) {
+      setPersistenceError("You’re offline. Keep this message in the composer and retry when you reconnect.");
+      setFailedPayload(payload);
+      return false;
+    }
     if (payload.tool === "create-image" || detectImageIntent(payload.text)) {
       setImagePrompt(
         payload.text.replace(/^(generate|create) an? image(?: of|:)?\s*/i, "").trim() ||
           payload.text,
       );
       setImageModalOpen(true);
-      return;
+      return true;
     }
+    setFailedPayload(null);
+    const hasPdfAttachment = payload.attachments.some((attachment) => attachment.kind === "pdf");
+    const hasImageAttachment = payload.attachments.some((attachment) => attachment.kind === "image");
+    const requestsOcr = /\b(ocr|extract(?:ing)? text|read(?:ing)? the text|transcrib(?:e|ing))\b/i.test(payload.text);
+    const multimodalAttachments = payload.attachments.filter(
+      (attachment) => attachment.kind === "image" || attachment.kind === "pdf",
+    );
+    setProcessingLabel(
+      multimodalAttachments.length ? `Uploading attachments (0/${multimodalAttachments.length})…` : null,
+    );
     requestInFlightRef.current = true;
     // Read the ref as well as state: a New Chat click updates the ref
     // synchronously, while React state is applied on the next render.
     try {
-      const text = await buildMessageText(payload);
+      let text = await buildMessageText(payload);
       if (!text.trim()) {
         requestInFlightRef.current = false;
-        return;
+        setProcessingLabel(null);
+        return false;
       }
       setPersistenceError(null);
+      const selectedConversationId = activeConversationIdRef.current ?? conversationId;
       const isNewConversation =
-        !conversationId ||
-        isOptimisticId(conversationId) ||
-        isOptimisticId(activeConversationIdRef.current ?? "");
+        !selectedConversationId || isOptimisticId(selectedConversationId);
       setSavingMessage(true);
       // The sidebar may be optimistic, but message persistence waits for the
       // conversation insert and receives the real UUID.
@@ -1474,26 +1659,122 @@ function ChatPage() {
         }),
       );
       const userMsgId = crypto.randomUUID();
-      const imageParts = await Promise.all(
-        payload.attachments
-          .filter((attachment) => attachment.kind === "image")
-          .map(async (attachment) => ({
-            type: "file" as const,
-            mediaType: attachment.file.type || "image/png",
-            filename: attachment.name,
-            url: await new Promise<string>((resolve, reject) => {
-              const reader = new FileReader();
-              reader.onload = () => resolve(String(reader.result));
-              reader.onerror = () => reject(new Error(`Could not read ${attachment.name}.`));
-              reader.readAsDataURL(attachment.file);
+      let completedUploads = 0;
+      const chatAttachmentRefs: ChatAttachmentReference[] = [];
+      const multimodalParts = await Promise.all(
+        multimodalAttachments.map(async (attachment) => {
+          const filename = attachment.name.replace(/[\\/]/g, "_").slice(0, 160);
+          const storagePath = `${user.id}/${convId}/${attachment.id}/${filename}`;
+          const mediaType =
+            attachment.kind === "pdf" ? "application/pdf" : attachment.file.type || "image/png";
+          const [url, uploaded] = await Promise.all([
+            fileAsDataUrl(attachment.file),
+            supabase.storage.from("chat-attachments").upload(storagePath, attachment.file, {
+              upsert: true,
+              contentType: mediaType,
+              cacheControl: "3600",
             }),
-          })),
+          ]);
+          if (uploaded.error) throw new Error(`Could not upload ${filename}: ${uploaded.error.message}`);
+          chatAttachmentRefs.push({
+            filename,
+            mediaType,
+            size: attachment.size,
+            storagePath,
+          });
+          completedUploads += 1;
+          setProcessingLabel(`Uploading attachments (${completedUploads}/${multimodalAttachments.length})…`);
+          return { type: "file" as const, mediaType, filename, url };
+        }),
       );
+      if (multimodalAttachments.length) {
+        setProcessingLabel(
+          requestsOcr && (hasImageAttachment || hasPdfAttachment)
+            ? "Processing OCR…"
+            : hasPdfAttachment
+              ? "Processing PDF…"
+              : "Preparing image…",
+        );
+      }
+      if (requestsOcr && multimodalAttachments.length) {
+        const extracted = await Promise.all(
+          multimodalAttachments.map(async (attachment, index) => {
+            setProcessingLabel(`Processing OCR (${index + 1}/${multimodalAttachments.length})…`);
+            const fileData = await fileAsDataUrl(attachment.file);
+            const response = await authenticatedFetch(`${getApiBaseUrl()}/api/chat/ocr`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                filename: attachment.name,
+                mimeType: attachment.kind === "pdf" ? "application/pdf" : attachment.file.type,
+                fileData,
+              }),
+            });
+            const result = (await response.json().catch(() => null)) as
+              | { text?: string; cached?: boolean; error?: { message?: string } }
+              | null;
+            if (!response.ok || !result?.text) {
+              throw new Error(result?.error?.message || `OCR failed for ${attachment.name}.`);
+            }
+            return `--- OCR: ${attachment.name}${result.cached ? " (cached)" : ""} ---\n${result.text}`;
+          }),
+        );
+        text += `\n\nExtracted text from attached content:\n${extracted.join("\n\n")}`;
+      }
       const userMessage: UIMessage = {
         id: userMsgId,
         role: "user",
-        parts: [{ type: "text", text }, ...imageParts],
+        parts: [{ type: "text", text }, ...multimodalParts],
+        metadata: chatAttachmentRefs.length ? { chatAttachments: chatAttachmentRefs } : undefined,
       };
+
+      // Editing the latest prompt replaces that turn in place. Keeping the
+      // original message id preserves references/realtime identity, while
+      // trimming the stale assistant response ensures the model sees the
+      // corrected prompt as the final turn in its context.
+      const editedMessageId = editingMessageId;
+      if (editedMessageId) {
+        const conversationMessages = messages;
+        const editedIndex = conversationMessages.findIndex((message) => message.id === editedMessageId);
+        if (editedIndex < 0 || conversationMessages[editedIndex]?.role !== "user") {
+          throw new Error("That prompt is no longer available to edit. Reload the conversation and try again.");
+        }
+        const staleMessages = conversationMessages.slice(editedIndex + 1);
+        const staleIds = staleMessages.map((message) => message.id).filter(isUuid);
+        const { error: updateError } = await supabase
+          .from("messages")
+          .update({ content: text })
+          .eq("id", editedMessageId)
+          .eq("conversation_id", convId)
+          .eq("role", "user");
+        if (updateError) throw updateError;
+        if (staleIds.length) {
+          const { error: deleteError } = await supabase
+            .from("messages")
+            .delete()
+            .in("id", staleIds)
+            .eq("conversation_id", convId);
+          if (deleteError) throw deleteError;
+        }
+
+        const editedMessage: UIMessage = { ...userMessage, id: editedMessageId };
+        // `sendMessage` appends the corrected user turn itself, so leave only
+        // the history before the edited turn in the hook state here.
+        setMessages(conversationMessages.slice(0, editedIndex));
+        qc.setQueryData<CachedMessageRow[]>(["messages", convId], (old) =>
+          old?.filter((row) => !staleIds.includes(row.id)).map((row) =>
+            row.id === editedMessageId ? { ...row, content: text } : row,
+          ),
+        );
+        setEditingMessageId(null);
+        setInput("");
+        setFailedPayload(null);
+        setPersistenceError(null);
+        setProcessingLabel(null);
+        sendToAI(editedMessage, convId, false);
+        qc.invalidateQueries({ queryKey: ["messages", convId], exact: true });
+        return true;
+      }
 
       // --- Instant sidebar feedback (no network wait) -----------------------
       // 1) Move the conversation to the top of the list right away.
@@ -1520,7 +1801,7 @@ function ChatPage() {
           mode,
         }),
       );
-      const { error: insertError } = await supabase.from("messages").insert({
+      const userRow = {
         id: userMsgId,
         conversation_id: dbConvId,
         user_id: user.id,
@@ -1532,8 +1813,18 @@ function ChatPage() {
           markClientTagSent(t);
           return t;
         })(),
-      });
-      if (insertError) {
+      };
+      let userInsert = chatAttachmentRefs.length
+        ? await supabase.from("messages").insert({
+            ...userRow,
+            metadata: ({ chatAttachments: chatAttachmentRefs } as unknown) as import("@/integrations/supabase/types").Json,
+          })
+        : await supabase.from("messages").insert(userRow);
+      if (userInsert.error && chatAttachmentRefs.length && metadataColumnMissing(userInsert.error)) {
+        console.warn("Chat attachment references could not be persisted; apply the message metadata migration.");
+        userInsert = await supabase.from("messages").insert(userRow);
+      }
+      if (userInsert.error) {
         console.error(
           JSON.stringify({
             event: "supabase_insert_error",
@@ -1542,11 +1833,13 @@ function ChatPage() {
             conversationId: dbConvId,
             messageId: userMsgId,
             mode,
-            error: insertError.message,
+            error: userInsert.error.message,
           }),
         );
-        throw insertError;
+        throw userInsert.error;
       }
+      setFailedPayload(null);
+      setInput((current) => (current === payload.text ? "" : current));
       console.info(
         JSON.stringify({
           event: "supabase_insert_success",
@@ -1573,7 +1866,8 @@ function ChatPage() {
         setPendingEvent({ detected, userMessage, conversationId: convId, isNewConversation });
         requestInFlightRef.current = false;
         setSavingMessage(false);
-        return;
+        setProcessingLabel(null);
+        return true;
       }
 
       // Long-Term Memory: detect anything worth remembering and react per the
@@ -1581,7 +1875,8 @@ function ChatPage() {
       if (processMemoryDetection(text, userMessage, convId, isNewConversation)) {
         requestInFlightRef.current = false;
         setSavingMessage(false);
-        return;
+        setProcessingLabel(null);
+        return true;
       }
 
       // Start the AI request as soon as the user message is persisted and
@@ -1607,6 +1902,7 @@ function ChatPage() {
       // NOT blanket-invalidate other queries.
       qc.invalidateQueries({ queryKey: ["messages", dbConvId], exact: true });
       qc.invalidateQueries({ queryKey: conversationsQueryKey, exact: true });
+      return true;
     } catch (err) {
       console.error(
         JSON.stringify({
@@ -1616,9 +1912,14 @@ function ChatPage() {
       );
       requestInFlightRef.current = false;
       setSavingMessage(false);
+      setProcessingLabel(null);
       // Keep the user's message visible (only server state is rolled back via a
       // targeted refetch). Surface a retry so the user can resend.
-      const message = err instanceof Error ? err.message : "Failed to save this message.";
+      const message = !navigator.onLine
+        ? "You’re offline. Your message has been restored to the composer and is ready to retry when you reconnect."
+        : getSafeErrorMessage(err);
+      setInput((current) => (current.trim() ? current : payload.text));
+      setFailedPayload(payload);
       setPersistenceError(message);
       toast.error("Couldn't save conversation.", {
         description: message,
@@ -1627,6 +1928,7 @@ function ChatPage() {
           onClick: () => void submit(payload),
         },
       });
+      return false;
     }
   };
 
@@ -1777,6 +2079,22 @@ function ChatPage() {
           const fileParts = m.parts
             .filter((part) => (part as { type?: string }).type === "file")
             .map((part) => part as { filename?: string; mediaType?: string; url?: string });
+          const persistedAttachments = attachmentReferences(m.metadata);
+          const messageAttachments: ChatAttachmentReference[] = [
+            ...fileParts.flatMap((file) =>
+              file.filename && file.mediaType && file.url
+                ? [{
+                    filename: file.filename,
+                    mediaType: file.mediaType,
+                    size: 0,
+                    url: file.url,
+                  }]
+                : [],
+            ),
+            ...persistedAttachments.filter(
+              (reference) => !fileParts.some((file) => file.filename === reference.filename),
+            ),
+          ];
           const isStreaming = isLast && m.role === "assistant" && busy;
           const isPinned = pinnedMessages.includes(m.id);
           const searchMatch = Boolean(
@@ -1795,6 +2113,23 @@ function ChatPage() {
                 ? formatUserFacingError(lordErr)
                 : partText || "The AI request failed.";
             });
+          const storedSources = (
+            m.metadata as { chatSources?: Array<{ sourceId: string; url: string; title?: string }> } | undefined
+          )?.chatSources ?? [];
+          const sourceParts = [
+            ...m.parts
+            .filter((part) => part.type === "source-url")
+            .map((part) => part as { sourceId: string; url: string; title?: string }),
+            ...storedSources,
+          ].filter((source, index, all) => all.findIndex((item) => item.url === source.url) === index);
+          const reasoningText = (
+            (
+              m.metadata as { chatReasoning?: string } | undefined
+            )?.chatReasoning || m.parts
+            .filter((part) => part.type === "reasoning")
+            .map((part) => (part as { text?: string }).text ?? "")
+            .join("\n")
+          ).trim();
           return (
             <li
               key={m.id}
@@ -1816,34 +2151,22 @@ function ChatPage() {
                   <div className="max-w-full">
                     <div className="rounded-[24px] bg-primary px-3 py-2.5 text-sm leading-relaxed text-primary-foreground md:px-4">
                       {text && <div className="whitespace-pre-wrap">{text}</div>}
-                      {fileParts.length > 0 && (
+                      {messageAttachments.length > 0 && (
                         <div className={cn("space-y-2", text && "mt-3")}>
-                          {fileParts.map((file, fileIndex) =>
-                            file.mediaType?.startsWith("image/") &&
-                            file.url?.startsWith("data:image/") ? (
-                              <img
-                                key={`${file.filename ?? "image"}-${fileIndex}`}
-                                src={file.url}
-                                alt={file.filename || "Attached image"}
-                                loading="lazy"
-                                className="max-h-72 max-w-full rounded-xl object-contain"
-                              />
-                            ) : (
-                              <div
-                                key={`${file.filename ?? "file"}-${fileIndex}`}
-                                className="rounded-lg bg-black/10 px-2 py-1 text-xs"
-                              >
-                                {file.filename || "Attached file"}
-                              </div>
-                            ),
-                          )}
+                          {messageAttachments.map((attachment, fileIndex) => (
+                            <ChatAttachmentPreview
+                              key={`${attachment.filename}-${fileIndex}`}
+                              attachment={attachment}
+                            />
+                          ))}
                         </div>
                       )}
                     </div>
-                    {isLatestUser && !busy && text.trim() && (
+                    {isLatestUser && !busy && text.trim() && messageAttachments.length === 0 && (
                       <button
                         type="button"
                         onClick={() => {
+                          setEditingMessageId(m.id);
                           setInput(text);
                           requestAnimationFrame(() =>
                             document
@@ -1853,7 +2176,7 @@ function ChatPage() {
                               ?.focus(),
                           );
                         }}
-                        aria-label="Edit last message and send a revised version"
+                        aria-label="Edit this prompt and regenerate the response"
                         className="mt-1 rounded-md px-2 py-1 text-[11px] text-muted-foreground hover:bg-primary/10 hover:text-primary"
                       >
                         Edit prompt
@@ -1863,6 +2186,38 @@ function ChatPage() {
                 ) : (
                   <div className="text-sm text-foreground">
                     <RichMessage text={text} streaming={isStreaming} />
+                    {(sourceParts.length > 0 || reasoningText) && (
+                      <details className="mt-3 rounded-xl border border-white/10 bg-white/[0.03] text-xs">
+                        <summary className="cursor-pointer select-none px-3 py-2 text-muted-foreground transition hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400">
+                          Sources{reasoningText ? " & reasoning" : ""}
+                          {sourceParts.length > 0 ? ` · ${sourceParts.length}` : ""}
+                        </summary>
+                        <div className="space-y-3 border-t border-white/10 px-3 py-3">
+                          {sourceParts.length > 0 && (
+                            <ul className="space-y-1.5">
+                              {sourceParts.map((source) => (
+                                <li key={source.sourceId}>
+                                  <a
+                                    href={source.url}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="break-words text-cyan-200 underline decoration-cyan-200/30 underline-offset-2 hover:decoration-cyan-200"
+                                  >
+                                    {source.title || source.url}
+                                  </a>
+                                </li>
+                              ))}
+                            </ul>
+                          )}
+                          {reasoningText && (
+                            <div>
+                              <h3 className="mb-1 font-medium text-foreground/80">Reasoning</h3>
+                              <p className="whitespace-pre-wrap leading-relaxed text-muted-foreground">{reasoningText}</p>
+                            </div>
+                          )}
+                        </div>
+                      </details>
+                    )}
                     {errorParts.length > 0 && (
                       <div className="mt-2 space-y-1">
                         {errorParts.map((errText, i) => (
@@ -1956,10 +2311,43 @@ function ChatPage() {
           })()}
         {(persistenceError || storedMessagesError) && !messagesContainErrorPart && (
           <li className="rounded-md border border-destructive/40 bg-destructive/10 p-3 text-xs text-destructive">
-            {persistenceError ??
-              (storedMessagesError instanceof Error
-                ? storedMessagesError.message
-                : "Failed to load saved messages.")}
+            <div>
+              {persistenceError ??
+                (storedMessagesError instanceof Error
+                  ? storedMessagesError.message
+                  : "Failed to load saved messages.")}
+            </div>
+            {failedPayload && (
+              <div className="mt-2 flex flex-wrap items-center gap-2">
+                <button
+                  type="button"
+                  disabled={!networkOnline || busy}
+                  onClick={() => {
+                    const retryPayload = failedPayload;
+                    if (!retryPayload) return;
+                    void submit(retryPayload).then((sent) => {
+                      if (sent) {
+                        setComposerResetAttachmentIds(retryPayload.attachments.map((file) => file.id));
+                        setComposerResetKey((key) => key + 1);
+                      }
+                    });
+                  }}
+                  className="rounded-md border border-destructive/50 px-2.5 py-1 font-medium transition hover:bg-destructive/10 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {networkOnline ? "Retry sending" : "Waiting for connection"}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setFailedPayload(null);
+                    setPersistenceError(null);
+                  }}
+                  className="rounded-md px-2.5 py-1 text-destructive/80 transition hover:bg-destructive/10"
+                >
+                  Dismiss
+                </button>
+              </div>
+            )}
           </li>
         )}
       </ul>
@@ -2003,28 +2391,38 @@ function ChatPage() {
               >
                 <LayoutPanelLeft className="h-4 w-4" />
               </button>
-              <div className="flex min-w-0 flex-1 items-center justify-between gap-2">
+              <div className="flex min-w-0 flex-1 items-center gap-2">
                 <h1 className="truncate text-sm font-semibold text-foreground">
                   {conversations.find((c) => c.id === conversationId)?.title || "New conversation"}
                 </h1>
-                <ShareButton
-                  userId={user.id}
-                  conversationId={conversationId}
-                  conversationTitle={
-                    conversations.find((c) => c.id === conversationId)?.title ?? "New conversation"
-                  }
-                />
-                <button
-                  type="button"
-                  onClick={() => {
-                    setSearchOpen((open) => !open);
-                    requestAnimationFrame(() => searchInputRef.current?.focus());
-                  }}
-                  aria-label="Search this conversation (Ctrl+F)"
-                  className="rounded-md p-2 text-muted-foreground hover:bg-primary/10 hover:text-primary"
-                >
-                  <Search className="h-4 w-4" />
-                </button>
+                <div className="ml-auto flex shrink-0 items-center gap-2">
+                  <ModelSelector
+                    value={mode}
+                    onChange={(nextMode) => {
+                      setMode(nextMode);
+                      emitDashboardEvent("ai");
+                    }}
+                  />
+                  <ShareButton
+                    userId={user.id}
+                    conversationId={conversationId}
+                    conversationTitle={
+                      conversations.find((c) => c.id === conversationId)?.title ?? "New conversation"
+                    }
+                    className="h-9 w-9 rounded-xl border-border bg-card/60 hover:bg-muted hover:text-foreground"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSearchOpen((open) => !open);
+                      requestAnimationFrame(() => searchInputRef.current?.focus());
+                    }}
+                    aria-label="Search this conversation (Ctrl+F)"
+                    className="grid h-9 w-9 place-items-center rounded-xl text-muted-foreground transition-colors duration-200 hover:bg-white/5 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/70"
+                  >
+                    <Search className="h-4 w-4" />
+                  </button>
+                </div>
               </div>
             </div>
             {searchOpen && (
@@ -2103,22 +2501,33 @@ function ChatPage() {
 
             <div className="shrink-0 px-3 py-3 md:px-4">
               <div className="mx-auto w-full max-w-[860px]">
+                {editingMessageId && (
+                  <div className="mb-2 flex items-center justify-between rounded-lg border border-primary/25 bg-primary/5 px-3 py-2 text-xs text-muted-foreground">
+                    <span>Editing your prompt. Sending it will replace the previous prompt and regenerate its answer.</span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setEditingMessageId(null);
+                        setInput("");
+                      }}
+                      className="ml-3 shrink-0 rounded px-2 py-1 text-foreground hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                )}
                 <ChatInput
                   value={input}
                   onChange={setInput}
                   onSend={submit}
                   onStop={stopStreaming}
                   streaming={streaming}
-                  disabled={savingMessage}
-                  mode={mode}
-                  responseStyle={responseStyle}
-                  onResponseStyleChange={setResponseStyle}
+                  disabled={savingMessage || !networkOnline}
+                  processingLabel={processingLabel}
+                  resetKey={composerResetKey}
+                  resetAttachmentIds={composerResetAttachmentIds}
                   webSearch={webSearch}
                   onWebSearchChange={setWebSearch}
-                  onModeChange={(m) => {
-                    setMode(m);
-                    emitDashboardEvent("ai");
-                  }}
                 />
               </div>
             </div>
@@ -2266,10 +2675,9 @@ function MessageActions({
 function Avatar() {
   return (
     <div
-      className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full"
-      style={{ background: "var(--gradient-hud)", boxShadow: "0 0 12px var(--hud)" }}
+      className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full border border-primary/30 bg-primary/10"
     >
-      <span className="font-display text-[10px] font-bold text-background">L</span>
+      <span className="font-display text-[10px] font-bold text-primary">L</span>
     </div>
   );
 }
@@ -2282,17 +2690,17 @@ function EmptyState({ onPick }: { onPick: (s: string) => void }) {
     "Give me a research brief on quantum computing.",
   ];
   return (
-    <div className="flex h-full flex-col items-center justify-center text-center">
-      <div className="mb-4 font-display text-lg gradient-text text-glow">Standing by.</div>
-      <p className="mb-6 max-w-md text-sm text-muted-foreground">
+    <div className="flex h-full flex-col items-center justify-center px-4 text-center">
+      <div className="mb-3 font-display text-xl font-semibold tracking-tight text-foreground">What can I help with?</div>
+      <p className="mb-6 max-w-md text-sm leading-6 text-muted-foreground">
         Issue a directive and I shall respond. Pick a model above to bias the active model.
       </p>
-      <div className="grid w-full max-w-xl gap-2 sm:grid-cols-2">
+      <div className="flex w-full max-w-2xl flex-wrap justify-center gap-2">
         {suggestions.map((s) => (
           <button
             key={s}
             onClick={() => onPick(s)}
-            className="rounded-md border border-border/60 bg-background/40 p-3 text-left text-xs text-muted-foreground transition hover:border-primary/60 hover:text-primary"
+            className="rounded-full border border-border bg-white/[0.035] px-3 py-2 text-left text-xs text-muted-foreground transition-[border-color,color,background-color,transform] duration-200 hover:-translate-y-px hover:border-primary/40 hover:bg-primary/[0.07] hover:text-foreground active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/70"
           >
             {s}
           </button>

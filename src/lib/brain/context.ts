@@ -328,6 +328,7 @@ async function fetchMemories(
     confidence: number;
     source: string;
     embedding: unknown;
+    expires_at?: string | null;
     created_at: string;
     updated_at: string;
   }>
@@ -357,6 +358,7 @@ async function fetchMemories(
     confidence: number;
     source: string;
     embedding: unknown;
+    expires_at?: string | null;
     created_at: string;
     updated_at: string;
   }>;

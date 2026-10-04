@@ -74,8 +74,10 @@ export function DashboardView({
   );
   const nextConcept = selectNextConcept(curriculumConcepts, mastery ?? []);
 
-  const masteredCount = (mastery ?? []).filter((m) => m.score >= 0.8).length;
-  const totalMastery = (mastery ?? []).length;
+  const masteredCount = curriculumConcepts.filter((concept) => {
+    return (masteryMap.get(concept.id)?.score ?? 0) >= 0.8;
+  }).length;
+  const totalMastery = curriculumConcepts.length;
   const masteryPercent = totalMastery > 0 ? Math.round((masteredCount / totalMastery) * 100) : 0;
 
   const brainInput = useMemo(
@@ -126,6 +128,7 @@ export function DashboardView({
       new Date(item.created_at).toDateString(),
     ),
   );
+  if (!activeDays.has(cursor.toDateString())) cursor.setDate(cursor.getDate() - 1);
   while (activeDays.has(cursor.toDateString())) {
     streak++;
     cursor.setDate(cursor.getDate() - 1);

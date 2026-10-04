@@ -123,6 +123,7 @@ export function TutorView({ snapshot, userId, conceptId, onBack }: TutorViewProp
   const [messages, setMessages] = useState<TutorMessage[]>([]);
   const [draft, setDraft] = useState("");
   const [isThinking, setIsThinking] = useState(false);
+  const [persistenceError, setPersistenceError] = useState<string | null>(null);
   const [selectedStudySourceIds, setSelectedStudySourceIds] = useState<string[]>([]);
   const [tutorMode, setTutorMode] = useState<TutorMode>("socratic");
   const [adaptiveMode, setAdaptiveMode] = useState<TutorMode | null>(null);
@@ -331,6 +332,7 @@ export function TutorView({ snapshot, userId, conceptId, onBack }: TutorViewProp
   const sendMessage = useCallback(async () => {
     if (!draft.trim() || isThinking || !user?.id) return;
 
+    setPersistenceError(null);
     const text = draft.trim();
     const userMessage: TutorMessage = {
       id: crypto.randomUUID(),
@@ -378,13 +380,22 @@ export function TutorView({ snapshot, userId, conceptId, onBack }: TutorViewProp
           ];
         });
       } catch {
+        setPersistenceError("Your tutor session could not be created. Check your connection and retry.");
         setIsThinking(false);
         return;
       }
     }
 
     if (persistedSessionId) {
-      void saveTutorMessage(user.id, persistedSessionId, "user", text).catch(() => undefined);
+      try {
+        await saveTutorMessage(user.id, persistedSessionId, "user", text);
+      } catch {
+        setMessages((prev) => prev.filter((message) => message.id !== userMessage.id));
+        setDraft(text);
+        setPersistenceError("Your message was not saved, so LORD did not answer it. Please retry.");
+        setIsThinking(false);
+        return;
+      }
     }
 
     const selectedSources = (snapshot?.sources ?? [])
@@ -472,9 +483,11 @@ export function TutorView({ snapshot, userId, conceptId, onBack }: TutorViewProp
         ),
       );
       if (answer.trim() && persistedSessionId) {
-        void saveTutorMessage(user.id, persistedSessionId, "assistant", answerWithSources).catch(
-          () => undefined,
-        );
+        try {
+          await saveTutorMessage(user.id, persistedSessionId, "assistant", answerWithSources);
+        } catch {
+          setPersistenceError("The reply is visible here, but could not be saved to this tutor session.");
+        }
         setSessions((prev) =>
           prev.map((s) =>
             s.id === persistedSessionId ? { ...s, updated_at: new Date().toISOString() } : s,
@@ -837,6 +850,11 @@ export function TutorView({ snapshot, userId, conceptId, onBack }: TutorViewProp
             </div>
 
             <div className="border-t border-border/40 pt-3">
+              {persistenceError && (
+                <p role="alert" className="mb-2 rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-xs text-destructive">
+                  {persistenceError}
+                </p>
+              )}
               <div className="mb-2 flex flex-wrap gap-1.5">
                 {SUGGESTED_PROMPTS.map((prompt) => (
                   <motion.button

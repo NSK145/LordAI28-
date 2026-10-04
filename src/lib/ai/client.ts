@@ -3,6 +3,11 @@ import type { ChatMessage, OpenRouterRequest } from "./types";
 
 const OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions";
 
+export interface OpenRouterStreamEvent {
+  type: "text" | "reasoning";
+  delta: string;
+}
+
 export class OpenRouterClient {
   constructor(private readonly apiKey: string) {}
 
@@ -12,20 +17,46 @@ export class OpenRouterClient {
     signal?: AbortSignal,
     maxTokens = 1400,
   ): AsyncGenerator<string> {
+    for await (const event of this.streamChatEvents(messages, model, signal, maxTokens)) {
+      if (event.type === "text") yield event.delta;
+    }
+  }
+
+  async *streamChatEvents(
+    messages: readonly ChatMessage[],
+    model: string,
+    signal?: AbortSignal,
+    maxTokens = 1400,
+  ): AsyncGenerator<OpenRouterStreamEvent> {
     const body: OpenRouterRequest = {
       model,
-      messages: messages.map(({ role, content, images }) => ({
-        role,
-        content: images?.length
-          ? [
-              { type: "text" as const, text: content },
-              ...images.map((url) => ({ type: "image_url" as const, image_url: { url } })),
-            ]
-          : content,
-      })),
+      messages: messages.map((message) => {
+        const files = message.files ?? [];
+        const images = message.images ?? [];
+        return {
+          role: message.role,
+          content:
+            images.length || files.length
+              ? [
+                  { type: "text" as const, text: message.content },
+                  ...images.map((url) => ({
+                    type: "image_url" as const,
+                    image_url: { url },
+                  })),
+                  ...files.map((file) => ({
+                    type: "file" as const,
+                    file: { filename: file.filename, file_data: file.fileData },
+                  })),
+                ]
+              : message.content,
+        };
+      }),
       stream: true,
       max_tokens: maxTokens,
     };
+    if (messages.some((message) => message.files?.length)) {
+      body.plugins = [{ id: "file-parser", pdf: { engine: "cloudflare-ai" } }];
+    }
     const requestBody = JSON.stringify(body);
     const headers = {
       Authorization: `Bearer ${this.apiKey}`,
@@ -65,7 +96,7 @@ export class OpenRouterClient {
         throw errorFromStatus(response.status, details);
       }
 
-      yield* this.readStream(response.body);
+      yield* this.readEventStream(response.body);
     } catch (error) {
       throw normalizeOpenRouterError(error);
     } finally {
@@ -73,7 +104,7 @@ export class OpenRouterClient {
     }
   }
 
-  private async *readStream(body: ReadableStream<Uint8Array>): AsyncGenerator<string> {
+  private async *readEventStream(body: ReadableStream<Uint8Array>): AsyncGenerator<OpenRouterStreamEvent> {
     const reader = body.getReader();
     const decoder = new TextDecoder();
     let buffer = "";
@@ -85,9 +116,9 @@ export class OpenRouterClient {
         const lines = buffer.split("\n");
         buffer = lines.pop() ?? "";
         for (const line of lines) {
-          const token = parseSseLine(line);
-          if (token === null) return;
-          if (token) yield token;
+          const event = parseSseLine(line);
+          if (event === null) return;
+          if (event) yield event;
         }
         if (done) return;
       }
@@ -108,7 +139,7 @@ function logResponse(response: Response): void {
   });
 }
 
-function parseSseLine(line: string): string | null | undefined {
+function parseSseLine(line: string): OpenRouterStreamEvent | null | undefined {
   const data = line.trim();
   if (!data.startsWith("data:")) return undefined;
   const payload = data.slice(5).trim();
@@ -116,7 +147,7 @@ function parseSseLine(line: string): string | null | undefined {
 
   try {
     const parsed = JSON.parse(payload) as {
-      choices?: Array<{ delta?: { content?: string } }>;
+      choices?: Array<{ delta?: { content?: string; reasoning?: string } }>;
       error?: { code?: number; message?: string };
     };
     if (parsed.error) {
@@ -125,7 +156,10 @@ function parseSseLine(line: string): string | null | undefined {
         parsed.error,
       );
     }
-    return parsed.choices?.[0]?.delta?.content ?? "";
+    const delta = parsed.choices?.[0]?.delta;
+    if (delta?.reasoning) return { type: "reasoning", delta: delta.reasoning };
+    if (delta?.content) return { type: "text", delta: delta.content };
+    return undefined;
   } catch (error) {
     if (error instanceof OpenRouterError) throw error;
     throw new OpenRouterError("unavailable", undefined, error);

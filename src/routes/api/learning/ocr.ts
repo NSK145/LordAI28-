@@ -3,13 +3,21 @@ import { createFileRoute } from "@tanstack/react-router";
 import { z } from "zod";
 import { requireSupabaseRequestAuth } from "@/integrations/supabase/auth-middleware";
 import { apiErrorResponse } from "@/lib/api-error";
+import { runLordVision } from "@/lib/lord/llm";
 
 const OCRRequestSchema = z.discriminatedUnion("action", [
   z.object({
     action: z.literal("process"),
     sourceId: z.string().uuid(),
-    mimeType: z.string(),
-    fileBase64: z.string().min(1),
+    mimeType: z.enum([
+      "image/jpeg",
+      "image/png",
+      "image/webp",
+      "image/gif",
+      "application/pdf",
+    ]),
+    filename: z.string().max(160).optional(),
+    fileBase64: z.string().min(1).max(12 * 1024 * 1024),
   }),
   z.object({
     action: z.literal("status"),
@@ -46,7 +54,16 @@ export const Route = createFileRoute("/api/learning/ocr")({
 
         try {
           if (parsed.data.action === "process") {
-            // Create OCR job
+            const embeddedDataUrl = parsed.data.fileBase64.match(
+              /^data:(image\/[\w.+-]+|application\/pdf);base64,([\s\S]+)$/,
+            );
+            if (embeddedDataUrl && embeddedDataUrl[1] !== parsed.data.mimeType) {
+              return apiErrorResponse(400, "INVALID_REQUEST", "Image MIME type does not match.", requestId);
+            }
+            const base64 = embeddedDataUrl?.[2] ?? parsed.data.fileBase64;
+            if (!base64 || !/^[A-Za-z0-9+/]+={0,2}$/.test(base64)) {
+              return apiErrorResponse(400, "INVALID_REQUEST", "Invalid image data.", requestId);
+            }
             const { data: job, error } = await db
               .from("learning_ocr_jobs")
               .insert({
@@ -60,49 +77,60 @@ export const Route = createFileRoute("/api/learning/ocr")({
               .single();
 
             if (error) throw error;
+            const startedAt = Date.now();
+            try {
+              const dataUrl = `data:${parsed.data.mimeType};base64,${base64}`;
+              const isPdf = parsed.data.mimeType === "application/pdf";
+              const fileName = (parsed.data.filename ?? "document.pdf")
+                .replace(/[\\/]/g, "_")
+                .slice(0, 120);
+              const { text } = await runLordVision({
+                ...(isPdf
+                  ? { files: [{ filename: fileName, fileData: dataUrl }] }
+                  : { images: [dataUrl] }),
+                prompt:
+                  "Transcribe all legible text in this document exactly. Preserve page order, headings, tables, and line breaks when possible. Include handwritten text when legible and mark uncertain words as [unclear]. Do not summarize or infer missing text. If no text is legible, say that no legible text was found.",
+              });
+              const extractedText = text.trim();
+              const { data: completedJob, error: updateError } = await db
+                .from("learning_ocr_jobs")
+                .update({
+                  status: "completed",
+                  extracted_text: extractedText,
+                  structured_data: { method: isPdf ? "pdf-parser" : "vision-model" },
+                  completed_at: new Date().toISOString(),
+                  processing_time_ms: Date.now() - startedAt,
+                })
+                .eq("id", job.id)
+                .eq("user_id", userId)
+                .select()
+                .single();
+              if (updateError) throw updateError;
 
-            const processSourceId = parsed.data.sourceId;
-
-            // In production, process OCR asynchronously with Tesseract.js, Google Vision, or AWS Textract
-            // For now, simulate processing
-            setTimeout(async () => {
-              try {
-                // Simulated extracted text
-                const extractedText =
-                  "[OCR processing would extract text from the uploaded image/PDF here]";
-
-                await db
-                  .from("learning_ocr_jobs")
-                  .update({
-                    status: "completed",
-                    extracted_text: extractedText,
-                    structured_data: { pages: 1, language: "en", confidence: 0.92 },
-                    completed_at: new Date().toISOString(),
-                    processing_time_ms: 2500,
-                  })
-                  .eq("id", job.id);
-
-                // Update source with extracted text if source exists
-                if (processSourceId) {
-                  await db
-                    .from("learning_sources")
-                    .update({ extracted_text: extractedText })
-                    .eq("id", processSourceId)
-                    .eq("user_id", userId);
-                }
-              } catch (e) {
-                await db
-                  .from("learning_ocr_jobs")
-                  .update({
-                    status: "failed",
-                    error_message: "OCR processing failed",
-                    completed_at: new Date().toISOString(),
-                  })
-                  .eq("id", job.id);
-              }
-            }, 100);
-
-            return Response.json({ job });
+              const { error: sourceError } = await db
+                .from("learning_sources")
+                .update({ extracted_text: extractedText })
+                .eq("id", parsed.data.sourceId)
+                .eq("user_id", userId);
+              if (sourceError) throw sourceError;
+              return Response.json({ job: completedJob });
+            } catch (processingError) {
+              const reason =
+                processingError instanceof Error && processingError.message === "AI_NOT_CONFIGURED"
+                  ? "Vision is not configured on the server."
+                  : "Image text extraction failed. Please try again.";
+              await db
+                .from("learning_ocr_jobs")
+                .update({
+                  status: "failed",
+                  error_message: reason,
+                  completed_at: new Date().toISOString(),
+                  processing_time_ms: Date.now() - startedAt,
+                })
+                .eq("id", job.id)
+                .eq("user_id", userId);
+              return Response.json({ job: { ...job, status: "failed", error_message: reason } });
+            }
           }
 
           if (parsed.data.action === "status") {

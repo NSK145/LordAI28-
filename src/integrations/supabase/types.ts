@@ -3018,6 +3018,30 @@ export type Database = {
         };
         Relationships: [];
       };
+      chat_attachment_ocr_cache: {
+        Row: {
+          content_sha256: string;
+          created_at: string;
+          extracted_text: string;
+          mime_type: string;
+          user_id: string;
+        };
+        Insert: {
+          content_sha256: string;
+          created_at?: string;
+          extracted_text: string;
+          mime_type: string;
+          user_id: string;
+        };
+        Update: {
+          content_sha256?: string;
+          created_at?: string;
+          extracted_text?: string;
+          mime_type?: string;
+          user_id?: string;
+        };
+        Relationships: [];
+      };
       messages: {
         Row: {
           branch_from_message_id: string | null;

@@ -288,7 +288,7 @@ function packageMetadata(manifest: PackageManifest, files: ReadonlyMap<string, C
   const dependencies = [
     ...new Set([...stringKeys(manifest.dependencies), ...stringKeys(manifest.devDependencies)]),
   ].sort();
-  const frameworks = [
+  const frameworks = ([
     ["React", dependencies.includes("react")],
     ["Vite", dependencies.includes("vite") || files.has("vite.config.ts")],
     ["TanStack Router", dependencies.includes("@tanstack/react-router")],
@@ -297,10 +297,10 @@ function packageMetadata(manifest: PackageManifest, files: ReadonlyMap<string, C
     ["Svelte", dependencies.includes("svelte")],
     ["Express", dependencies.includes("express")],
     ["Hono", dependencies.includes("hono")],
-  ]
+  ] as [string, boolean][])
     .filter(([, present]) => present)
-    .map(([name]) => name);
-  const testFrameworks = [
+    .map(([name]) => name as string);
+  const testFrameworks = ([
     ["Vitest", dependencies.includes("vitest") || files.has("vitest.config.ts")],
     ["Jest", dependencies.includes("jest")],
     [
@@ -309,10 +309,10 @@ function packageMetadata(manifest: PackageManifest, files: ReadonlyMap<string, C
     ],
     ["Cypress", dependencies.includes("cypress")],
     ["Mocha", dependencies.includes("mocha")],
-  ]
+  ] as [string, boolean][])
     .filter(([, present]) => present)
-    .map(([name]) => name);
-  const databases = [
+    .map(([name]) => name as string);
+  const databases = ([
     [
       "Supabase",
       dependencies.some((item) => item.startsWith("@supabase/")) ||
@@ -322,9 +322,9 @@ function packageMetadata(manifest: PackageManifest, files: ReadonlyMap<string, C
     ["Drizzle", dependencies.some((item) => item.startsWith("drizzle-orm"))],
     ["PostgreSQL", dependencies.includes("pg")],
     ["SQLite", dependencies.includes("better-sqlite3") || dependencies.includes("sqlite3")],
-  ]
+  ] as [string, boolean][])
     .filter(([, present]) => present)
-    .map(([name]) => name);
+    .map(([name]) => name as string);
   const scripts = stringKeys(manifest.scripts).sort();
   return {
     name: stringValue(manifest.name),

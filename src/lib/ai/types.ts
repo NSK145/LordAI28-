@@ -12,6 +12,12 @@ export interface ChatMessage {
   role: ChatRole;
   content: string;
   images?: readonly string[];
+  files?: readonly ChatFileInput[];
+}
+
+export interface ChatFileInput {
+  filename: string;
+  fileData: string;
 }
 
 export interface OpenRouterRequest {
@@ -20,10 +26,15 @@ export interface OpenRouterRequest {
     role: ChatRole;
     content:
       | string
-      | Array<{ type: "text"; text: string } | { type: "image_url"; image_url: { url: string } }>;
+      | Array<
+          | { type: "text"; text: string }
+          | { type: "image_url"; image_url: { url: string } }
+          | { type: "file"; file: { filename: string; file_data: string } }
+        >;
   }>;
   stream: true;
   max_tokens: number;
+  plugins?: Array<{ id: "file-parser"; pdf: { engine: "cloudflare-ai" } }>;
 }
 
 export interface ChatResponse {

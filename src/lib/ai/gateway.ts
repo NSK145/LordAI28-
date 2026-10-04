@@ -54,6 +54,7 @@ export function streamChat(
       let status = "completed";
       let activeModel = models[0];
       let emittedText = false;
+      let selectedReasoning = "";
       writer.write({ type: "text-start", id: messageId });
 
       try {
@@ -63,15 +64,20 @@ export function streamChat(
           lastAttemptedModel = modelId;
           const attempt = createModelAttemptSignal(signal, 25_000);
           let attemptEmittedText = false;
+          let attemptReasoning = "";
           const attemptStartedAt = Date.now();
           console.info("Model attempt started", { requestId, model: modelId, attempt: index + 1 });
           try {
-            for await (const token of client.streamChat(messages, modelId, attempt.signal)) {
-              if (token) {
+            for await (const event of client.streamChatEvents(messages, modelId, attempt.signal)) {
+              if (event.type === "reasoning") {
+                attemptReasoning += event.delta;
+                continue;
+              }
+              if (event.delta) {
                 emittedText = true;
                 attemptEmittedText = true;
               }
-              writer.write({ type: "text-delta", id: messageId, delta: token });
+              writer.write({ type: "text-delta", id: messageId, delta: event.delta });
             }
             if (!attemptEmittedText) {
               throw new OpenRouterError("unavailable");
@@ -85,6 +91,7 @@ export function streamChat(
               status: "completed",
             });
             completed = true;
+            selectedReasoning = attemptReasoning;
             break;
           } catch (error) {
             const normalized = normalizeOpenRouterError(error);
@@ -113,6 +120,20 @@ export function streamChat(
           }
         }
         if (!completed) throw new Error("No configured model candidate completed the request.");
+        if (selectedReasoning) {
+          const reasoningId = crypto.randomUUID();
+          writer.write({ type: "reasoning-start", id: reasoningId });
+          writer.write({ type: "reasoning-delta", id: reasoningId, delta: selectedReasoning });
+          writer.write({ type: "reasoning-end", id: reasoningId });
+        }
+        for (const [index, source] of sources.entries()) {
+          writer.write({
+            type: "source-url",
+            sourceId: `web-source-${index + 1}`,
+            url: source.url,
+            title: source.title,
+          });
+        }
         const sourcesFooter = buildSourcesFooter(sources);
         if (sourcesFooter)
           writer.write({ type: "text-delta", id: messageId, delta: sourcesFooter });

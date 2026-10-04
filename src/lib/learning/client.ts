@@ -100,6 +100,12 @@ export async function getLearningSnapshot(userId: string): Promise<LearningSnaps
       .order("created_at", { ascending: false })
       .limit(50),
     db
+      .from("learning_flashcard_reviews")
+      .select("*")
+      .eq("user_id", userId)
+      .order("reviewed_at", { ascending: false })
+      .limit(500),
+    db
       .from("learning_notes")
       .select("*")
       .eq("user_id", userId)
@@ -167,8 +173,11 @@ export async function getLearningSnapshot(userId: string): Promise<LearningSnaps
       .limit(50),
   ]);
 
-  if (results.every((result) => result.status === "rejected")) {
-    throw new Error("Learning data is unavailable while offline.");
+  const failedQuery = results.find(
+    (result) => result.status === "rejected" || (result.status === "fulfilled" && result.value.error),
+  );
+  if (failedQuery) {
+    throw new Error("Some learning data could not be loaded. Please retry before continuing.");
   }
 
   const [
@@ -185,6 +194,7 @@ export async function getLearningSnapshot(userId: string): Promise<LearningSnaps
     artifacts,
     attempts,
     flashcards,
+    flashcardReviews,
     notes,
     exams,
     revisionSchedule,
@@ -229,6 +239,7 @@ export async function getLearningSnapshot(userId: string): Promise<LearningSnaps
     artifacts: safe(artifacts) as LearningArtifact[],
     attempts: safe(attempts) as LearningAttempt[],
     flashcards: safe(flashcards) as Flashcard[],
+    flashcard_reviews: safe(flashcardReviews) as FlashcardReview[],
     notes: safe(notes) as LearningNote[],
     exams: safe(exams) as Exam[],
     revision_schedule: safe(revisionSchedule) as RevisionSchedule[],
@@ -715,13 +726,14 @@ export async function createExam(
     difficulty: number;
   },
 ) {
-  const response = await authenticatedFetch(`${getApiBaseUrl()}/api/learning/exams`, {
+  const response = await authenticatedFetch(`${getApiBaseUrl()}/api/learning/features`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ action: "create", ...input }),
   });
   if (!response.ok) throw new Error("Failed to create exam");
-  return response.json();
+  const result = await response.json();
+  return result.exam;
 }
 
 export async function submitExamAnswer(
@@ -730,7 +742,7 @@ export async function submitExamAnswer(
   userAnswer: Record<string, unknown>,
   timeSpentSeconds?: number,
 ) {
-  const response = await authenticatedFetch(`${getApiBaseUrl()}/api/learning/exams`, {
+  const response = await authenticatedFetch(`${getApiBaseUrl()}/api/learning/features`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
@@ -746,7 +758,7 @@ export async function submitExamAnswer(
 }
 
 export async function completeExam(examId: string) {
-  const response = await authenticatedFetch(`${getApiBaseUrl()}/api/learning/exams`, {
+  const response = await authenticatedFetch(`${getApiBaseUrl()}/api/learning/features`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ action: "complete", examId }),
@@ -756,7 +768,7 @@ export async function completeExam(examId: string) {
 }
 
 export async function getExam(examId: string) {
-  const response = await authenticatedFetch(`${getApiBaseUrl()}/api/learning/exams`, {
+  const response = await authenticatedFetch(`${getApiBaseUrl()}/api/learning/features`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ action: "get", examId }),
@@ -837,11 +849,16 @@ export async function endVoiceSession(
 }
 
 // OCR
-export async function processOCR(sourceId: string, mimeType: string, fileBase64: string) {
+export async function processOCR(
+  sourceId: string,
+  mimeType: string,
+  fileBase64: string,
+  filename?: string,
+) {
   const response = await authenticatedFetch(`${getApiBaseUrl()}/api/learning/ocr`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ action: "process", sourceId, mimeType, fileBase64 }),
+    body: JSON.stringify({ action: "process", sourceId, mimeType, fileBase64, filename }),
   });
   if (!response.ok) throw new Error("Failed to process OCR");
   return response.json();

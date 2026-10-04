@@ -14,11 +14,25 @@ const localPort = Number.isInteger(requestedPort) && requestedPort > 0 ? request
 // to leave it as a Node dependency and trace it into Vercel's function bundle.
 // Keep this in a variable because the Lovable config wrapper's public type only
 // exposes a subset of Nitro's supported options.
-const nitroOptions = nitroPreset
-  ? { preset: nitroPreset, traceDeps: ["typescript"] }
-  : false;
+const nitroOptions = nitroPreset ? { preset: nitroPreset, traceDeps: ["typescript"] } : false;
 
 export default defineConfig({
+  // Only Android packages the client as local assets; keep normal web SSR
+  // behavior unchanged.
+  ...(process.env.LORD_ANDROID_BUILD === "1"
+    ? {
+        tanstackStart: {
+          spa: {
+            enabled: true,
+            maskPath: "/",
+            prerender: {
+              outputPath: "/index",
+              crawlLinks: false,
+            },
+          },
+        },
+      }
+    : {}),
   vite: {
     base: "/",
     // TanStack Start serves the client, SSR, and file-route APIs from this one

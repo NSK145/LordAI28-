@@ -32,14 +32,17 @@ export function setupApiInterceptor() {
 
     const init = args[1] ?? {};
     const method = (init.method ?? (input instanceof Request ? input.method : "GET")).toUpperCase();
-    const safeToRetry = method === "GET" || method === "HEAD";
+    const native = Capacitor.isNativePlatform();
+    const safeToRetry = native && (method === "GET" || method === "HEAD");
 
     try {
       let response: Response | undefined;
       let lastError: unknown;
       for (let attempt = 0; attempt < (safeToRetry ? 3 : 1); attempt++) {
         try {
-          response = await originalFetch(input, init);
+          response = native
+            ? await fetchWithTimeout(originalFetch, input, init)
+            : await originalFetch(input, init);
           if (
             !safeToRetry ||
             ![408, 425, 429, 500, 502, 503, 504].includes(response.status) ||
@@ -100,4 +103,26 @@ export function setupApiInterceptor() {
     }
   };
   Reflect.set(window, "__lordFetchInstrumented", true);
+}
+
+async function fetchWithTimeout(
+  fetcher: typeof window.fetch,
+  input: RequestInfo | URL,
+  init: RequestInit,
+): Promise<Response> {
+  const controller = new AbortController();
+  const requestSignal = init.signal ?? (input instanceof Request ? input.signal : undefined);
+  if (requestSignal?.aborted) throw requestSignal.reason;
+  const abortFromCaller = () => controller.abort(requestSignal?.reason);
+  requestSignal?.addEventListener("abort", abortFromCaller, { once: true });
+  const timeout = window.setTimeout(
+    () => controller.abort(new Error("Request timed out.")),
+    180_000,
+  );
+  try {
+    return await fetcher(input, { ...init, signal: controller.signal });
+  } finally {
+    window.clearTimeout(timeout);
+    requestSignal?.removeEventListener("abort", abortFromCaller);
+  }
 }

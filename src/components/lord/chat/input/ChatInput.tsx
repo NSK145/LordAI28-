@@ -22,12 +22,10 @@ import { ActiveToolBadge } from "./ActiveToolBadge";
 import { SuggestionChips } from "./SuggestionChips";
 import { AttachmentMenu } from "./AttachmentMenu";
 import { ToolsMenu } from "./ToolsMenu";
-import { ModelSelector } from "./ModelSelector";
 import { VoiceRecorder } from "./VoiceRecorder";
 import { CalendarModal } from "@/components/lord/CalendarModal";
 import { toast } from "sonner";
-import type { LordMode } from "@/lib/modes";
-import type { ResponseStyle } from "@/lib/ai/response-style";
+import { mobileCamera, mobileHaptics } from "@/lib/mobile-native";
 
 type OpenMenu = "attach" | "tools" | null;
 
@@ -44,6 +42,8 @@ const MAX_HEIGHT = 160;
 const MIN_HEIGHT = 44;
 const MAX_ATTACHMENTS = 10;
 const MAX_FILE_BYTES = 20 * 1024 * 1024;
+const MAX_MULTIMODAL_ATTACHMENTS = 4;
+const MAX_MULTIMODAL_BYTES = 12 * 1024 * 1024;
 
 export function ChatInput({
   value,
@@ -52,25 +52,23 @@ export function ChatInput({
   onStop,
   streaming,
   disabled,
-  mode,
-  onModeChange,
-  responseStyle,
-  onResponseStyleChange,
   webSearch,
   onWebSearchChange,
+  processingLabel,
+  resetKey = 0,
+  resetAttachmentIds = [],
 }: {
   value: string;
   onChange: (v: string) => void;
-  onSend: (payload: ChatSubmitPayload) => void;
+  onSend: (payload: ChatSubmitPayload) => void | boolean | Promise<void | boolean>;
   onStop: () => void;
   streaming: boolean;
   disabled?: boolean;
-  mode: LordMode;
-  onModeChange: (mode: LordMode) => void;
-  responseStyle: ResponseStyle;
-  onResponseStyleChange: (style: ResponseStyle) => void;
   webSearch: boolean;
   onWebSearchChange: (enabled: boolean) => void;
+  processingLabel?: string | null;
+  resetKey?: number;
+  resetAttachmentIds?: readonly string[];
 }) {
   const taRef = useRef<HTMLTextAreaElement>(null);
   const rootRef = useRef<HTMLDivElement>(null);
@@ -80,6 +78,22 @@ export function ChatInput({
   const [dragging, setDragging] = useState(false);
   const [calendarOpen, setCalendarOpen] = useState(false);
   const previewUrlsRef = useRef(new Set<string>());
+  const lastResetKeyRef = useRef(resetKey);
+  const attachmentsRef = useRef(attachments);
+  attachmentsRef.current = attachments;
+
+  useEffect(() => {
+    if (lastResetKeyRef.current === resetKey) return;
+    lastResetKeyRef.current = resetKey;
+    const ids = new Set(resetAttachmentIds);
+    attachmentsRef.current.forEach((attachment) => {
+      if (ids.has(attachment.id) && attachment.previewUrl) {
+        URL.revokeObjectURL(attachment.previewUrl);
+        previewUrlsRef.current.delete(attachment.previewUrl);
+      }
+    });
+    setAttachments((current) => current.filter((attachment) => !ids.has(attachment.id)));
+  }, [resetKey, resetAttachmentIds]);
 
   useLayoutEffect(() => {
     const ta = taRef.current;
@@ -108,6 +122,10 @@ export function ChatInput({
         e.preventDefault();
         taRef.current?.focus();
       }
+      if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key.toLowerCase() === "u") {
+        e.preventDefault();
+        setOpenMenu((menu) => (menu === "attach" ? null : "attach"));
+      }
     };
     document.addEventListener("mousedown", onDown);
     document.addEventListener("keydown", onKey);
@@ -119,17 +137,37 @@ export function ChatInput({
 
   const addFiles = (files: FileList | File[]) => {
     const currentCount = attachments.length;
-    const candidates = Array.from(files)
-      .filter((file) => {
-        if (file.size > MAX_FILE_BYTES) {
-          toast.error(`${file.name} is larger than the 20 MB attachment limit.`);
-          return false;
+    let visualCount = attachments.filter((attachment) =>
+      ["image", "pdf"].includes(attachment.kind),
+    ).length;
+    let visualBytes = attachments
+      .filter((attachment) => ["image", "pdf"].includes(attachment.kind))
+      .reduce((total, attachment) => total + attachment.size, 0);
+    const candidates: File[] = [];
+    for (const file of Array.from(files)) {
+      if (currentCount + candidates.length >= MAX_ATTACHMENTS) {
+        toast.error(`You can attach up to ${MAX_ATTACHMENTS} files per message.`);
+        break;
+      }
+      if (file.size > MAX_FILE_BYTES) {
+        toast.error(`${file.name} is larger than the 20 MB attachment limit.`);
+        continue;
+      }
+      const kind = kindOf(file);
+      if (kind === "image" || kind === "pdf") {
+        if (visualCount >= MAX_MULTIMODAL_ATTACHMENTS) {
+          toast.error("You can attach up to four images or PDFs per message.");
+          continue;
         }
-        return true;
-      })
-      .slice(0, Math.max(0, MAX_ATTACHMENTS - currentCount));
-    if (candidates.length < Array.from(files).filter((file) => file.size <= MAX_FILE_BYTES).length)
-      toast.error(`You can attach up to ${MAX_ATTACHMENTS} files per message.`);
+        if (visualBytes + file.size > MAX_MULTIMODAL_BYTES) {
+          toast.error("Images and PDFs must total 12 MB or less per message.");
+          continue;
+        }
+        visualCount += 1;
+        visualBytes += file.size;
+      }
+      candidates.push(file);
+    }
     const next: Attachment[] = candidates.map((file) => {
       const kind = kindOf(file);
       const previewUrl = kind === "image" ? URL.createObjectURL(file) : undefined;
@@ -147,6 +185,18 @@ export function ChatInput({
       };
     });
     setAttachments((prev) => [...prev, ...next]);
+  };
+
+  const takePhoto = async () => {
+    try {
+      const file = await mobileCamera.takePhoto();
+      addFiles([file]);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Could not open the camera.";
+      if (!message.toLowerCase().includes("cancel")) toast.error(message);
+    } finally {
+      setOpenMenu(null);
+    }
   };
 
   const removeAttachment = (id: string) => {
@@ -168,22 +218,27 @@ export function ChatInput({
     };
   }, []);
 
-  const handleSend = () => {
+  const handleSend = async () => {
     if (streaming) {
       onStop();
       return;
     }
     const text = value.trim();
     if (!text || disabled) return;
-    onSend({ text, attachments, tool: activeTool });
-    onChange("");
-    attachments.forEach((file) => {
+    void mobileHaptics.light();
+    const sentValue = value;
+    const sentAttachments = attachments;
+    const sentIds = new Set(sentAttachments.map((attachment) => attachment.id));
+    const accepted = await onSend({ text, attachments: sentAttachments, tool: activeTool });
+    if (accepted === false) return;
+    if (taRef.current?.value === sentValue) onChange("");
+    sentAttachments.forEach((file) => {
       if (file.previewUrl) {
         URL.revokeObjectURL(file.previewUrl);
         previewUrlsRef.current.delete(file.previewUrl);
       }
     });
-    setAttachments([]);
+    setAttachments((current) => current.filter((attachment) => !sentIds.has(attachment.id)));
   };
 
   const insertSuggestion = (s: string) => {
@@ -192,17 +247,27 @@ export function ChatInput({
   };
 
   const handleKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
+    if ((e.ctrlKey || e.metaKey) && e.key === "Enter") {
+      e.preventDefault();
+      void handleSend();
+      return;
+    }
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
-      handleSend();
+      void handleSend();
     }
   };
 
   const handlePaste = (e: React.ClipboardEvent<HTMLTextAreaElement>) => {
-    const files = e.clipboardData?.files;
-    if (files && files.length > 0) {
+    const files = Array.from(e.clipboardData?.files ?? []);
+    const itemFiles = Array.from(e.clipboardData?.items ?? [])
+      .filter((item) => item.kind === "file" && (item.type.startsWith("image/") || item.type === "application/pdf"))
+      .map((item) => item.getAsFile())
+      .filter((file): file is File => file !== null);
+    const pastedFiles = files.length ? files : itemFiles;
+    if (pastedFiles.length > 0) {
       e.preventDefault();
-      addFiles(files);
+      addFiles(pastedFiles);
     }
   };
 
@@ -221,6 +286,16 @@ export function ChatInput({
   };
 
   const showSuggestions = !streaming && !value.trim() && attachments.length === 0 && !activeTool;
+  const hasImage = attachments.some((attachment) => attachment.kind === "image");
+  const hasPdf = attachments.some((attachment) => attachment.kind === "pdf");
+  const wantsOcr = /\b(ocr|extract(?:ing)? text|read(?:ing)? the text|transcrib(?:e|ing))\b/i.test(value);
+  const multimodalBadge = wantsOcr && (hasImage || hasPdf)
+    ? "OCR"
+    : hasPdf
+      ? "PDF"
+      : hasImage
+        ? "Vision"
+        : null;
 
   return (
     <div ref={rootRef} className="w-full">
@@ -252,12 +327,13 @@ export function ChatInput({
         }}
         onDrop={handleDrop}
         animate={{ scale: dragging ? 1.01 : 1 }}
-        transition={{ type: "spring", stiffness: 300, damping: 24 }}
-        className={cn(
-          "relative flex flex-col gap-2 rounded-3xl border bg-white/[0.04] px-3 py-2.5 backdrop-blur-2xl transition-shadow md:rounded-full md:px-4 md:py-2",
+          transition={{ duration: 0.18, ease: "easeInOut" }}
+          className={cn(
+          "relative flex flex-col gap-2 rounded-3xl border bg-slate-950/75 px-3 py-2.5 shadow-[0_10px_30px_rgba(0,0,0,0.22)] backdrop-blur-xl transition-[border-color,box-shadow,background-color] duration-200 md:px-4 md:py-2",
+          attachments.length > 0 || activeTool ? "md:rounded-2xl" : "md:rounded-[26px]",
           dragging
-            ? "border-cyan-400/60 shadow-[0_0_0_1px_rgba(0,255,255,0.4),0_0_40px_rgba(0,255,255,0.25)]"
-            : "border-[rgba(0,255,255,0.12)] shadow-[0_0_0_1px_rgba(0,255,255,0.06),0_8px_40px_rgba(0,255,255,0.10)]",
+            ? "border-primary/60 shadow-[0_0_0_2px_rgba(66,133,244,0.16),0_12px_32px_rgba(0,0,0,0.24)]"
+            : "border-white/10 hover:border-white/15 focus-within:border-primary/40 focus-within:shadow-[0_0_0_2px_rgba(66,133,244,0.08),0_12px_32px_rgba(0,0,0,0.24)]",
         )}
       >
         <AnimatePresence>
@@ -267,7 +343,7 @@ export function ChatInput({
               initial={{ opacity: 0, height: 0 }}
               animate={{ opacity: 1, height: "auto" }}
               exit={{ opacity: 0, height: 0 }}
-              className="flex flex-wrap items-center gap-2 overflow-hidden"
+              className="flex min-w-0 flex-wrap items-center gap-2 overflow-hidden"
             >
               {activeTool && (
                 <ActiveToolBadge tool={activeTool} onClear={() => setActiveTool(null)} />
@@ -279,7 +355,27 @@ export function ChatInput({
           )}
         </AnimatePresence>
 
-        <div className="flex items-end gap-1.5">
+        {(processingLabel || multimodalBadge) && (
+          <div className="flex min-h-5 items-center gap-2 px-1" aria-live="polite">
+            {processingLabel && (
+              <span className="inline-flex items-center gap-1.5 text-[11px] text-primary/90">
+                <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-primary" aria-hidden="true" />
+                {processingLabel}
+              </span>
+            )}
+            {multimodalBadge && (
+              <span
+                className="rounded-full border border-primary/25 bg-primary/10 px-2 py-0.5 text-[10px] font-medium tracking-wide text-blue-100"
+                aria-label={`${multimodalBadge} model selected from attached content`}
+                title={`${multimodalBadge} model selected from attached content`}
+              >
+                {multimodalBadge}
+              </span>
+            )}
+          </div>
+        )}
+
+        <div className="flex flex-wrap items-end gap-1.5">
           <div className="relative flex items-center gap-1">
             <motion.button
               type="button"
@@ -301,6 +397,7 @@ export function ChatInput({
               open={openMenu === "attach"}
               onClose={() => setOpenMenu(null)}
               onFiles={addFiles}
+              onCamera={() => void takePhoto()}
             />
 
             <motion.button
@@ -337,25 +434,13 @@ export function ChatInput({
             placeholder="Ask LordAI anything..."
             aria-label="Message LORD AI"
             aria-describedby="chat-input-hint"
-            className="max-h-40 min-h-[44px] flex-1 resize-none bg-transparent px-1 py-2.5 text-sm leading-6 text-white outline-none placeholder:text-white/40"
+            className="max-h-40 min-h-[44px] min-w-0 flex-1 resize-none bg-transparent px-1 py-2.5 text-sm leading-6 text-foreground outline-none placeholder:text-muted-foreground/90 max-[480px]:order-first max-[480px]:basis-full"
           />
           <span id="chat-input-hint" className="sr-only">
-            Press Enter to send, Shift plus Enter for a new line, or slash to focus the message box.
+            Press Enter to send, Shift plus Enter for a new line, Ctrl or Command plus Enter to send, or Ctrl or Command plus Shift plus U to open attachments. Press slash to focus the message box.
           </span>
 
           <div className="flex items-center gap-1.5">
-            <ModelSelector value={mode} onChange={onModeChange} />
-            <select
-              aria-label="Response style"
-              value={responseStyle}
-              onChange={(event) => onResponseStyleChange(event.target.value as ResponseStyle)}
-              className="h-9 max-w-28 rounded-full border border-white/10 bg-slate-900 px-2 text-xs text-white/75 outline-none focus-visible:ring-2 focus-visible:ring-cyan-400"
-            >
-              <option value="balanced">Balanced</option>
-              <option value="concise">Concise</option>
-              <option value="detailed">Detailed</option>
-              <option value="step-by-step">Step by step</option>
-            </select>
             <button
               type="button"
               aria-pressed={webSearch}
@@ -394,7 +479,7 @@ export function ChatInput({
                   whileHover={{ scale: 1.06 }}
                   whileTap={{ scale: 0.94 }}
                   aria-label="Stop generating"
-                  className="flex h-10 w-10 items-center justify-center rounded-full bg-gradient-to-br from-fuchsia-500 to-cyan-400 text-white shadow-[0_0_22px_rgba(0,255,255,0.4)]"
+                  className="flex h-10 w-10 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-md transition-colors hover:bg-primary/90"
                 >
                   <Square className="h-4 w-4 fill-current" />
                 </motion.button>
@@ -413,7 +498,7 @@ export function ChatInput({
                     "flex h-10 w-10 items-center justify-center rounded-full transition",
                     !value.trim() || disabled
                       ? "cursor-not-allowed bg-white/10 text-white/40"
-                      : "bg-gradient-to-br from-cyan-400 to-blue-500 text-white shadow-[0_0_22px_rgba(0,255,255,0.45)]",
+                      : "bg-primary text-primary-foreground shadow-md hover:bg-primary/90",
                   )}
                 >
                   <ArrowUp className="h-5 w-5" />

@@ -29,7 +29,11 @@ function messageTokens(message: ChatMessage): number {
 }
 
 function messageText(message: ChatMessage): string {
-  return message.content + (message.images?.map(() => " [image]").join("") ?? "");
+  return (
+    message.content +
+    (message.images?.map(() => " [image]").join("") ?? "") +
+    (message.files?.map((file) => ` [document: ${file.filename}]`).join("") ?? "")
+  );
 }
 
 function clipToTokens(text: string, tokenLimit: number): string {
@@ -83,6 +87,7 @@ export function buildChatContextMessages(
     if (message.role === "system") return [];
     const content: string[] = [];
     const images: string[] = [];
+    const files: Array<{ filename: string; fileData: string }> = [];
     for (const part of message.parts) {
       if (part.type === "text" && part.text.trim()) content.push(part.text);
       if (
@@ -92,15 +97,35 @@ export function buildChatContextMessages(
       ) {
         images.push(part.url);
       }
+      if (
+        part.type === "file" &&
+        part.mediaType === "application/pdf" &&
+        part.url.startsWith("data:application/pdf;base64,")
+      ) {
+        files.push({ filename: part.filename || "document.pdf", fileData: part.url });
+      }
     }
     const text = content.join(" ").trim();
-    return text || images.length
-      ? [{ role: message.role, content: text, ...(images.length ? { images } : {}) }]
+    return text || images.length || files.length
+      ? [
+          {
+            role: message.role,
+            content: text,
+            ...(images.length ? { images } : {}),
+            ...(files.length ? { files } : {}),
+          },
+        ]
       : [];
   });
   if (conversation.length === 0) return [system];
 
-  let currentIndex = conversation.findLastIndex((message) => message.role === "user");
+  let currentIndex = -1;
+  for (let index = conversation.length - 1; index >= 0; index--) {
+    if (conversation[index].role === "user") {
+      currentIndex = index;
+      break;
+    }
+  }
   if (currentIndex < 0) currentIndex = conversation.length - 1;
   const current = conversation[currentIndex];
   const currentBudget = Math.max(1, remainingAfterSystem - 4);

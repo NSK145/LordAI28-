@@ -13,7 +13,11 @@ vi.mock("./config", () => ({
 
 vi.mock("./client", () => ({
   OpenRouterClient: class MockOpenRouterClient {
-    streamChat = mocks.streamChat;
+    async *streamChatEvents(...args: unknown[]) {
+      for await (const delta of mocks.streamChat(...args)) {
+        if (delta) yield { type: "text", delta };
+      }
+    }
   },
 }));
 

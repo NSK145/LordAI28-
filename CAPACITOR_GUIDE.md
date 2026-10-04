@@ -1,42 +1,22 @@
-# LORD AI - Capacitor Android Conversion Guide
-
-I have successfully converted your React web app (TanStack Start) into a Capacitor-powered Android application. Below are the details of the changes and the steps you need to follow to build your APK.
+# LORD AI - Capacitor Android Guide
 
 ## Changes Made
 
-1.  **Capacitor Integration**: Initialized Capacitor and added the Android platform.
-2.  **SPA Mode Configuration**: Updated `vite.config.ts` to enable SPA mode. This is required because Android apps serve content from a local origin (e.g., `http://localhost`), which doesn't support the full SSR features of TanStack Start out-of-the-box.
-3.  **API Connectivity**:
-    - Created `src/lib/api-config.ts` to handle dynamic API base URLs.
-    - Updated all AI-related routes (`chat.tsx`, `documents.tsx`, `research.tsx`, `study.tsx`, and `WakeWordProvider.tsx`) to use this configuration.
-    - In a mobile context, the app will now attempt to reach your backend via a fully qualified URL instead of relative paths.
-4.  **Build Scripts**: Added a `build:android` script to your `package.json` for one-command local builds.
+The web app is packaged locally by Capacitor. Android API requests are sent to the existing LORD deployment; model selection and provider keys remain server-side.
 
 ## How to Build the APK
 
 ### 1. Set Your Backend URL
 
-Before building, ensure your app knows where your deployed backend is. You can set this in your `.env` file:
+Before building, set the public HTTPS origin for the deployed LORD backend in your local `.env`:
 
 ```env
-VITE_API_BASE_URL=https://your-deployed-app-url.com
+VITE_API_BASE_URL=https://your-lord-deployment.example
 ```
 
-Or update the fallback in `src/lib/api-config.ts`.
+Native builds reject non-HTTPS backend URLs. Relative `/api/...` calls are routed to this origin as well. The URL is public configuration; never place provider keys in a `VITE_` variable.
 
-### 2. GitHub Actions Workflow (Action Required)
-
-Due to security restrictions, I could not directly push the GitHub Actions workflow file to your repository. Please follow these steps to enable automatic APK builds:
-
-1.  Go to your repository on GitHub.
-2.  Create a new folder named `.github/workflows` if it doesn't exist.
-3.  Create a file named `build-apk.yml` inside that folder.
-4.  Paste the content of the attached `build-apk.yml.txt` into that file.
-5.  Commit and push.
-
-Every time you push to `main`, GitHub will now automatically build a debug APK and make it available in the "Actions" tab.
-
-### 3. Local Build
+### Local debug build
 
 If you have Android Studio installed locally, you can build the APK yourself:
 
@@ -47,7 +27,24 @@ npm run build:android
 
 Then open the `android` folder in Android Studio to run it on an emulator or device.
 
-## Important Notes
+### Signed release build
 
-- **CORS**: Your deployed backend MUST allow requests from `capacitor://localhost` and `http://localhost`.
-- **Permissions**: I have added basic internet permissions to the Android manifest. If you add features like camera or file uploads, you may need to update `AndroidManifest.xml`.
+Release APK/AAB builds use R8 and require a signing key supplied outside the repository. Set these environment variables in the build environment:
+
+```env
+LORD_ANDROID_KEYSTORE_FILE=/secure/path/lord-release.jks
+LORD_ANDROID_KEYSTORE_PASSWORD=...
+LORD_ANDROID_KEY_ALIAS=...
+LORD_ANDROID_KEY_PASSWORD=...
+```
+
+Then run `npm run build:android:aab`. Do not commit the keystore or passwords. Google Play App Signing and store listing requirements still need to be completed in Play Console.
+
+## Notes
+
+- Android uses the system certificate store and blocks cleartext traffic; no permissive certificate override is configured.
+- Supabase access/refresh sessions use an AES-GCM key held by Android Keystore. Existing WebView sessions migrate on first read; Android app backups are disabled so session data is not copied through device backup.
+- Chat uploads continue through the existing chat backend endpoint. Camera images are resized/compressed by Capacitor before entering that flow.
+- App shortcuts and local notification taps open internal routes using the `lordai://open/...` scheme.
+- Remote push notifications require a Firebase project plus a backend registration/delivery path. Neither exists in this repository yet, so push delivery is not configured.
+- Offline study data is an on-device read-only cache. Sending messages and syncing still require a connection.

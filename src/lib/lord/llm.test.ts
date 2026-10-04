@@ -10,6 +10,7 @@ const router = vi.hoisted(() => ({
 
 vi.mock("@/config/lord-config", () => ({
   CHAT_MODEL_MAP: router.models,
+  CHAT_REGISTRY: [],
   LORD_IDENTITY: { defaultMode: "balanced" },
   buildRouteDecision: router.buildRouteDecision,
   classifyTask: router.classifyTask,
@@ -140,7 +141,7 @@ describe("free-only agent model routing", () => {
   it("does not claim to analyze images through text-only model input", async () => {
     await expect(
       runLordVision({ prompt: "What is in this image?", image: "data:image/png;base64,x" }),
-    ).rejects.toThrow("AI_NOT_CONFIGURED");
+    ).rejects.toThrow("No vision-capable model is configured.");
     expect(router.streamChat).not.toHaveBeenCalled();
   });
 });

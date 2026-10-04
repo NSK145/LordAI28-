@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Check, Pause, Play, RotateCcw, Timer, X } from "lucide-react";
 import { recordFocusSession } from "@/lib/learning/focus-sessions";
+import { isNativeMobile, mobileHaptics, mobileNotifications } from "@/lib/mobile-native";
 
 export function StudyFocusSession({ userId }: { userId: string }) {
   const [open, setOpen] = useState(false);
@@ -13,6 +14,16 @@ export function StudyFocusSession({ userId }: { userId: string }) {
   const wasOpenRef = useRef(false);
   const deadlineRef = useRef(0);
   const savedCompletionRef = useRef(false);
+  const reminderIdRef = useRef<number | null>(null);
+  const reminderRevisionRef = useRef(0);
+
+  const cancelReminder = () => {
+    reminderRevisionRef.current++;
+    if (reminderIdRef.current !== null) {
+      void mobileNotifications.cancel(reminderIdRef.current).catch(() => undefined);
+      reminderIdRef.current = null;
+    }
+  };
   const timeLabel = useMemo(
     () =>
       `${Math.floor(remaining / 60)
@@ -42,6 +53,7 @@ export function StudyFocusSession({ userId }: { userId: string }) {
         if (!savedCompletionRef.current) {
           savedCompletionRef.current = true;
           recordFocusSession(userId, minutes);
+          void mobileHaptics.success();
         }
       }
     }, 250);
@@ -51,16 +63,40 @@ export function StudyFocusSession({ userId }: { userId: string }) {
   const start = () => {
     deadlineRef.current = Date.now() + remaining * 1000;
     setRunning(true);
+    if (!isNativeMobile()) return;
+    const revision = ++reminderRevisionRef.current;
+    const reminderId = Date.now() % 2147483647;
+    reminderIdRef.current = reminderId;
+    void mobileNotifications
+      .scheduleReminder(
+        "Focus session complete",
+        "Your LORD study session is finished. Take a short break or review what you learned.",
+        new Date(deadlineRef.current),
+        "/study",
+        reminderId,
+      )
+      .then((result) => {
+        if (reminderRevisionRef.current !== revision) {
+          if (result.scheduled) void mobileNotifications.cancel(reminderId).catch(() => undefined);
+          return;
+        }
+        if (!result.scheduled) reminderIdRef.current = null;
+      })
+      .catch(() => {
+        if (reminderRevisionRef.current === revision) reminderIdRef.current = null;
+      });
   };
 
   const pause = () => {
     setRemaining(Math.max(0, Math.ceil((deadlineRef.current - Date.now()) / 1000)));
     setRunning(false);
+    cancelReminder();
   };
 
   const reset = () => {
     setRunning(false);
     setCompleted(false);
+    cancelReminder();
     savedCompletionRef.current = false;
     setRemaining(minutes * 60);
   };

@@ -1,5 +1,5 @@
 import { Link, useLocation, useNavigate } from "@tanstack/react-router";
-import { motion } from "framer-motion";
+import { motion, useReducedMotion } from "framer-motion";
 import {
   LayoutDashboard,
   MessageSquare,
@@ -50,6 +50,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   const navigate = useNavigate();
   const qc = useQueryClient();
   const path = location.pathname;
+  const reduceMotion = useReducedMotion();
 
   const [user, setUser] = useState<User | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
@@ -122,31 +123,38 @@ export function AppShell({ children }: { children: ReactNode }) {
   return (
     <div className="relative min-h-screen w-full overflow-x-hidden">
       <ParticleField />
-      <div className="pointer-events-none fixed inset-0 -z-10 bg-grid opacity-30" />
+      <div className="pointer-events-none fixed inset-0 -z-10 bg-grid opacity-[0.12]" />
 
       {/* Top status bar */}
-      <header className="mobile-safe-top sticky top-0 z-40 border-b border-border/40 bg-background/70 backdrop-blur-xl">
-        <div className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 px-3 py-3 sm:px-4 md:px-6">
+      <header className="mobile-safe-top sticky top-0 z-40 border-b border-border/60 bg-background/90 backdrop-blur-xl">
+        <div className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-4 px-4 py-3 sm:px-6 md:px-8">
           <button
             onClick={() => setDrawerOpen(true)}
-            className="grid h-10 w-10 shrink-0 place-items-center rounded-md border border-border/60 bg-background/40 text-muted-foreground md:hidden"
+            className="grid h-10 w-10 shrink-0 place-items-center rounded-xl border border-border bg-card/70 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground md:hidden"
             aria-label="Open navigation"
           >
             <Menu className="h-5 w-5" />
           </button>
           <Link to="/" className="flex min-w-0 items-center gap-3">
-            <div className="relative h-9 w-9 shrink-0">
-              <div className="absolute inset-0 animate-pulse-glow rounded-full bg-primary/20" />
-              <div
-                className="absolute inset-1 rounded-full"
-                style={{ background: "var(--gradient-hud)" }}
-              />
-              <div className="absolute inset-3 rounded-full bg-background" />
-              <div
-                className="absolute inset-[14px] rounded-full"
-                style={{ background: "var(--gradient-hud)", boxShadow: "0 0 12px var(--hud)" }}
-              />
-            </div>
+            <motion.svg
+              aria-hidden="true"
+              viewBox="0 0 400 400"
+              className="h-9 w-9 shrink-0 text-[#1557D6]"
+              fill="none"
+              xmlns="http://www.w3.org/2000/svg"
+              initial={reduceMotion ? false : { opacity: 0, scale: 0.94, rotate: -4 }}
+              animate={{ opacity: 1, scale: 1, rotate: 0 }}
+              whileHover={reduceMotion ? undefined : { rotate: 4, scale: 1.03 }}
+              whileTap={reduceMotion ? undefined : { scale: 0.97 }}
+              transition={{ duration: 0.28, ease: "easeOut" }}
+              style={{ transformOrigin: "center" }}
+            >
+              <g stroke="currentColor" strokeWidth="12" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M105 52C151 44 224 105 281 166C334 223 361 286 344 329C326 373 262 330 202 273C142 216 82 143 73 92C67 61 84 49 105 52Z" />
+                <path d="M295 52C249 44 176 105 119 166C66 223 39 286 56 329C74 373 138 330 198 273C258 216 318 143 327 92C333 61 316 49 295 52Z" />
+                <path d="M140 184L197 245L264 178" />
+              </g>
+            </motion.svg>
             <div className="min-w-0 leading-tight">
               <div className="truncate font-display text-lg font-bold tracking-wider gradient-text">
                 LORD
@@ -157,11 +165,9 @@ export function AppShell({ children }: { children: ReactNode }) {
             </div>
           </Link>
 
-          <div className="hidden items-center justify-center gap-2 font-mono text-xs text-muted-foreground lg:flex">
-            <span className="h-2 w-2 animate-blink rounded-full bg-[var(--hud-success)] shadow-[0_0_8px_var(--hud-success)]" />
-            <span>SYSTEM ONLINE</span>
-            <span className="mx-2 text-border">|</span>
-            <span>v1.0.0</span>
+          <div className="hidden items-center justify-center gap-2 text-xs text-muted-foreground lg:flex">
+            <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
+            <span>Ready when you are</span>
           </div>
 
           {user ? <UserMenu user={user} onSignOut={signOut} /> : <SignInButton />}
@@ -170,12 +176,12 @@ export function AppShell({ children }: { children: ReactNode }) {
 
       <NavigationDock />
 
-      <main className="mobile-app-main px-3 pb-28 pt-4 sm:px-4 md:px-6 md:pb-10 md:pl-24">
+      <main className="mobile-app-main px-4 pb-28 pt-4 sm:px-6 md:px-8 md:pb-10 md:pl-24">
         <motion.div
           key={path}
           initial={{ opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.35, ease: "easeOut" }}
+          transition={{ duration: 0.2, ease: "easeOut" }}
         >
           {children}
         </motion.div>
@@ -188,7 +194,7 @@ export function AppShell({ children }: { children: ReactNode }) {
             onClick={() => setDrawerOpen(false)}
             aria-label="Close navigation overlay"
           />
-          <aside className="mobile-safe-top mobile-safe-bottom hud-panel absolute bottom-0 left-0 top-0 flex w-[min(86vw,22rem)] flex-col gap-4 overflow-y-auto rounded-none border-l-0 border-t-0 p-4">
+          <aside className="mobile-safe-top mobile-safe-bottom hud-panel absolute bottom-0 left-0 top-0 flex w-[min(86vw,22rem)] flex-col gap-4 overflow-y-auto rounded-r-2xl border-l-0 border-t-0 p-4">
             <div className="flex items-center justify-between">
               <div>
                 <div className="font-display text-lg font-bold gradient-text">LORD</div>
@@ -214,9 +220,9 @@ export function AppShell({ children }: { children: ReactNode }) {
                       to={to}
                       onClick={() => setDrawerOpen(false)}
                       className={cn(
-                        "flex min-h-12 items-center gap-3 rounded-md px-3 text-sm transition-all",
+                        "flex min-h-12 items-center gap-3 rounded-xl px-3 text-sm transition-colors duration-200",
                         active
-                          ? "bg-primary/15 text-primary shadow-[0_0_18px_var(--hud)]"
+                          ? "bg-primary/12 text-primary"
                           : "text-muted-foreground hover:bg-primary/10 hover:text-primary",
                       )}
                     >
@@ -233,7 +239,7 @@ export function AppShell({ children }: { children: ReactNode }) {
 
       {/* Bottom nav (mobile) */}
       <nav className="mobile-safe-bottom fixed bottom-0 left-0 right-0 z-40 px-2 pb-2 md:hidden">
-        <ul className="hud-panel grid grid-cols-4 gap-1 p-2">
+        <ul className="glass-panel grid grid-cols-4 gap-1.5 p-2">
           {PRIMARY_NAV.map(({ to, label, icon: Icon }) => {
             const active = to === "/" ? path === "/" : path.startsWith(to);
             return (
@@ -241,8 +247,8 @@ export function AppShell({ children }: { children: ReactNode }) {
                 <Link
                   to={to}
                   className={cn(
-                    "flex min-h-12 flex-col items-center justify-center gap-0.5 rounded-md px-1 py-1.5 text-[10px] transition-all",
-                    active ? "bg-primary/15 text-primary" : "text-muted-foreground",
+                    "flex min-h-12 flex-col items-center justify-center gap-1 rounded-xl px-1 py-1.5 text-[10px] transition-colors duration-200",
+                    active ? "bg-primary/12 text-primary" : "text-muted-foreground hover:bg-white/5 hover:text-foreground",
                   )}
                 >
                   <Icon className="h-4 w-4" />
@@ -264,7 +270,7 @@ function SignInButton() {
   return (
     <Link
       to="/auth"
-      className="inline-flex shrink-0 items-center gap-1.5 rounded-md bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground shadow-[0_0_12px_var(--hud)] transition hover:scale-105"
+      className="inline-flex shrink-0 items-center gap-2 rounded-xl bg-primary px-3.5 py-2 text-xs font-semibold text-primary-foreground transition-colors hover:bg-primary/90"
     >
       <LogIn className="h-3.5 w-3.5" /> Sign in
     </Link>

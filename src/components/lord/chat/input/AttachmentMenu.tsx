@@ -1,8 +1,9 @@
 import { useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Paperclip, Image as ImageIcon, FileText, AudioLines, Video } from "lucide-react";
+import { Paperclip, Image as ImageIcon, FileText, AudioLines, Video, Camera } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { AttachmentKind } from "./types";
+import { Capacitor } from "@capacitor/core";
 
 interface AttachmentItem {
   kind: AttachmentKind;
@@ -23,10 +24,12 @@ export function AttachmentMenu({
   open,
   onClose,
   onFiles,
+  onCamera,
 }: {
   open: boolean;
   onClose: () => void;
   onFiles: (files: FileList) => void;
+  onCamera?: () => void;
 }) {
   const inputs = useRef<Partial<Record<AttachmentKind, HTMLInputElement | null>>>({});
 
@@ -46,6 +49,18 @@ export function AttachmentMenu({
           transition={{ duration: 0.16, ease: "easeOut" }}
           className="absolute bottom-full left-0 mb-3 w-56 overflow-hidden rounded-2xl border border-white/10 bg-[rgba(18,20,28,0.92)] p-1.5 shadow-[0_20px_60px_rgba(0,0,0,0.6)] backdrop-blur-2xl"
         >
+          {Capacitor.isNativePlatform() && onCamera && (
+            <button
+              type="button"
+              onClick={onCamera}
+              className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm text-white/80 transition hover:bg-cyan-400/10 hover:text-cyan-200"
+            >
+              <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-white/5 text-cyan-300">
+                <Camera className="h-4 w-4" />
+              </span>
+              <span className="font-medium">Take a photo</span>
+            </button>
+          )}
           {ITEMS.map((item, i) => {
             const Icon = item.icon;
             return (
@@ -61,6 +76,7 @@ export function AttachmentMenu({
                   }}
                   type="file"
                   accept={item.accept}
+                  multiple={item.kind === "image" || item.kind === "pdf"}
                   className="hidden"
                   onChange={handleChange}
                 />

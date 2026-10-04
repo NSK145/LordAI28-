@@ -19,3 +19,7 @@
 # If you keep the line number information, uncomment this to
 # hide the original source file name.
 #-renamesourcefileattribute SourceFile
+
+# Capacitor discovers plugin methods and annotations at runtime.
+-keepattributes RuntimeVisibleAnnotations,AnnotationDefault
+-keep class com.nagasatwik145.lordai.SecureSessionStoragePlugin { *; }

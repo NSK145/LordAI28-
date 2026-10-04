@@ -63,6 +63,7 @@ import { Route as ApiBrainContextRouteImport } from './routes/api/brain/context'
 import { Route as ApiCanvasIndexRouteImport } from './routes/api/canvas/index'
 import { Route as ApiCanvasStreamRouteImport } from './routes/api/canvas/stream'
 import { Route as ApiCanvasVersionsRouteImport } from './routes/api/canvas/versions'
+import { Route as ApiChatOcrRouteImport } from './routes/api/chat/ocr'
 import { Route as ApiCommandPaletteSearchRouteImport } from './routes/api/command-palette/search'
 import { Route as ApiDashboardsIndexRouteImport } from './routes/api/dashboards/index'
 import { Route as ApiImageHealthRouteImport } from './routes/api/image/health'
@@ -404,6 +405,11 @@ const ApiCanvasVersionsRoute = ApiCanvasVersionsRouteImport.update({
   path: '/api/canvas/versions',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiChatOcrRoute = ApiChatOcrRouteImport.update({
+  id: '/ocr',
+  path: '/ocr',
+  getParentRoute: () => ApiChatRoute,
+} as any)
 const ApiCommandPaletteSearchRoute = ApiCommandPaletteSearchRouteImport.update({
   id: '/api/command-palette/search',
   path: '/api/command-palette/search',
@@ -706,7 +712,7 @@ export interface FileRoutesByFullPath {
   '/study': typeof AuthenticatedStudyRoute
   '/tasks': typeof AuthenticatedTasksRoute
   '/voice': typeof AuthenticatedVoiceRoute
-  '/api/chat': typeof ApiChatRoute
+  '/api/chat': typeof ApiChatRouteWithChildren
   '/api/health': typeof ApiHealthRoute
   '/api/images': typeof ApiImagesRouteWithChildren
   '/api/openrouter-test': typeof ApiOpenrouterTestRoute
@@ -729,6 +735,7 @@ export interface FileRoutesByFullPath {
   '/api/brain/context': typeof ApiBrainContextRoute
   '/api/canvas/stream': typeof ApiCanvasStreamRoute
   '/api/canvas/versions': typeof ApiCanvasVersionsRoute
+  '/api/chat/ocr': typeof ApiChatOcrRoute
   '/api/command-palette/search': typeof ApiCommandPaletteSearchRoute
   '/api/image/health': typeof ApiImageHealthRoute
   '/api/images/$id': typeof ApiImagesIdRoute
@@ -814,7 +821,7 @@ export interface FileRoutesByTo {
   '/study': typeof AuthenticatedStudyRoute
   '/tasks': typeof AuthenticatedTasksRoute
   '/voice': typeof AuthenticatedVoiceRoute
-  '/api/chat': typeof ApiChatRoute
+  '/api/chat': typeof ApiChatRouteWithChildren
   '/api/health': typeof ApiHealthRoute
   '/api/images': typeof ApiImagesRouteWithChildren
   '/api/openrouter-test': typeof ApiOpenrouterTestRoute
@@ -837,6 +844,7 @@ export interface FileRoutesByTo {
   '/api/brain/context': typeof ApiBrainContextRoute
   '/api/canvas/stream': typeof ApiCanvasStreamRoute
   '/api/canvas/versions': typeof ApiCanvasVersionsRoute
+  '/api/chat/ocr': typeof ApiChatOcrRoute
   '/api/command-palette/search': typeof ApiCommandPaletteSearchRoute
   '/api/image/health': typeof ApiImageHealthRoute
   '/api/images/$id': typeof ApiImagesIdRoute
@@ -925,7 +933,7 @@ export interface FileRoutesById {
   '/_authenticated/study': typeof AuthenticatedStudyRoute
   '/_authenticated/tasks': typeof AuthenticatedTasksRoute
   '/_authenticated/voice': typeof AuthenticatedVoiceRoute
-  '/api/chat': typeof ApiChatRoute
+  '/api/chat': typeof ApiChatRouteWithChildren
   '/api/health': typeof ApiHealthRoute
   '/api/images': typeof ApiImagesRouteWithChildren
   '/api/openrouter-test': typeof ApiOpenrouterTestRoute
@@ -948,6 +956,7 @@ export interface FileRoutesById {
   '/api/brain/context': typeof ApiBrainContextRoute
   '/api/canvas/stream': typeof ApiCanvasStreamRoute
   '/api/canvas/versions': typeof ApiCanvasVersionsRoute
+  '/api/chat/ocr': typeof ApiChatOcrRoute
   '/api/command-palette/search': typeof ApiCommandPaletteSearchRoute
   '/api/image/health': typeof ApiImageHealthRoute
   '/api/images/$id': typeof ApiImagesIdRoute
@@ -1059,6 +1068,7 @@ export interface FileRouteTypes {
     | '/api/brain/context'
     | '/api/canvas/stream'
     | '/api/canvas/versions'
+    | '/api/chat/ocr'
     | '/api/command-palette/search'
     | '/api/image/health'
     | '/api/images/$id'
@@ -1167,6 +1177,7 @@ export interface FileRouteTypes {
     | '/api/brain/context'
     | '/api/canvas/stream'
     | '/api/canvas/versions'
+    | '/api/chat/ocr'
     | '/api/command-palette/search'
     | '/api/image/health'
     | '/api/images/$id'
@@ -1277,6 +1288,7 @@ export interface FileRouteTypes {
     | '/api/brain/context'
     | '/api/canvas/stream'
     | '/api/canvas/versions'
+    | '/api/chat/ocr'
     | '/api/command-palette/search'
     | '/api/image/health'
     | '/api/images/$id'
@@ -1346,7 +1358,7 @@ export interface RootRouteChildren {
   AuthRoute: typeof AuthRoute
   ResetPasswordRoute: typeof ResetPasswordRoute
   SitemapDotxmlRoute: typeof SitemapDotxmlRoute
-  ApiChatRoute: typeof ApiChatRoute
+  ApiChatRoute: typeof ApiChatRouteWithChildren
   ApiHealthRoute: typeof ApiHealthRoute
   ApiImagesRoute: typeof ApiImagesRouteWithChildren
   ApiOpenrouterTestRoute: typeof ApiOpenrouterTestRoute
@@ -1785,6 +1797,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/api/canvas/versions'
       preLoaderRoute: typeof ApiCanvasVersionsRouteImport
       parentRoute: typeof rootRouteImport
+    }
+    '/api/chat/ocr': {
+      id: '/api/chat/ocr'
+      path: '/ocr'
+      fullPath: '/api/chat/ocr'
+      preLoaderRoute: typeof ApiChatOcrRouteImport
+      parentRoute: typeof ApiChatRoute
     }
     '/api/command-palette/search': {
       id: '/api/command-palette/search'
@@ -2268,6 +2287,17 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
 const AuthenticatedRouteRouteWithChildren =
   AuthenticatedRouteRoute._addFileChildren(AuthenticatedRouteRouteChildren)
 
+interface ApiChatRouteChildren {
+  ApiChatOcrRoute: typeof ApiChatOcrRoute
+}
+
+const ApiChatRouteChildren: ApiChatRouteChildren = {
+  ApiChatOcrRoute: ApiChatOcrRoute,
+}
+
+const ApiChatRouteWithChildren =
+  ApiChatRoute._addFileChildren(ApiChatRouteChildren)
+
 interface ApiImagesRouteChildren {
   ApiImagesIdRoute: typeof ApiImagesIdRoute
   ApiImagesModelsRoute: typeof ApiImagesModelsRoute
@@ -2322,7 +2352,7 @@ const rootRouteChildren: RootRouteChildren = {
   AuthRoute: AuthRoute,
   ResetPasswordRoute: ResetPasswordRoute,
   SitemapDotxmlRoute: SitemapDotxmlRoute,
-  ApiChatRoute: ApiChatRoute,
+  ApiChatRoute: ApiChatRouteWithChildren,
   ApiHealthRoute: ApiHealthRoute,
   ApiImagesRoute: ApiImagesRouteWithChildren,
   ApiOpenrouterTestRoute: ApiOpenrouterTestRoute,

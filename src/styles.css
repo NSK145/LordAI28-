@@ -69,13 +69,13 @@
 }
 
 :root {
-  --radius: 0.75rem;
+  --radius: 0.875rem;
 
   /* Deep space background */
-  --background: oklch(0.14 0.03 250);
+  --background: oklch(0.13 0.018 250);
   --foreground: oklch(0.96 0.02 220);
 
-  --card: oklch(0.18 0.04 250 / 0.6);
+  --card: oklch(0.17 0.025 250 / 0.88);
   --card-foreground: oklch(0.96 0.02 220);
 
   --popover: oklch(0.16 0.04 250);
@@ -88,8 +88,8 @@
   --secondary: oklch(0.24 0.05 250);
   --secondary-foreground: oklch(0.96 0.02 220);
 
-  --muted: oklch(0.22 0.04 250);
-  --muted-foreground: #9aa0a6;
+  --muted: oklch(0.21 0.02 250);
+  --muted-foreground: #aeb8c7;
 
   --accent: oklch(0.72 0.2 290);
   --accent-foreground: oklch(0.12 0.04 250);
@@ -97,8 +97,8 @@
   --destructive: oklch(0.65 0.24 25);
   --destructive-foreground: oklch(0.98 0 0);
 
-  --border: rgba(255, 255, 255, 0.08);
-  --input: oklch(0.24 0.05 250 / 0.6);
+  --border: rgba(183, 198, 222, 0.11);
+  --input: oklch(0.2 0.025 250 / 0.82);
   --ring: #4285f4;
 
   /* HUD semantic */
@@ -109,14 +109,14 @@
 
   /* Gradients */
   --gradient-hud: linear-gradient(135deg, #4285f4, #5a95ff);
-  --gradient-radial: radial-gradient(circle at 50% 50%, rgba(66, 133, 244, 0.35), transparent 70%);
-  --gradient-panel: linear-gradient(180deg, rgba(30, 30, 35, 0.7), rgba(20, 20, 25, 0.4));
-  --gradient-glow: linear-gradient(90deg, transparent, rgba(66, 133, 244, 0.6), transparent);
+  --gradient-radial: radial-gradient(circle at 50% 50%, rgba(66, 133, 244, 0.16), transparent 70%);
+  --gradient-panel: linear-gradient(180deg, rgba(22, 29, 42, 0.9), rgba(15, 20, 31, 0.86));
+  --gradient-glow: linear-gradient(90deg, transparent, rgba(66, 133, 244, 0.24), transparent);
 
   /* Shadows */
-  --shadow-hud: 0 0 30px rgba(66, 133, 244, 0.35), inset 0 0 20px rgba(66, 133, 244, 0.08);
-  --shadow-glow: 0 0 60px rgba(66, 133, 244, 0.4);
-  --shadow-panel: 0 8px 32px rgba(0, 0, 0, 0.5);
+  --shadow-hud: 0 8px 28px rgba(0, 0, 0, 0.24);
+  --shadow-glow: 0 8px 28px rgba(42, 87, 160, 0.16);
+  --shadow-panel: 0 12px 32px rgba(0, 0, 0, 0.28);
 }
 
 .dark {
@@ -127,8 +127,8 @@
 body {
   background-color: var(--background);
   background-image:
-    radial-gradient(circle at center, rgba(30, 60, 160, 0.35), transparent 70%),
-    radial-gradient(circle at top left, rgba(40, 80, 200, 0.15), transparent 50%);
+    radial-gradient(ellipse at 15% 5%, rgba(35, 68, 132, 0.2), transparent 46%),
+    radial-gradient(ellipse at 86% 60%, rgba(28, 54, 102, 0.12), transparent 48%);
   background-attachment: fixed;
 }
 
@@ -212,9 +212,7 @@ body {
 }
 
 @utility text-glow {
-  text-shadow:
-    0 0 12px oklch(0.82 0.18 210 / 0.7),
-    0 0 28px oklch(0.82 0.18 210 / 0.4);
+  text-shadow: 0 1px 12px rgba(66, 133, 244, 0.16);
 }
 
 @utility gradient-text {
@@ -355,6 +353,26 @@ body {
   animation: dock-icon-in 0.22s ease-out both;
 }
 
+@layer base {
+  button,
+  a,
+  input,
+  select,
+  textarea,
+  summary {
+    transition-timing-function: ease-in-out;
+  }
+  button:focus-visible,
+  a:focus-visible,
+  input:focus-visible,
+  select:focus-visible,
+  textarea:focus-visible,
+  summary:focus-visible {
+    outline: 2px solid color-mix(in srgb, var(--primary) 78%, white);
+    outline-offset: 2px;
+  }
+}
+
 /* Navigation Dock — neon breathing glow */
 @keyframes dock-breathe {
   0%,
@@ -453,9 +471,7 @@ body {
   .hud-panel,
   .glass-panel {
     border-radius: var(--radius-md);
-    box-shadow:
-      0 0 20px oklch(0.82 0.18 210 / 0.22),
-      inset 0 0 14px oklch(0.82 0.18 210 / 0.06);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.24);
   }
 
   .bg-grid {
@@ -464,6 +480,14 @@ body {
 
   .text-glow {
     text-shadow: 0 0 10px oklch(0.82 0.18 210 / 0.55);
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  button,
+  a,
+  [role="button"] {
+    transition-duration: 180ms;
   }
 }
 

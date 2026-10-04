@@ -4,7 +4,6 @@ import { FileQuestion, Clock, CheckCircle, XCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useCurrentUser } from "@/hooks/use-current-user";
 import { createExam, submitExamAnswer, completeExam, listExams } from "@/lib/learning/client";
-import { callLearningSession } from "../lib/session-api";
 import { StudyHeader } from "../StudyHeader";
 import { DifficultyStars } from "../ui/DifficultyStars";
 import { LoadingState } from "../ui/LoadingState";
@@ -33,6 +32,9 @@ export function TestCenter({ snapshot, userId, onBack, refresh }: TestCenterProp
   const [answersSubmitted, setAnswersSubmitted] = useState<Record<string, unknown>>({});
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [examError, setExamError] = useState<string | null>(null);
+  const submitLock = useRef(false);
 
   const [newExamInputs, setNewExamInputs] = useState({
     title: "",
@@ -48,7 +50,7 @@ export function TestCenter({ snapshot, userId, onBack, refresh }: TestCenterProp
     setLoading(true);
     void listExams(undefined, 10)
       .then((data) => {
-        setExams(data ?? []);
+        setExams(data?.exams ?? []);
         setLoading(false);
       })
       .catch(() => {
@@ -60,46 +62,37 @@ export function TestCenter({ snapshot, userId, onBack, refresh }: TestCenterProp
   const handleCreateExam = useCallback(async () => {
     if (!user?.id || !snapshot) return;
 
-    const conceptIds = (snapshot.concepts ?? []).slice(0, 5).map((c) => c.id);
+    // Exam question rows currently reference the shared curriculum concepts table.
+    const conceptIds = (snapshot.concepts ?? [])
+      .filter((concept) => !concept.is_custom)
+      .slice(0, 5)
+      .map((concept) => concept.id);
+    if (conceptIds.length === 0) {
+      setExamError("No curriculum concepts are available for an exam yet.");
+      return;
+    }
 
     setCreating(true);
+    setExamError(null);
     try {
-      const res = await callLearningSession({
-        action: "exam",
-        conceptIds,
-        examType: newExamInputs.examType as
-          "mock" | "chapter" | "full_syllabus" | "custom" | "timed_quiz",
-        questionCount: newExamInputs.questionCount,
-        timeLimitMinutes: newExamInputs.timeLimitMinutes,
-        difficulty: newExamInputs.difficulty,
-      });
-
-      const genData = res as {
-        title: string;
-        questions: ExamQuestion[];
-        timeLimitSeconds: number | null;
-      };
-
       const exam = await createExam(user.id, {
         examType: newExamInputs.examType as
           "mock" | "chapter" | "full_syllabus" | "custom" | "timed_quiz",
         conceptIds,
         questionCount: newExamInputs.questionCount,
-        timeLimitMinutes: genData.timeLimitSeconds
-          ? Math.round(genData.timeLimitSeconds / 60)
-          : newExamInputs.timeLimitMinutes,
+        timeLimitMinutes: newExamInputs.timeLimitMinutes,
         difficulty: newExamInputs.difficulty,
       });
 
       setActiveExam(exam);
-      setActiveQuestions(genData.questions);
+      setActiveQuestions((exam.questions ?? []) as ExamQuestion[]);
       setSelectedAnswers({});
       setAnswersSubmitted({});
       setCurrentQuestion(0);
-      setTimeRemaining(genData.timeLimitSeconds ?? newExamInputs.timeLimitMinutes * 60);
+      setTimeRemaining(exam.time_limit_seconds ?? newExamInputs.timeLimitMinutes * 60);
       setStep("taking");
-    } catch {
-      // ignore
+    } catch (error) {
+      setExamError(error instanceof Error ? error.message : "Could not create the exam. Please retry.");
     } finally {
       setCreating(false);
     }
@@ -110,23 +103,34 @@ export function TestCenter({ snapshot, userId, onBack, refresh }: TestCenterProp
   };
 
   const handleSubmitExam = useCallback(async () => {
-    if (!activeExam || !user?.id) return;
+    if (!activeExam || !user?.id || submitLock.current) return;
 
-    for (const q of activeQuestions) {
-      const selectedIndex = selectedAnswers[q.id];
-      if (selectedIndex !== undefined) {
-        try {
+    submitLock.current = true;
+    setSubmitting(true);
+    setExamError(null);
+    try {
+      for (const q of activeQuestions) {
+        const selectedIndex = selectedAnswers[q.id];
+        if (selectedIndex !== undefined && answersSubmitted[q.id] === undefined) {
           await submitExamAnswer(activeExam.id, q.id, { selectedIndex }, 0);
           setAnswersSubmitted((prev) => ({ ...prev, [q.id]: selectedIndex }));
-        } catch {
-          // ignore
         }
       }
-    }
 
-    await completeExam(activeExam.id);
-    setStep("results");
-  }, [activeExam, user?.id, activeQuestions, selectedAnswers]);
+      await completeExam(activeExam.id);
+      setStep("results");
+      refresh();
+    } catch (error) {
+      setExamError(
+        error instanceof Error
+          ? `${error.message} Your answers are still available; retry submission when connected.`
+          : "Answers could not be saved. Retry submission when connected.",
+      );
+    } finally {
+      submitLock.current = false;
+      setSubmitting(false);
+    }
+  }, [activeExam, user?.id, activeQuestions, selectedAnswers, answersSubmitted, refresh]);
 
   useEffect(() => {
     if (step !== "taking" || timeRemaining === null) return;
@@ -189,6 +193,12 @@ export function TestCenter({ snapshot, userId, onBack, refresh }: TestCenterProp
         showBack
         icon={<FileQuestion className="h-6 w-6 text-primary" />}
       />
+
+      {examError && (
+        <p role="alert" className="mb-4 rounded-lg border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive">
+          {examError}
+        </p>
+      )}
 
       <AnimatePresence mode="wait">
         {step === "lobby" && (
@@ -439,9 +449,10 @@ export function TestCenter({ snapshot, userId, onBack, refresh }: TestCenterProp
                   whileHover={{ scale: 1.02 }}
                   whileTap={{ scale: 0.98 }}
                   onClick={handleSubmitExam}
+                  disabled={submitting}
                   className="rounded-lg bg-primary/15 px-4 py-2 text-xs font-semibold text-primary hover:bg-primary/25"
                 >
-                  Submit Exam
+                  {submitting ? "Saving answers…" : "Submit Exam"}
                 </motion.button>
               )}
             </div>

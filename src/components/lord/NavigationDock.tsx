@@ -39,13 +39,10 @@ function NavTooltip({ label, visible }: { label: string; visible: boolean }) {
           role="tooltip"
         >
           <div
-            className="whitespace-nowrap rounded-lg px-3 py-1.5 text-xs font-medium text-cyan-200 font-mono tracking-wider"
+            className="whitespace-nowrap rounded-lg border border-border bg-popover/95 px-3 py-1.5 text-xs font-medium text-foreground shadow-lg"
             style={{
-              background: "rgba(6,12,24,0.92)",
               backdropFilter: "blur(16px)",
               WebkitBackdropFilter: "blur(16px)",
-              border: "1px solid rgba(0,255,255,0.22)",
-              boxShadow: "0 0 18px rgba(0,255,255,0.18), 0 4px 16px rgba(0,0,0,0.5)",
             }}
           >
             {label}
@@ -55,7 +52,7 @@ function NavTooltip({ label, visible }: { label: string; visible: boolean }) {
               style={{
                 borderTop: "5px solid transparent",
                 borderBottom: "5px solid transparent",
-                borderRight: "6px solid rgba(0,255,255,0.22)",
+                borderRight: "6px solid rgba(183,198,222,0.16)",
                 width: 0,
                 height: 0,
                 display: "block",
@@ -115,15 +112,14 @@ function NavItem({
         to={to}
         aria-label={label}
         className={cn(
-          "group relative flex h-11 w-11 items-center justify-center rounded-2xl transition-all duration-200",
-          "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400/70 focus-visible:ring-offset-1 focus-visible:ring-offset-transparent",
-          active ? "text-cyan-300" : "text-cyan-600/70 hover:text-cyan-300",
+          "group relative flex h-10 w-10 items-center justify-center rounded-xl transition-colors duration-200",
+          "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/70 focus-visible:ring-offset-1 focus-visible:ring-offset-transparent",
+          active ? "bg-primary/12 text-primary" : "text-muted-foreground hover:bg-white/5 hover:text-foreground",
         )}
         style={
           active
             ? {
-                background: "rgba(0,255,255,0.10)",
-                boxShadow: "0 0 18px rgba(0,255,255,0.28), inset 0 0 10px rgba(0,255,255,0.06)",
+                background: "rgba(66,133,244,0.12)",
               }
             : undefined
         }
@@ -133,26 +129,13 @@ function NavItem({
           }
         }}
       >
-        {/* Active pulse ring */}
-        {active && (
-          <motion.span
-            className="absolute inset-0 rounded-2xl"
-            animate={{ opacity: [0.4, 0.8, 0.4] }}
-            transition={{ duration: 2.4, repeat: Infinity, ease: "easeInOut" }}
-            style={{
-              boxShadow: "0 0 20px rgba(0,255,255,0.35)",
-              border: "1px solid rgba(0,255,255,0.3)",
-            }}
-          />
-        )}
-
         {/* Hover background */}
         <span
           className={cn(
-            "absolute inset-0 rounded-2xl opacity-0 transition-opacity duration-200",
+            "absolute inset-0 rounded-xl opacity-0 transition-opacity duration-180",
             !active && "group-hover:opacity-100",
           )}
-          style={{ background: "rgba(0,255,255,0.07)" }}
+          style={{ background: "rgba(255,255,255,0.05)" }}
         />
 
         <motion.div
@@ -167,9 +150,7 @@ function NavItem({
           <Icon
             className={cn(
               "h-5 w-5 transition-all duration-200",
-              active
-                ? "drop-shadow-[0_0_8px_rgba(0,255,255,0.8)]"
-                : "group-hover:scale-110 group-hover:drop-shadow-[0_0_6px_rgba(0,255,255,0.5)]",
+              active ? "text-primary" : "group-hover:scale-105",
             )}
           />
         </motion.div>
@@ -222,66 +203,23 @@ export function NavigationDock() {
   return (
     <motion.nav
       aria-label="Primary navigation"
-      className="custom-scrollbar fixed left-4 top-1/2 z-40 hidden -translate-y-1/2 flex-col items-center md:flex"
-      animate={{ width: collapsed ? 14 : 72 }}
-      transition={{ duration: 0.3, ease: "easeInOut" }}
+      className="custom-scrollbar fixed left-3 top-1/2 z-40 hidden -translate-y-1/2 flex-col items-center md:flex"
+      animate={{ width: collapsed ? 12 : 56 }}
+      transition={{ duration: 0.2, ease: "easeInOut" }}
       style={{ overflow: "visible" }}
     >
       {/* Main dock panel */}
       <motion.div
-        className="relative flex flex-col items-center gap-1 py-3"
-        animate={{ width: collapsed ? 14 : 72 }}
-        transition={{ duration: 0.3, ease: "easeInOut" }}
+        className="relative flex flex-col items-center gap-1.5 rounded-2xl border border-border/80 bg-slate-950/80 py-2.5 shadow-[0_12px_32px_rgba(0,0,0,0.3)] transition-colors"
+        animate={{ width: collapsed ? 12 : 56 }}
+        transition={{ duration: 0.2, ease: "easeInOut" }}
         style={{
-          background: collapsed ? "rgba(0,255,255,0.04)" : "rgba(6,12,24,0.82)",
           backdropFilter: "blur(24px) saturate(180%)",
           WebkitBackdropFilter: "blur(24px) saturate(180%)",
-          border: "1px solid rgba(0,255,255,0.12)",
-          borderRadius: "24px",
-          boxShadow: "0 0 25px rgba(0,255,255,0.18), 0 8px 32px rgba(0,0,0,0.5)",
           overflow: "visible",
           minHeight: "auto",
         }}
       >
-        {/* Neon breathing edge highlight */}
-        <motion.div
-          className="pointer-events-none absolute inset-0 rounded-3xl"
-          animate={{ opacity: [0.4, 0.9, 0.4] }}
-          transition={{ duration: 3.5, repeat: Infinity, ease: "easeInOut" }}
-          style={{
-            boxShadow: "inset 0 0 0 1px rgba(0,255,255,0.18)",
-          }}
-        />
-
-        {/* Animated cyan top edge highlight */}
-        <div
-          className="pointer-events-none absolute left-1/2 top-0 -translate-x-1/2 rounded-full"
-          style={{
-            width: collapsed ? "8px" : "40px",
-            height: "2px",
-            background: "linear-gradient(90deg, transparent, rgba(0,255,255,0.8), transparent)",
-            boxShadow: "0 0 8px rgba(0,255,255,0.6)",
-            transition: "width 0.3s ease-in-out",
-          }}
-        />
-
-        {/* Collapsed: thin glowing rail */}
-        <AnimatePresence>
-          {collapsed && (
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              transition={{ duration: 0.2 }}
-              className="absolute inset-0 rounded-3xl"
-              style={{
-                background:
-                  "linear-gradient(180deg, rgba(0,255,255,0.0) 0%, rgba(0,255,255,0.12) 50%, rgba(0,255,255,0.0) 100%)",
-              }}
-            />
-          )}
-        </AnimatePresence>
-
         {/* Nav items */}
         <ul className="flex flex-col items-center gap-1 px-1.5">
           {NAV.map(({ to, label, icon }, index) => {
@@ -301,17 +239,6 @@ export function NavigationDock() {
           })}
         </ul>
 
-        {/* Bottom soft shadow */}
-        <div
-          className="pointer-events-none absolute bottom-0 left-1/2 -translate-x-1/2 rounded-full"
-          style={{
-            width: collapsed ? "8px" : "40px",
-            height: "2px",
-            background: "linear-gradient(90deg, transparent, rgba(0,255,255,0.5), transparent)",
-            boxShadow: "0 0 6px rgba(0,255,255,0.4)",
-            transition: "width 0.3s ease-in-out",
-          }}
-        />
       </motion.div>
 
       {/* Floating toggle button */}
@@ -320,18 +247,15 @@ export function NavigationDock() {
         aria-label={collapsed ? "Expand navigation" : "Collapse navigation"}
         aria-expanded={!collapsed}
         className={cn(
-          "absolute -right-4 top-1/2 z-50 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-full",
-          "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400/70",
-          "transition-all duration-200",
+          "absolute -right-3 top-1/2 z-50 flex h-6 w-6 -translate-y-1/2 items-center justify-center rounded-full border border-border bg-popover text-muted-foreground shadow-md",
+          "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/70",
+          "transition-colors duration-200 hover:text-foreground",
         )}
         whileHover={{ scale: 1.15 }}
         whileTap={{ scale: 0.92 }}
         style={{
-          background: "rgba(6,12,24,0.9)",
           backdropFilter: "blur(16px)",
           WebkitBackdropFilter: "blur(16px)",
-          border: "1px solid rgba(0,255,255,0.3)",
-          boxShadow: "0 0 14px rgba(0,255,255,0.3), 0 2px 8px rgba(0,0,0,0.5)",
         }}
       >
         <motion.div

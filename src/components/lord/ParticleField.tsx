@@ -11,7 +11,7 @@ export function ParticleField() {
   useEffect(() => {
     const reduced = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
     const coarse = window.matchMedia?.("(pointer: coarse)").matches;
-    const count = reduced ? 0 : coarse ? 14 : 30;
+    const count = reduced ? 0 : coarse ? 6 : 12;
     // Initialize particles
     const initialParticles = Array.from({ length: count }, (_, i) => ({
       id: i,
@@ -32,7 +32,7 @@ export function ParticleField() {
           y: (p.y + p.vy + 100) % 100,
         })),
       );
-    }, 50);
+    }, 80);
 
     return () => clearInterval(interval);
   }, []);
@@ -47,7 +47,7 @@ export function ParticleField() {
             cy={`${p.y}%`}
             r="0.5"
             fill="var(--hud)"
-            opacity="0.1"
+            opacity="0.055"
           />
         ))}
       </svg>

@@ -69,10 +69,10 @@ export const FolderConversationItem = memo(function FolderConversationItem({
   return (
     <div
       className={cn(
-        "group relative rounded-md border px-2 py-1.5 text-xs transition",
+        "group relative rounded-xl border px-2 py-2 text-sm transition-[border-color,background-color,box-shadow] duration-200",
         isCurrent
-          ? "border-primary/60 bg-primary/15"
-          : "border-border/40 bg-background/20 hover:bg-background/40",
+          ? "border-primary/35 bg-primary/[0.09]"
+          : "border-transparent bg-transparent hover:border-border/70 hover:bg-white/[0.035]",
       )}
       onDragOver={onDragOver}
       onDrop={onDrop}
@@ -98,7 +98,8 @@ export const FolderConversationItem = memo(function FolderConversationItem({
         </div>
       ) : (
         <div className="flex items-start justify-between gap-2">
-          <div
+          <button
+            type="button"
             draggable
             onDragStart={(e) => {
               e.stopPropagation();
@@ -110,18 +111,18 @@ export const FolderConversationItem = memo(function FolderConversationItem({
               e.dataTransfer.effectAllowed = "move";
             }}
             onDragEnd={() => setActiveDrag(null)}
-            className="flex min-w-0 flex-1 cursor-grab items-center gap-1.5 active:cursor-grabbing"
+            className="flex min-h-7 min-w-0 flex-1 cursor-grab items-center gap-2 text-left active:cursor-grabbing"
             onClick={() => onSelect(conv.id)}
           >
-            <MessageSquare className="h-3 w-3 flex-shrink-0" />
-            <p className="truncate font-medium">{conv.title || "Untitled"}</p>
-          </div>
-          <div className="flex shrink-0 gap-1 opacity-0 transition group-hover:opacity-100">
+            <MessageSquare className="h-3.5 w-3.5 flex-shrink-0 text-muted-foreground" />
+            <span className="truncate font-medium">{conv.title || "Untitled"}</span>
+          </button>
+          <div className="flex shrink-0 gap-0.5 opacity-0 transition-opacity duration-150 group-hover:opacity-100 group-focus-within:opacity-100">
             <button
               onClick={() => onPin(conv.id, !pinned)}
               aria-label={pinned ? `Unpin ${conv.title}` : `Pin ${conv.title}`}
               className={cn(
-                "transition",
+                "grid h-7 w-7 place-items-center rounded-lg transition-colors duration-150 hover:bg-white/5",
                 pinned ? "text-primary opacity-100" : "text-muted-foreground hover:text-primary",
               )}
             >
@@ -135,14 +136,14 @@ export const FolderConversationItem = memo(function FolderConversationItem({
             <button
               onClick={() => onStartEdit(conv)}
               aria-label={`Rename ${conv.title}`}
-              className="text-muted-foreground hover:text-primary"
+              className="grid h-7 w-7 place-items-center rounded-lg text-muted-foreground transition-colors duration-150 hover:bg-white/5 hover:text-primary"
             >
               <Pencil className="h-3.5 w-3.5" />
             </button>
             <button
               onClick={() => onDelete(conv.id)}
               aria-label={`Delete ${conv.title}`}
-              className="text-muted-foreground hover:text-destructive"
+              className="grid h-7 w-7 place-items-center rounded-lg text-muted-foreground transition-colors duration-150 hover:bg-white/5 hover:text-destructive"
             >
               <Trash2 className="h-3.5 w-3.5" />
             </button>

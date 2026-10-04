@@ -95,7 +95,9 @@ export function MarkdownRenderer({
     <div className={cn(className, streaming && "markdown-streaming")}>
       <ReactMarkdown
         remarkPlugins={[remarkGfm, remarkMath]}
-        rehypePlugins={[rehypeKatex, shikiHighlighter] as PluggableList}
+        // Syntax highlighting reparses every unfinished code block on each
+        // token. Defer it until the stream is complete to keep typing smooth.
+        rehypePlugins={(streaming ? [rehypeKatex] : [rehypeKatex, shikiHighlighter]) as PluggableList}
         components={
           {
             h1: (props: ComponentPropsWithoutRef<"h1">) => <Heading level={1} {...props} />,

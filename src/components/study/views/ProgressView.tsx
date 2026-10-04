@@ -79,10 +79,16 @@ export function ProgressView({ snapshot, userId, onNavigate, onBack, refresh }: 
   const { concepts, mastery, attempts, sessions, analytics } = snapshot;
   const masteryMap = new Map(mastery.map((m) => [m.concept_id, m]));
 
-  const masteredCount = mastery.filter((m) => m.score >= 0.8).length;
-  const learningCount = mastery.filter((m) => m.score >= 0.6 && m.score < 0.8).length;
-  const introducedCount = mastery.filter((m) => m.score >= 0.35 && m.score < 0.6).length;
-  const notStartedCount = concepts.length - mastery.length;
+  const masteredCount = concepts.filter((concept) => (masteryMap.get(concept.id)?.score ?? 0) >= 0.8).length;
+  const learningCount = concepts.filter((concept) => {
+    const score = masteryMap.get(concept.id)?.score ?? 0;
+    return score >= 0.6 && score < 0.8;
+  }).length;
+  const introducedCount = concepts.filter((concept) => {
+    const score = masteryMap.get(concept.id)?.score ?? 0;
+    return score >= 0.35 && score < 0.6;
+  }).length;
+  const notStartedCount = concepts.filter((concept) => !masteryMap.has(concept.id)).length;
 
   const totalAttempts = attempts.length;
   const correctAttempts = attempts.filter((a) => a.correct).length;
@@ -98,6 +104,7 @@ export function ProgressView({ snapshot, userId, onNavigate, onBack, refresh }: 
     ...[...sessions, ...attempts].map((item) => new Date(item.created_at).toDateString()),
     ...focusRecords.map((item) => new Date(item.completedAt).toDateString()),
   ]);
+  if (!activeDays.has(cursor.toDateString())) cursor.setDate(cursor.getDate() - 1);
   while (activeDays.has(cursor.toDateString())) {
     streak++;
     cursor.setDate(cursor.getDate() - 1);
@@ -125,7 +132,7 @@ export function ProgressView({ snapshot, userId, onNavigate, onBack, refresh }: 
     attempts,
     sessions,
     history: snapshot.history ?? [],
-    flashcards: (snapshot.flashcards ?? []).map((f) => ({ reviews: [] })),
+    flashcards: [{ reviews: snapshot.flashcard_reviews ?? [] }],
     exams: snapshot.exams ?? [],
     mastery,
     analytics: snapshot.analytics ?? [],

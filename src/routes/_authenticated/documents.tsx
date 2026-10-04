@@ -68,6 +68,7 @@ const TASKS: Array<{ id: TaskId; label: string; icon: FC<{ className?: string }>
 function DocsPage() {
   const [text, setText] = useState("");
   const [filename, setFilename] = useState("");
+  const [pdfDataUrl, setPdfDataUrl] = useState<string | null>(null);
   const [task, setTask] = useState<TaskId>("summary");
   const [question, setQuestion] = useState("");
   const [output, setOutput] = useState("");
@@ -92,6 +93,31 @@ function DocsPage() {
     if (!f) return;
     setFilename(f.name);
     const lower = f.name.toLowerCase();
+    if (f.type === "application/pdf" || lower.endsWith(".pdf")) {
+      if (f.size > 12 * 1024 * 1024) {
+        setPdfDataUrl(null);
+        setText("");
+        setOutput("This PDF is too large. Choose a PDF smaller than 12 MB.");
+        return;
+      }
+      const dataUrl = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(String(reader.result));
+        reader.onerror = () => reject(new Error("Could not read the PDF file."));
+        reader.readAsDataURL(f);
+      }).catch(() => "");
+      if (!dataUrl) {
+        setPdfDataUrl(null);
+        setText("");
+        setOutput("Could not read this PDF. Please choose the file again.");
+        return;
+      }
+      setOutput("");
+      setPdfDataUrl(dataUrl);
+      setText(`PDF attached: ${f.name}`);
+      return;
+    }
+    setPdfDataUrl(null);
     if (f.type.startsWith("text/") || /\.(txt|md|json|csv|xml|html|htm)$/i.test(lower)) {
       setText(await f.text());
     } else if (lower.endsWith(".pdf") || lower.endsWith(".doc") || lower.endsWith(".docx")) {
@@ -104,40 +130,41 @@ function DocsPage() {
   };
 
   const run = async () => {
-    if (!text.trim() || busy) return;
+    if ((!text.trim() && !pdfDataUrl) || busy) return;
     setBusy(true);
     setOutput("");
 
+    const documentContent = pdfDataUrl ? `The PDF "${filename}" is attached.` : text;
     const taskPrompt = (() => {
       switch (task) {
         case "summary":
-          return `Summarize the following document with: 1) 3-line TL;DR, 2) key points, 3) entities, 4) action items.\n\n---\n${text}`;
+          return `Summarize the following document with: 1) 3-line TL;DR, 2) key points, 3) entities, 4) action items.\n\n---\n${documentContent}`;
         case "explain":
-          return `Explain the following document in clear, accessible language.\n\n---\n${text}`;
+          return `Explain the following document in clear, accessible language.\n\n---\n${documentContent}`;
         case "rewrite":
-          return `Rewrite the following content for clarity, readability, and tone. Preserve meaning.\n\n---\n${text}`;
+          return `Rewrite the following content for clarity, readability, and tone. Preserve meaning.\n\n---\n${documentContent}`;
         case "translate":
-          return `Translate the following content into clear English. Preserve meaning and formatting.\n\n---\n${text}`;
+          return `Translate the following content into clear English. Preserve meaning and formatting.\n\n---\n${documentContent}`;
         case "notes":
-          return `Extract detailed structured notes (headings, bullets, definitions, examples) from:\n\n---\n${text}`;
+          return `Extract detailed structured notes (headings, bullets, definitions, examples) from:\n\n---\n${documentContent}`;
         case "qa":
-          return `Answer this question using ONLY the document below. If unknown, say so.\n\nQuestion: ${question}\n\n---\n${text}`;
+          return `Answer this question using ONLY the document below. If unknown, say so.\n\nQuestion: ${question}\n\n---\n${documentContent}`;
         case "key-points":
-          return `Extract the most important key points from the document.\n\n---\n${text}`;
+          return `Extract the most important key points from the document.\n\n---\n${documentContent}`;
         case "extract-tables":
-          return `Extract any tables from the document and present them clearly in markdown table format.\n\n---\n${text}`;
+          return `Extract any tables from the document and present them clearly in markdown table format.\n\n---\n${documentContent}`;
         case "extract-images":
-          return `Describe any images or visual elements present in the document.\n\n---\n${text}`;
+          return `Describe any images or visual elements present in the document.\n\n---\n${documentContent}`;
         case "markdown":
-          return `Convert the document content into polished Markdown.\n\n---\n${text}`;
+          return `Convert the document content into polished Markdown.\n\n---\n${documentContent}`;
         case "ocr":
-          return `Perform OCR-style transcription and return the extracted text faithfully.\n\n---\n${text}`;
+          return `Transcribe all legible text from the document faithfully, preserving page order and marking uncertain handwriting as [unclear].\n\n---\n${documentContent}`;
         case "flashcards":
-          return `Generate concise flashcards from the document in Q/A format.\n\n---\n${text}`;
+          return `Generate concise flashcards from the document in Q/A format.\n\n---\n${documentContent}`;
         case "quiz":
-          return `Generate a short quiz from the document with answers.\n\n---\n${text}`;
+          return `Generate a short quiz from the document with answers.\n\n---\n${documentContent}`;
         case "study-notes":
-          return `Create study notes from the document with sections, bullets, and recall cues.\n\n---\n${text}`;
+          return `Create study notes from the document with sections, bullets, and recall cues.\n\n---\n${documentContent}`;
         default:
           return text;
       }
@@ -149,7 +176,25 @@ function DocsPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           mode: "reasoning",
-          messages: [{ id: "u", role: "user", parts: [{ type: "text", text: taskPrompt }] }],
+          messages: [
+            {
+              id: "u",
+              role: "user",
+              parts: [
+                { type: "text", text: taskPrompt },
+                ...(pdfDataUrl
+                  ? [
+                      {
+                        type: "file",
+                        mediaType: "application/pdf",
+                        filename,
+                        url: pdfDataUrl,
+                      },
+                    ]
+                  : []),
+              ],
+            },
+          ],
         }),
       });
       await streamTextLines(res, (acc) => setOutput(acc));
@@ -260,7 +305,7 @@ function DocsPage() {
           )}
           <button
             onClick={() => void run()}
-            disabled={busy || !text.trim()}
+            disabled={busy || (!text.trim() && !pdfDataUrl)}
             className="mt-3 inline-flex min-h-11 items-center justify-center gap-2 rounded-md bg-primary px-5 py-2 text-sm font-semibold text-primary-foreground shadow-[0_0_18px_var(--hud)] disabled:opacity-40"
           >
             {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : "Process Document"}

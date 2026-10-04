@@ -1,27 +1,11 @@
-// Vision Engine (spec §4).
-//
-// Two sources — SCREEN and WEBCAM. The server cannot capture a native screen or
-// webcam, so it analyzes images that Lord or a paired device supplies (a
-// screenshot upload, a webcam frame from Lord Mobile, etc.). Analysis is real:
-// the image + question are sent to a vision-capable model (Gemini/OpenAI).
-//
-// The webcam has an explicit CAMERA OFF / CAMERA ON indicator and is OFF by
-// default. Toggling it is an explicit, low-risk user action.
+// Vision analyzes screenshots and camera frames supplied by an authenticated
+// client. Camera capture stays on the device; this server tool only receives a
+// still image when the user asks for analysis.
 
 import { registerTool } from "../registry";
 import { ok, fail, notConfigured } from "../permissions";
 import { runLordVision } from "../llm";
 import type { ToolContext, ToolResult } from "../types";
-
-const CAMERA_KEY = Symbol.for("lord.vision.camera");
-interface VisionRuntime {
-  cameraOn: boolean;
-}
-function visionRuntime(): VisionRuntime {
-  const g = globalThis as unknown as Record<symbol, VisionRuntime>;
-  if (!g[CAMERA_KEY]) g[CAMERA_KEY] = { cameraOn: false };
-  return g[CAMERA_KEY];
-}
 
 function isDataUrl(v: string): boolean {
   return /^data:image\/[a-zA-Z0-9.+-]+;base64,/.test(v.trim());
@@ -32,11 +16,17 @@ export function registerVisionTools(): void {
     name: "vision.analyze",
     category: "vision",
     description:
-      "Analyze an image (screenshot or photo) and answer a question about it using a vision model.",
+      "Analyze up to four screenshots or photos together and answer a question using a vision model.",
     risk: "low",
     requiresConfirmation: false,
     parameters: [
-      { name: "image", type: "string", description: "Image as a base64 data URL", required: true },
+      { name: "image", type: "string", description: "Optional single image as a base64 data URL", required: false },
+      {
+        name: "images",
+        type: "string[]",
+        description: "Up to four screenshots or photos for comparison and joint analysis",
+        required: false,
+      },
       {
         name: "question",
         type: "string",
@@ -44,19 +34,33 @@ export function registerVisionTools(): void {
         required: false,
       },
     ],
-    examples: ["What is on my screen?", "Read this error.", "Where is the button I need?"],
+    examples: [
+      "What is on my screen?",
+      "Read this error.",
+      "Compare these screenshots and find what changed.",
+    ],
     async execute(params, ctx: ToolContext): Promise<ToolResult> {
-      const image = String(params.image ?? "");
+      const images = [
+        ...(Array.isArray(params.images)
+          ? params.images.filter((value): value is string => typeof value === "string")
+          : []),
+        ...(typeof params.image === "string" ? [params.image] : []),
+      ];
       const question = String(params.question ?? "Describe what you see in detail.");
-      if (!isDataUrl(image)) {
-        return fail("A base64 image data URL is required for analysis.", {
+      if (images.length === 0 || images.length > 4 || images.some((image) => !isDataUrl(image))) {
+        return fail("Provide one to four valid base64 image data URLs for analysis.", {
           errorCode: "BAD_IMAGE",
+        });
+      }
+      if (images.reduce((total, image) => total + image.length, 0) > 12 * 1024 * 1024) {
+        return fail("Combined image size is too large. Choose images totaling under about 9 MB.", {
+          errorCode: "IMAGE_TOO_LARGE",
         });
       }
       try {
         ctx.log({ level: "info", source: "vision", message: "Analyzing image with vision model." });
-        const { text, provider } = await runLordVision({ prompt: question, image });
-        return ok("Vision analysis complete.", { analysis: text, provider });
+        const { text, provider, modelId } = await runLordVision({ prompt: question, images });
+        return ok("Vision analysis complete.", { analysis: text, provider, modelId });
       } catch (err) {
         const msg = (err as Error).message;
         if (msg === "AI_NOT_CONFIGURED") {
@@ -70,19 +74,20 @@ export function registerVisionTools(): void {
   registerTool({
     name: "vision.webcam_status",
     category: "vision",
-    description: "Return whether the webcam is currently ON or OFF.",
+    description: "Explain that camera state is managed locally in the Vision panel.",
     risk: "low",
     requiresConfirmation: false,
     parameters: [],
     examples: ["Is the camera on?"],
     async execute(_params, ctx: ToolContext): Promise<ToolResult> {
-      const rt = visionRuntime();
       ctx.log({
         level: "info",
         source: "vision",
-        message: `Webcam status queried: ${rt.cameraOn ? "ON" : "OFF"}`,
+        message: "Camera state is managed locally by the browser.",
       });
-      return ok(rt.cameraOn ? "Camera is ON." : "Camera is OFF.", { cameraOn: rt.cameraOn });
+      return ok("Camera permission and stream state are managed locally by the browser.", {
+        clientManaged: true,
+      });
     },
   });
 
@@ -90,7 +95,7 @@ export function registerVisionTools(): void {
     name: "vision.webcam_toggle",
     category: "vision",
     description:
-      "Turn the webcam ON or OFF. Off by default. When ON, frames can be analyzed via vision.analyze.",
+      "Direct the user to the Vision panel to manage local camera access; the server cannot start a camera.",
     risk: "low",
     requiresConfirmation: false,
     parameters: [
@@ -98,14 +103,15 @@ export function registerVisionTools(): void {
     ],
     examples: ["Turn the camera on.", "Camera off."],
     async execute(params, ctx: ToolContext): Promise<ToolResult> {
-      const on = Boolean(params.on);
-      visionRuntime().cameraOn = on;
+      void params;
       ctx.log({
-        level: on ? "warn" : "info",
+        level: "warn",
         source: "vision",
-        message: `Webcam ${on ? "ENABLED" : "disabled"}.`,
+        message: "A server request cannot start or stop the browser camera.",
       });
-      return ok(on ? "Camera is now ON." : "Camera is now OFF.", { cameraOn: on });
+      return fail("Use the Vision panel to start or stop the camera on this device.", {
+        errorCode: "CLIENT_CAMERA_CONTROL",
+      });
     },
   });
 }

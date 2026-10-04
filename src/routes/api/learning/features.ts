@@ -337,11 +337,19 @@ export const Route = createFileRoute("/api/learning/features")({
               ),
             );
             const validConcepts = concepts.map((c) => c.data).filter(Boolean);
+            if (validConcepts.length === 0) {
+              return apiErrorResponse(
+                422,
+                "NO_VALID_CONCEPTS",
+                "No curriculum concepts were found for this exam.",
+                requestId,
+              );
+            }
 
             const questions = [];
             const questionsPerConcept = Math.max(
               1,
-              Math.floor((parsed.data.questionCount ?? 10) / validConcepts.length),
+              Math.ceil((parsed.data.questionCount ?? 10) / validConcepts.length),
             );
 
             for (const concept of validConcepts) {
@@ -394,20 +402,23 @@ export const Route = createFileRoute("/api/learning/features")({
                 time_limit_seconds: parsed.data.timeLimitMinutes
                   ? parsed.data.timeLimitMinutes * 60
                   : null,
+                total_questions: questions.length,
               })
               .select()
               .single();
 
             if (error) throw error;
 
-            for (const q of questions) {
-              await db.from("learning_exam_questions").insert({
-                exam_id: exam.id,
-                ...q,
-              });
+            const { data: savedQuestions, error: questionError } = await db
+              .from("learning_exam_questions")
+              .insert(questions.map((question) => ({ exam_id: exam.id, ...question })))
+              .select();
+            if (questionError) {
+              await db.from("learning_exams").delete().eq("id", exam.id).eq("user_id", userId);
+              throw questionError;
             }
 
-            return Response.json({ exam: { ...exam, questions } });
+            return Response.json({ exam: { ...exam, questions: savedQuestions ?? [] } });
           }
 
           if (parsed.data.action === "submit_answer") {
@@ -480,12 +491,19 @@ export const Route = createFileRoute("/api/learning/features")({
           }
 
           if (parsed.data.action === "complete") {
-            const { data: answers } = await db
+            const { data: answers, error: answersError } = await db
               .from("learning_exam_answers")
               .select("*")
               .eq("exam_id", parsed.data.examId);
+            if (answersError) throw answersError;
 
-            const totalQuestions = answers?.length ?? 0;
+            const { count: questionCount, error: questionCountError } = await db
+              .from("learning_exam_questions")
+              .select("id", { count: "exact", head: true })
+              .eq("exam_id", parsed.data.examId);
+            if (questionCountError) throw questionCountError;
+
+            const totalQuestions = questionCount ?? 0;
             const correctAnswers = answers?.filter((a: any) => a.is_correct).length ?? 0;
             const score =
               totalQuestions > 0 ? Math.round((correctAnswers / totalQuestions) * 100) : 0;

@@ -4,4 +4,8 @@
     <string name="title_activity_main">Lord AI</string>
     <string name="package_name">com.nagasatwik145.lordai</string>
     <string name="custom_url_scheme">com.nagasatwik145.lordai</string>
+    <string name="shortcut_chat_short">New chat</string>
+    <string name="shortcut_chat_long">Open a new LORD AI chat</string>
+    <string name="shortcut_study_short">Study</string>
+    <string name="shortcut_study_long">Open LORD AI Study</string>
 </resources>

@@ -455,6 +455,7 @@ export type LearningSnapshot = {
   artifacts: LearningArtifact[];
   attempts: LearningAttempt[];
   flashcards?: Flashcard[];
+  flashcard_reviews?: FlashcardReview[];
   notes?: LearningNote[];
   exams?: Exam[];
   revision_schedule?: RevisionSchedule[];

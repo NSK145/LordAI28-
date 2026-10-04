@@ -271,6 +271,21 @@ export function StudyPlatform() {
       const missions = generateDailyMissions(input);
       const topMission = missions[0];
 
+      // Follow an explicit request before offering the planner's next suggested mission.
+      if (detected.intent === "tutor" || detected.intent === "general") {
+        navigateTo("tutor", detected.conceptId ?? undefined);
+        return;
+      } else if (detected.intent === "practice") {
+        navigateTo("practice", detected.conceptId ?? undefined);
+        return;
+      } else if (detected.intent === "quiz" || detected.intent === "exam_prep") {
+        navigateTo("exams");
+        return;
+      } else if (detected.intent === "flashcard" || detected.intent === "revise") {
+        navigateTo("flashcards");
+        return;
+      }
+
       if (topMission && topMission.tasks.length > 0) {
         const firstTask = topMission.tasks[0];
         switch (firstTask.type) {
@@ -294,17 +309,7 @@ export function StudyPlatform() {
         return;
       }
 
-      if (detected.intent === "tutor" || detected.intent === "general") {
-        navigateTo("tutor", detected.conceptId ?? undefined);
-      } else if (detected.intent === "practice") {
-        navigateTo("practice", detected.conceptId ?? undefined);
-      } else if (detected.intent === "quiz" || detected.intent === "exam_prep") {
-        navigateTo("exams");
-      } else if (detected.intent === "flashcard" || detected.intent === "revise") {
-        navigateTo("flashcards");
-      } else {
-        navigateTo("dashboard");
-      }
+      navigateTo("dashboard");
     },
     [snapshot, navigateTo],
   );
@@ -327,6 +332,13 @@ export function StudyPlatform() {
           <pre className="mt-2 rounded-md bg-destructive/5 p-3 text-xs text-destructive/90 break-words">
             {error instanceof Error ? error.message : String(error)}
           </pre>
+          <button
+            type="button"
+            onClick={() => void refetch()}
+            className="mt-3 rounded-md border border-border px-3 py-2 text-sm hover:bg-muted"
+          >
+            Retry loading study data
+          </button>
         </div>
       </AppShell>
     );

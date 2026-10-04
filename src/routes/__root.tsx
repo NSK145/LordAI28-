@@ -6,6 +6,7 @@ import {
   useRouter,
   HeadContent,
   Scripts,
+  type ErrorComponentProps,
 } from "@tanstack/react-router";
 import { useEffect, type ReactNode, useState } from "react";
 
@@ -18,6 +19,8 @@ import { setupApiInterceptor } from "../lib/api-interceptor";
 import { getUserSettings } from "../lib/user-settings.functions";
 import { useQuery } from "@tanstack/react-query";
 import { DEFAULT_MODE, type LordMode } from "../lib/modes";
+import { supabase } from "../integrations/supabase/client";
+import { X } from "lucide-react";
 
 function UserSettingsHydrator({ children }: { children: ReactNode }) {
   const { data: userSettings } = useQuery({
@@ -69,12 +72,13 @@ function NotFoundComponent() {
   );
 }
 
-function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
-  console.error(error);
+function ErrorComponent({ error, reset }: ErrorComponentProps) {
+  const displayError = error instanceof Error ? error : new Error(String(error));
+  console.error(displayError);
   const router = useRouter();
   useEffect(() => {
-    reportLovableError(error, { boundary: "tanstack_root_error_component" });
-  }, [error]);
+    reportLovableError(displayError, { boundary: "tanstack_root_error_component" });
+  }, [displayError]);
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-background px-4">
@@ -186,24 +190,153 @@ function RootShell({ children }: { children: ReactNode }) {
 
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
+  const router = useRouter();
 
   useEffect(() => {
     setupApiInterceptor();
     void import("../lib/mobile-native").then(({ initializeMobileRuntime }) =>
       initializeMobileRuntime(),
     );
-  }, []);
+    let disposed = false;
+    let removeListeners: () => void = () => {};
+    void import("../lib/mobile-native")
+      .then(({ registerMobileNavigation }) =>
+        registerMobileNavigation(
+          (route) => {
+            void router.navigate({ to: route as never });
+          },
+          (active) => {
+            if (active) {
+              void supabase.auth.startAutoRefresh();
+              void supabase.auth.getSession().catch(() => undefined);
+            } else {
+              supabase.auth.stopAutoRefresh();
+            }
+          },
+        ),
+      )
+      .then((remove) => {
+        if (disposed) remove();
+        else removeListeners = remove;
+      });
+    return () => {
+      disposed = true;
+      removeListeners();
+    };
+  }, [router]);
 
   return (
     <QueryClientProvider client={queryClient}>
       <AppContextProvider>
         <CalendarProvider>
           <UserSettingsHydrator>
+            <ConnectivityNotice />
             {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
             <Outlet />
           </UserSettingsHydrator>
         </CalendarProvider>
       </AppContextProvider>
     </QueryClientProvider>
+  );
+}
+
+function ConnectivityNotice() {
+  const [online, setOnline] = useState(() =>
+    typeof navigator === "undefined" ? true : navigator.onLine,
+  );
+  const [expanded, setExpanded] = useState(true);
+  const [dismissed, setDismissed] = useState(false);
+
+  useEffect(() => {
+    const update = () => {
+      const connected = navigator.onLine;
+      setOnline(connected);
+      if (!connected) {
+        setDismissed(false);
+        setExpanded(true);
+      }
+    };
+    window.addEventListener("online", update);
+    window.addEventListener("offline", update);
+    let removeNativeListener: () => void = () => {};
+    let disposed = false;
+    void import("../lib/mobile-native").then(async ({ isNativeMobile, mobileNetwork }) => {
+      if (!isNativeMobile()) return;
+      const status = await mobileNetwork.status().catch(() => null);
+      if (status) {
+        setOnline(status.connected);
+        if (!status.connected) {
+          setDismissed(false);
+          setExpanded(true);
+        }
+      }
+      const handle = await mobileNetwork.listen(({ connected }) => {
+        setOnline(connected);
+        if (!connected) {
+          setDismissed(false);
+          setExpanded(true);
+        }
+      });
+      if (disposed) void handle.remove();
+      else removeNativeListener = () => void handle.remove();
+    });
+    return () => {
+      disposed = true;
+      window.removeEventListener("online", update);
+      window.removeEventListener("offline", update);
+      removeNativeListener();
+    };
+  }, []);
+
+  useEffect(() => {
+    if (online || !expanded) return;
+    let timer = window.setTimeout(() => setExpanded(false), 3000);
+    const resetCollapseTimer = () => {
+      window.clearTimeout(timer);
+      timer = window.setTimeout(() => setExpanded(false), 3000);
+    };
+    window.addEventListener("pointerdown", resetCollapseTimer, { passive: true });
+    window.addEventListener("keydown", resetCollapseTimer);
+    return () => {
+      window.clearTimeout(timer);
+      window.removeEventListener("pointerdown", resetCollapseTimer);
+      window.removeEventListener("keydown", resetCollapseTimer);
+    };
+  }, [online, expanded]);
+
+  if (online || dismissed) return null;
+  return (
+    <div
+      role="status"
+      aria-live="polite"
+      className={`fixed top-3 z-[100] mx-auto transition-all duration-300 ${expanded ? "inset-x-3 max-w-xl" : "right-3"}`}
+    >
+      {expanded ? (
+        <div className="relative rounded-2xl border border-amber-300/20 bg-slate-950/95 px-10 py-3 text-center text-sm leading-6 text-amber-100 shadow-lg">
+          <button
+            type="button"
+            onClick={() => setDismissed(true)}
+            aria-label="Dismiss offline notice"
+            className="absolute right-2 top-2 grid h-7 w-7 place-items-center rounded-lg text-amber-100/65 transition-colors hover:bg-white/10 hover:text-amber-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-300"
+          >
+            <X className="h-4 w-4" />
+          </button>
+          You’re offline. Saved study data stays available; new messages and uploads need a
+          connection.
+        </div>
+      ) : (
+        <button
+          type="button"
+          onClick={() => setExpanded(true)}
+          aria-label="Offline. Show connection details."
+          aria-expanded={false}
+          title="Show connection details"
+          className="inline-flex items-center gap-2 rounded-full border border-amber-300/20 bg-slate-950/95 px-3 py-1.5 text-xs font-medium text-amber-100 shadow-md transition-colors duration-200 hover:border-amber-300/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-300"
+        >
+          <span className="h-1.5 w-1.5 rounded-full bg-amber-300" aria-hidden="true" />
+          Offline
+        </button>
+      )}
+    </div>
   );
 }

@@ -8,7 +8,6 @@ import { apiErrorResponse } from "@/lib/api-error";
 import { buildChatContextMessages } from "./-context";
 import {
   CHAT_MODEL_MAP,
-  DEFAULT_MODEL_ID,
   classifyTask,
   buildRouteDecision,
   getModeCandidates,
@@ -75,8 +74,8 @@ export function createChatRoute() {
             }),
           );
 
-          const authContext = context as
-            { userId?: string; supabase?: Parameters<typeof buildMemoryPrompt>[0] } | undefined;
+            const authContext = context as
+              { userId?: string; supabase?: Parameters<typeof buildMemoryPrompt>[0] } | undefined;
           let memoryPrompt = "";
           if (authContext?.userId && authContext.supabase) {
             memoryPrompt = await buildMemoryPrompt(
@@ -89,28 +88,69 @@ export function createChatRoute() {
 
           try {
             const mode = parsed.data.mode ?? LORD_IDENTITY.defaultMode;
-            const lastUserText = getLastUserText(parsed.data.messages as unknown as UIMessage[]);
+            const restoredMessages = await restoreChatAttachmentReferences(
+              parsed.data.messages as unknown as UIMessage[],
+              authContext?.supabase,
+              authContext?.userId,
+            );
+            const contextMessages = keepRecentMultimodalFiles(restoredMessages, 4);
+            const lastUserText = getLastUserText(contextMessages);
             const taskType = classifyTask(lastUserText || "general");
-            const hasImage = parsed.data.messages.some((message) =>
-              message.parts.some((part) => {
+            const multimodalFiles = contextMessages.flatMap((message) =>
+              message.parts.filter((part) => {
                 if (!part || typeof part !== "object") return false;
                 const item = part as { type?: unknown; mediaType?: unknown; url?: unknown };
                 return (
                   item.type === "file" &&
-                  typeof item.mediaType === "string" &&
-                  item.mediaType.startsWith("image/") &&
                   typeof item.url === "string" &&
-                  item.url.startsWith("data:image/")
+                  ((typeof item.mediaType === "string" && item.mediaType.startsWith("image/") &&
+                    item.url.startsWith("data:image/")) ||
+                    (item.mediaType === "application/pdf" &&
+                      item.url.startsWith("data:application/pdf;base64,")))
                 );
               }),
             );
-            const freeRoute = hasImage ? null : buildRouteDecision(lastUserText || "general", mode);
-            const rankedModelCandidates = hasImage
-              ? [
-                  "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
-                  "google/gemma-4-31b-it:free",
-                  "google/gemma-4-26b-a4b-it:free",
-                ]
+            const imageCount = multimodalFiles.filter((part) =>
+              (part as { mediaType?: string }).mediaType?.startsWith("image/"),
+            ).length;
+            const hasImage = imageCount > 0;
+            const hasMultimodal = multimodalFiles.length > 0;
+            const multimodalPayloadSize = multimodalFiles.reduce<number>((total, part) => {
+              const url = (part as { url?: unknown }).url;
+              return total + (typeof url === "string" ? url.length : 0);
+            }, 0);
+            if (multimodalFiles.length > 4 || imageCount > 4) {
+              return apiErrorResponse(
+                400,
+                "INVALID_REQUEST",
+                "Attach no more than four images or PDFs to one message.",
+                requestId,
+              );
+            }
+            if (multimodalPayloadSize > 17 * 1024 * 1024) {
+              return apiErrorResponse(
+                413,
+                "INVALID_REQUEST",
+                "The combined image and PDF data is too large. Reduce the files to 12 MB total.",
+                requestId,
+              );
+            }
+            const freeRoute = hasMultimodal
+              ? null
+              : buildRouteDecision(lastUserText || "general", mode);
+            const rankedModelCandidates = hasMultimodal
+              ? [...CHAT_MODEL_MAP.values()]
+                  .filter(
+                    (model) =>
+                      model.enabled &&
+                      model.provider === "openrouter" &&
+                      model.pricing.inputPer1MTokens === 0 &&
+                      model.pricing.outputPer1MTokens === 0 &&
+                      model.capabilities.supportsVision &&
+                      model.limits.maxImagesPerRequest >= imageCount,
+                  )
+                  .sort((a, b) => a.metadata.priority - b.metadata.priority)
+                  .map((model) => model.id)
               : freeRoute?.candidates.length
                 ? freeRoute.candidates
                     .map((modelId) => ({
@@ -149,21 +189,25 @@ export function createChatRoute() {
                 event: "chat_model_selection",
                 requestId,
                 hasImage,
+                hasMultimodal,
+                imageCount,
+                pdfCount: multimodalFiles.length - imageCount,
                 candidates: modelCandidates,
               }),
             );
 
-            if (!hasImage && modelCandidates.length === 0) {
+            if (modelCandidates.length === 0) {
               return apiErrorResponse(
                 503,
-                "AI_NOT_CONFIGURED",
-                "No free model is currently healthy.",
+                hasMultimodal ? "AI_UPSTREAM_ERROR" : "AI_NOT_CONFIGURED",
+                hasMultimodal
+                  ? "No configured free model supports the attached image or PDF combination."
+                  : "No free model is currently healthy.",
                 requestId,
               );
             }
 
-            const selectedCandidates =
-              modelCandidates.length > 0 ? modelCandidates : [DEFAULT_MODEL_ID];
+            const selectedCandidates = modelCandidates;
             const contextLimit = Math.min(
               ...selectedCandidates.map(
                 (modelId) => CHAT_MODEL_MAP.get(modelId)?.limits.maxContextTokens ?? 8192,
@@ -208,7 +252,7 @@ export function createChatRoute() {
                 ? "\n\nWEB SOURCE STATUS\nWeb search was enabled, but no usable search results were returned. State that you could not verify the requested facts from web sources. Do not fabricate citations or imply that you searched successfully."
                 : "";
             const chatMessages = buildChatContextMessages(
-              parsed.data.messages as unknown as UIMessage[],
+              contextMessages,
               {
                 systemPrompt: `${LORD_SYSTEM_PROMPT}\n\nRESPONSE STYLE\n${RESPONSE_STYLE_INSTRUCTIONS[(context?.responseStyle as ResponseStyle | undefined) ?? "balanced"]}${webSourceContext}`,
                 memoryPrompt,
@@ -317,4 +361,99 @@ function getLastUserText(messages: UIMessage[]): string {
     .filter((part) => part.type === "text")
     .map((part) => part.text)
     .join(" ");
+}
+
+interface StoredChatAttachment {
+  filename: string;
+  mediaType: string;
+  storagePath: string;
+}
+
+async function restoreChatAttachmentReferences(
+  messages: UIMessage[],
+  supabase: Parameters<typeof buildMemoryPrompt>[0] | undefined,
+  userId: string | undefined,
+): Promise<UIMessage[]> {
+  if (!supabase || !userId) return messages;
+  let remaining = Math.max(
+    0,
+    4 - messages.reduce(
+      (total, message) =>
+        total + message.parts.filter((part) => part.type === "file").length,
+      0,
+    ),
+  );
+  if (!remaining) return messages;
+  const restored = messages.slice();
+  for (let messageIndex = restored.length - 1; messageIndex >= 0 && remaining > 0; messageIndex--) {
+    const message = restored[messageIndex];
+    if (message.role !== "user") continue;
+    const existingNames = new Set(
+      message.parts.flatMap((part) =>
+        part.type === "file" && part.filename ? [part.filename] : [],
+      ),
+    );
+    const metadata = message.metadata as { chatAttachments?: unknown } | undefined;
+    const references = Array.isArray(metadata?.chatAttachments)
+      ? (metadata.chatAttachments as StoredChatAttachment[])
+      : [];
+    const fileParts: Array<{
+      type: "file";
+      filename: string;
+      mediaType: string;
+      url: string;
+    }> = [];
+    for (const reference of references) {
+      if (remaining <= 0) break;
+      if (
+        !reference ||
+        typeof reference.filename !== "string" ||
+        typeof reference.mediaType !== "string" ||
+        typeof reference.storagePath !== "string" ||
+        !reference.storagePath.startsWith(`${userId}/`) ||
+        reference.storagePath.split("/").includes("..") ||
+        existingNames.has(reference.filename)
+      ) {
+        continue;
+      }
+      const { data, error } = await supabase.storage
+        .from("chat-attachments")
+        .download(reference.storagePath);
+      if (error || !data || data.size > 12 * 1024 * 1024) continue;
+      const mimeType = data.type || reference.mediaType;
+      if (!mimeType.startsWith("image/") && mimeType !== "application/pdf") continue;
+      const base64 = Buffer.from(await data.arrayBuffer()).toString("base64");
+      fileParts.push({
+        type: "file",
+        filename: reference.filename,
+        mediaType: mimeType,
+        url: `data:${mimeType};base64,${base64}`,
+      });
+      existingNames.add(reference.filename);
+      remaining -= 1;
+    }
+    if (fileParts.length) {
+      restored[messageIndex] = { ...message, parts: [...message.parts, ...fileParts] };
+    }
+  }
+  return restored;
+}
+
+function keepRecentMultimodalFiles(messages: UIMessage[], maxFiles: number): UIMessage[] {
+  let remaining = maxFiles;
+  const kept = messages.slice();
+  for (let messageIndex = kept.length - 1; messageIndex >= 0; messageIndex--) {
+    const message = kept[messageIndex];
+    const parts = message.parts.slice();
+    for (let partIndex = parts.length - 1; partIndex >= 0; partIndex--) {
+      const part = parts[partIndex];
+      if (part.type !== "file") continue;
+      const mediaType = part.mediaType;
+      if (!mediaType.startsWith("image/") && mediaType !== "application/pdf") continue;
+      if (remaining > 0) remaining -= 1;
+      else parts.splice(partIndex, 1);
+    }
+    kept[messageIndex] = { ...message, parts };
+  }
+  return kept;
 }

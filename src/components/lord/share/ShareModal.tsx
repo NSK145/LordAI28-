@@ -6,7 +6,7 @@ import {
   DialogTitle,
   DialogDescription,
 } from "@/components/ui/dialog";
-import { Check, Copy, Link2, QrCode, ShieldOff, Globe, Loader2 } from "lucide-react";
+import { Check, Copy, Link2, QrCode, ShieldOff, Globe, Loader2, Share2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { QRCodeSVG } from "qrcode.react";
@@ -17,6 +17,8 @@ import {
   getShareUrl,
   type ShareRecord,
 } from "@/hooks/use-shares";
+import { Capacitor } from "@capacitor/core";
+import { mobileShare } from "@/lib/mobile-native";
 
 interface ShareModalProps {
   open: boolean;
@@ -204,6 +206,24 @@ export function ShareModal({
                     )}
                     {copied ? "Copied" : "Copy link"}
                   </button>
+                  {Capacitor.isNativePlatform() && (
+                    <button
+                      onClick={() =>
+                        void mobileShare
+                          .shareText(
+                            conversationTitle || "LORD AI conversation",
+                            conversationTitle || "LORD AI conversation",
+                            shareUrl,
+                          )
+                          .catch(() => toast.error("Could not open Android sharing."))
+                      }
+                      aria-label="Share conversation link"
+                      title="Share with another app"
+                      className="flex items-center justify-center gap-2 rounded-lg border border-border/50 bg-background/40 px-3 py-2 text-xs font-semibold text-foreground transition hover:bg-background/60"
+                    >
+                      <Share2 className="h-4 w-4" /> Share
+                    </button>
+                  )}
                   <button
                     onClick={handleRevoke}
                     disabled={busy}

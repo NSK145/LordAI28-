@@ -1,5 +1,10 @@
 apply plugin: 'com.android.application'
 
+def releaseKeystorePath = System.getenv('LORD_ANDROID_KEYSTORE_FILE')
+def releaseKeystorePassword = System.getenv('LORD_ANDROID_KEYSTORE_PASSWORD')
+def releaseKeyAlias = System.getenv('LORD_ANDROID_KEY_ALIAS')
+def releaseKeyPassword = System.getenv('LORD_ANDROID_KEY_PASSWORD')
+
 android {
     namespace = "com.nagasatwik145.lordai"
     compileSdk = rootProject.ext.compileSdkVersion
@@ -16,9 +21,19 @@ android {
             ignoreAssetsPattern = '!.svn:!.git:!.ds_store:!*.scc:.*:!CVS:!thumbs.db:!picasa.ini:!*~'
         }
     }
+    signingConfigs {
+        release {
+            storeFile file(releaseKeystorePath ?: 'release-signing-not-configured.jks')
+            storePassword releaseKeystorePassword ?: ''
+            keyAlias releaseKeyAlias ?: ''
+            keyPassword releaseKeyPassword ?: ''
+        }
+    }
     buildTypes {
         release {
-            minifyEnabled false
+            signingConfig signingConfigs.release
+            minifyEnabled true
+            shrinkResources true
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
         }
     }

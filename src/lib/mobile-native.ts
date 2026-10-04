@@ -31,14 +31,24 @@ export const mobileDevice = {
 };
 
 export const mobileCamera = {
-  takePhoto: () =>
-    Camera.getPhoto({
+  takePhoto: async () => {
+    const photo = await Camera.getPhoto({
       quality: 82,
+      width: 2200,
+      height: 2200,
       allowEditing: false,
       resultType: CameraResultType.Uri,
       source: CameraSource.Camera,
       saveToGallery: false,
-    }),
+    });
+    if (!photo.webPath) throw new Error("The camera did not return an image.");
+    const response = await fetch(photo.webPath);
+    if (!response.ok) throw new Error("Could not read the captured image.");
+    const blob = await response.blob();
+    const mimeType = blob.type.startsWith("image/") ? blob.type : "image/jpeg";
+    const extension = mimeType === "image/png" ? "png" : "jpg";
+    return new File([blob], `lord-capture-${Date.now()}.${extension}`, { type: mimeType });
+  },
   pickImage: () =>
     Camera.getPhoto({
       quality: 82,
@@ -58,15 +68,87 @@ export const mobileFiles = {
 
 export const mobileNotifications = {
   requestPermissions: () => LocalNotifications.requestPermissions(),
-  scheduleReminder: async (title: string, body: string, at: Date) => {
+  scheduleReminder: async (
+    title: string,
+    body: string,
+    at: Date,
+    route = "/study",
+    id = Date.now() % 2147483647,
+  ) => {
     const permission = await LocalNotifications.requestPermissions();
-    if (permission.display !== "granted") return { scheduled: false };
+    if (permission.display !== "granted") return { scheduled: false as const, id };
     await LocalNotifications.schedule({
-      notifications: [{ id: Date.now() % 2147483647, title, body, schedule: { at } }],
+      notifications: [
+        {
+          id,
+          title,
+          body,
+          schedule: { at },
+          extra: { route: safeInternalRoute(route) ?? "/study" },
+        },
+      ],
     });
-    return { scheduled: true };
+    return { scheduled: true as const, id };
   },
+  cancel: (id: number) => LocalNotifications.cancel({ notifications: [{ id }] }),
 };
+
+export function safeInternalRoute(value: string | undefined): string | null {
+  if (!value || !value.startsWith("/") || value.startsWith("//") || value.includes("\\")) {
+    return null;
+  }
+  try {
+    const url = new URL(value, "https://lordai.invalid");
+    if (url.origin !== "https://lordai.invalid") return null;
+    return `${url.pathname}${url.search}${url.hash}`;
+  } catch {
+    return null;
+  }
+}
+
+export function routeFromAppUrl(value: string): string | null {
+  try {
+    const url = new URL(value);
+    if (url.protocol !== "lordai:" || url.hostname !== "open") return null;
+    return safeInternalRoute(`${url.pathname}${url.search}${url.hash}`);
+  } catch {
+    return null;
+  }
+}
+
+export async function registerMobileNavigation(
+  onNavigate: (route: string) => void,
+  onAppActiveChange?: (active: boolean) => void,
+) {
+  if (!isNativeMobile()) return () => undefined;
+  let active = true;
+  const handles = await Promise.all([
+    App.addListener("appUrlOpen", ({ url }) => {
+      if (!active) return;
+      const route = routeFromAppUrl(url);
+      if (route) onNavigate(route);
+    }),
+    LocalNotifications.addListener("localNotificationActionPerformed", ({ notification }) => {
+      if (!active) return;
+      const route = safeInternalRoute(notification.extra?.route as string | undefined);
+      if (route) onNavigate(route);
+    }),
+    App.addListener("appStateChange", ({ isActive }) => {
+      if (active) onAppActiveChange?.(isActive);
+    }),
+  ]);
+  const appState = await App.getState().catch(() => ({ isActive: false }));
+  if (active) onAppActiveChange?.(appState.isActive);
+  const launch = await App.getLaunchUrl().catch(() => undefined);
+  if (active && launch?.url) {
+    const route = routeFromAppUrl(launch.url);
+    if (route) onNavigate(route);
+  }
+  return () => {
+    active = false;
+    handles.forEach((handle) => void handle.remove());
+  };
+}
 
 export const mobileHaptics = {
   light: () =>
