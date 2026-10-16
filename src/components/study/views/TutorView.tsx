@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect, useRef } from "react";
+import { useState, useCallback, useEffect, useRef, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Send,
@@ -28,6 +28,7 @@ import {
 } from "@/lib/learning/client";
 import { StudyHeader } from "../StudyHeader";
 import { selectNextConcept } from "@/lib/learning/mastery";
+import { filterConceptsForClass } from "@/lib/learning/class";
 import { generateChatTitle, shouldGenerateTitle } from "@/lib/chat-title";
 import { generateConversationTitle } from "@/lib/title-service";
 import { detectTopic } from "@/lib/learning/brain";
@@ -41,6 +42,7 @@ interface TutorViewProps {
   snapshot: LearningSnapshot | undefined;
   userId: string | null;
   conceptId?: string;
+  initialPrompt?: string;
   onNavigate: (view: StudyView) => void;
   onBack: () => void;
   refresh: () => void;
@@ -118,7 +120,7 @@ function analyzeMasterySignal(text: string): MasterySignal | null {
 const EMPTY_SESSIONS: ReturnType<typeof listTutorSessions> extends Promise<infer T> ? T : never =
   [] as never;
 
-export function TutorView({ snapshot, userId, conceptId, onBack }: TutorViewProps) {
+export function TutorView({ snapshot, userId, conceptId, initialPrompt, onBack }: TutorViewProps) {
   const { user } = useCurrentUser();
   const [messages, setMessages] = useState<TutorMessage[]>([]);
   const [draft, setDraft] = useState("");
@@ -137,10 +139,21 @@ export function TutorView({ snapshot, userId, conceptId, onBack }: TutorViewProp
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const titleGeneratedForRef = useRef<string | null>(null);
   const masteryUpdateQueueRef = useRef<MasterySignal[]>([]);
+  const initialPromptAppliedRef = useRef(false);
 
+  useEffect(() => {
+    if (initialPromptAppliedRef.current || !initialPrompt?.trim()) return;
+    initialPromptAppliedRef.current = true;
+    setDraft(initialPrompt.trim());
+  }, [initialPrompt]);
+
+  const gradeConcepts = useMemo(
+    () => filterConceptsForClass(snapshot?.concepts ?? [], snapshot?.profile?.class),
+    [snapshot?.concepts, snapshot?.profile?.class],
+  );
   const activeConcept = conceptId
-    ? snapshot?.concepts.find((c) => c.id === conceptId)
-    : (selectNextConcept(snapshot?.concepts ?? [], snapshot?.mastery ?? []) ?? undefined);
+    ? gradeConcepts.find((concept) => concept.id === conceptId)
+    : (selectNextConcept(gradeConcepts, snapshot?.mastery ?? []) ?? undefined);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });

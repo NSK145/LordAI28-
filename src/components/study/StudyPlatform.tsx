@@ -100,6 +100,8 @@ function AIStudyEntry({
             type="text"
             value={input}
             onChange={(e) => setInput(e.target.value)}
+            maxLength={2000}
+            aria-label="Describe what you want to study"
             placeholder="I have physics tomorrow. Help me prepare."
             className="w-full rounded-xl border border-input bg-background px-6 py-4 text-lg shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
           />
@@ -163,9 +165,13 @@ function AIStudyEntry({
 }
 
 export function StudyPlatform() {
-  const { view = "dashboard", concept: conceptId } = useSearch({
+  const {
+    view = "dashboard",
+    concept: conceptId,
+    prompt: initialTutorPrompt,
+  } = useSearch({
     from: "/_authenticated/study",
-  }) as { view?: StudyView | typeof AI_ENTRY_VIEW; concept?: string };
+  }) as { view?: StudyView | typeof AI_ENTRY_VIEW; concept?: string; prompt?: string };
 
   const { user } = useCurrentUser();
   const userId = user?.id ?? null;
@@ -228,9 +234,10 @@ export function StudyPlatform() {
   };
 
   const navigateTo = useCallback(
-    (newView: StudyView | typeof AI_ENTRY_VIEW, conceptId?: string) => {
+    (newView: StudyView | typeof AI_ENTRY_VIEW, conceptId?: string, prompt?: string) => {
       const search: Record<string, unknown> = { view: newView as StudyView };
       if (conceptId) search.concept = conceptId;
+      if (prompt?.trim()) search.prompt = prompt.trim();
       navigate({ to: "/study", search, replace: true });
     },
     [navigate],
@@ -273,7 +280,7 @@ export function StudyPlatform() {
 
       // Follow an explicit request before offering the planner's next suggested mission.
       if (detected.intent === "tutor" || detected.intent === "general") {
-        navigateTo("tutor", detected.conceptId ?? undefined);
+        navigateTo("tutor", detected.conceptId ?? undefined, message);
         return;
       } else if (detected.intent === "practice") {
         navigateTo("practice", detected.conceptId ?? undefined);
@@ -290,7 +297,7 @@ export function StudyPlatform() {
         const firstTask = topMission.tasks[0];
         switch (firstTask.type) {
           case "tutor":
-            navigateTo("tutor", firstTask.conceptId ?? undefined);
+            navigateTo("tutor", firstTask.conceptId ?? undefined, message);
             break;
           case "practice":
           case "learn":
@@ -430,6 +437,7 @@ export function StudyPlatform() {
           snapshot={snapshot}
           userId={userId}
           conceptId={conceptId}
+          initialPrompt={initialTutorPrompt}
           onNavigate={handleViewChange}
           onBack={() => navigateTo("dashboard")}
           refresh={refresh}
@@ -485,9 +493,11 @@ export function StudyPlatform() {
   return (
     <AppShell>
       <div className="flex flex-col gap-4">
-        <div className="flex items-center justify-between gap-2">
-          <StudyTopNav activeView={activeView as StudyView} onViewChange={handleViewChange} />
-          <div className="flex shrink-0 items-center gap-2">
+        <div className="flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
+          <div className="w-full min-w-0 lg:flex-1">
+            <StudyTopNav activeView={activeView as StudyView} onViewChange={handleViewChange} />
+          </div>
+          <div className="flex flex-wrap items-center justify-end gap-2 lg:shrink-0">
             <label className="sr-only" htmlFor="study-language">
               Study language
             </label>

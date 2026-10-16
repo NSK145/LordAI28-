@@ -32,6 +32,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { cn } from "@/lib/utils";
 import type { LearningPlan, PlanInput } from "@/lib/learning/types";
+import { toast } from "sonner";
 
 interface EditPlanModalProps {
   open: boolean;
@@ -86,10 +87,12 @@ export function EditPlanModal({
         targetDate,
         dailyMinutes,
       });
-      onSaved();
+      await onSaved();
       onOpenChange(false);
-    } catch {
-      // ignore
+    } catch (error) {
+      toast.error(
+        error instanceof Error ? `Could not save plan: ${error.message}` : "Could not save plan.",
+      );
     } finally {
       setSaving(false);
     }
@@ -101,8 +104,8 @@ export function EditPlanModal({
 
   return (
     <>
-      <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="max-w-lg">
+      <Dialog open={open} onOpenChange={(nextOpen) => !saving && onOpenChange(nextOpen)}>
+        <DialogContent className="w-[calc(100vw-2rem)] max-w-lg">
           <DialogHeader>
             <DialogTitle className="font-display text-xl">Edit Plan</DialogTitle>
             <DialogDescription>Update your study plan details.</DialogDescription>
@@ -124,14 +127,18 @@ export function EditPlanModal({
               />
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div className="grid gap-2">
                 <Label htmlFor="edit-start">Start date</Label>
                 <Input
                   id="edit-start"
                   type="date"
                   value={startDate}
-                  onChange={(e) => setStartDate(e.target.value)}
+                  onChange={(e) => {
+                    const nextStart = e.target.value;
+                    setStartDate(nextStart);
+                    if (targetDate < nextStart) setTargetDate(nextStart);
+                  }}
                 />
               </div>
               <div className="grid gap-2">
@@ -139,6 +146,7 @@ export function EditPlanModal({
                 <Input
                   id="edit-target"
                   type="date"
+                  min={startDate}
                   value={targetDate}
                   onChange={(e) => setTargetDate(e.target.value)}
                 />
@@ -189,7 +197,7 @@ export function EditPlanModal({
               </Button>
             </div>
             <div className="flex gap-2">
-              <Button variant="outline" onClick={() => onOpenChange(false)}>
+              <Button variant="outline" onClick={() => onOpenChange(false)} disabled={saving}>
                 Cancel
               </Button>
               <Button onClick={handleSave} disabled={saving || !title.trim()}>

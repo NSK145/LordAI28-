@@ -1,88 +1,116 @@
+import { useMemo, type ReactNode } from "react";
+import { useNavigate } from "@tanstack/react-router";
 import {
-  useCommandPalette,
-  CommandPalette as CommandPaletteComponent,
-  navigationCommand,
-  actionCommand,
-} from "@/features/command-palette/command-palette";
-import {
-  Search,
-  MessageSquare,
-  FolderOpen,
+  Activity,
   Brain,
   BookOpen,
-  Settings,
-  Command,
+  CalendarDays,
   FileText,
+  FolderOpen,
+  Image,
+  MessageSquare,
+  Mic,
   Plus,
-  Star,
-  Archive,
-  Home,
-  BarChart3,
-  Palette,
-  Shield,
-  HelpCircle,
-  Zap,
-  Trash2,
+  Search,
+  Settings,
+  SquarePen,
+  Target,
 } from "lucide-react";
-import { useNavigate } from "@tanstack/react-router";
+import {
+  actionCommand,
+  CommandPalette as CommandPaletteComponent,
+  createCommandItem,
+  useCommandPalette,
+} from "./command-palette";
 
-export function useAppCommandPalette() {
-  const { open, setOpen, navigateTo } = useCommandPalette();
+function useAppCommandPalette() {
+  const { open, setOpen } = useCommandPalette();
   const navigate = useNavigate();
 
-  const items = [
-    navigationCommand("Home", "/", {
-      icon: <Home className="h-4 w-4" />,
-      description: "Go to home dashboard",
-    }),
-    navigationCommand("Chat", "/chat", {
-      icon: <MessageSquare className="h-4 w-4" />,
-      description: "Open chat",
-    }),
-    navigationCommand("Projects", "/projects", {
-      icon: <FolderOpen className="h-4 w-4" />,
-      description: "View projects",
-    }),
-    navigationCommand("Canvas", "/canvas", {
-      icon: <Palette className="h-4 w-4" />,
-      description: "AI Canvas",
-    }),
-    navigationCommand("Knowledge", "/knowledge", {
-      icon: <BookOpen className="h-4 w-4" />,
-      description: "Knowledge base",
-    }),
-    navigationCommand("Memory", "/memory", {
-      icon: <Brain className="h-4 w-4" />,
-      description: "Memory engine",
-    }),
-    navigationCommand("Study", "/study", {
-      icon: <BookOpen className="h-4 w-4" />,
-      description: "Study platform",
-    }),
-    navigationCommand("Analytics", "/analytics", {
-      icon: <BarChart3 className="h-4 w-4" />,
-      description: "View analytics",
-    }),
-    navigationCommand("Settings", "/settings", {
-      icon: <Settings className="h-4 w-4" />,
-      description: "App settings",
-    }),
-    actionCommand("New Chat", () => navigateTo("/chat"), {
-      icon: <Plus className="h-4 w-4" />,
-      description: "Start a new conversation",
-      shortcut: ["N"],
-    }),
-    actionCommand("New Project", () => navigateTo("/projects"), {
-      icon: <Plus className="h-4 w-4" />,
-      description: "Create a new project",
-      shortcut: ["P"],
-    }),
-    actionCommand("New Artifact", () => navigateTo("/canvas"), {
-      icon: <Plus className="h-4 w-4" />,
-      description: "Create a new canvas artifact",
-      shortcut: ["C"],
-    }),
-  ];
+  const items = useMemo(() => {
+    const go = (to: string) => () => void navigate({ to } as never);
+    const route = (label: string, to: string, icon: ReactNode, description: string) =>
+      createCommandItem({
+        label,
+        description,
+        icon,
+        group: "navigation",
+        keywords: [label.toLowerCase(), to.replaceAll("/", " ")],
+        action: go(to),
+      });
+
+    return [
+      route("Home", "/", <Activity className="h-4 w-4" />, "Open the command center"),
+      route("Chat", "/chat", <MessageSquare className="h-4 w-4" />, "Open your conversations"),
+      route("Study", "/study", <BookOpen className="h-4 w-4" />, "Open the study workspace"),
+      route(
+        "Research & documents",
+        "/documents",
+        <FileText className="h-4 w-4" />,
+        "Browse research and documents",
+      ),
+      route("Projects", "/projects", <FolderOpen className="h-4 w-4" />, "Open project workspaces"),
+      route("Calendar", "/calendar", <CalendarDays className="h-4 w-4" />, "View your calendar"),
+      route("Tasks", "/productivity", <Target className="h-4 w-4" />, "Open tasks and focus tools"),
+      route(
+        "Search conversations",
+        "/search",
+        <Search className="h-4 w-4" />,
+        "Search saved conversations",
+      ),
+      route("Memory", "/memory", <Brain className="h-4 w-4" />, "Review saved memories"),
+      route("Images", "/images", <Image className="h-4 w-4" />, "Open image generation"),
+      route("Voice", "/voice", <Mic className="h-4 w-4" />, "Open voice controls"),
+      route("Settings", "/settings", <Settings className="h-4 w-4" />, "Manage your preferences"),
+      route(
+        "Command Center tools",
+        "/command-center",
+        <Activity className="h-4 w-4" />,
+        "Open connected device and automation tools",
+      ),
+      actionCommand(
+        "New chat",
+        () => {
+          void navigate({ to: "/chat" }).then(() => {
+            window.setTimeout(() => window.dispatchEvent(new Event("lord:new-chat")), 50);
+          });
+        },
+        {
+          icon: <SquarePen className="h-4 w-4" />,
+          description: "Start a new conversation",
+          shortcut: ["N"],
+          keywords: ["new conversation", "compose"],
+        },
+      ),
+      actionCommand("Open projects", go("/projects"), {
+        icon: <Plus className="h-4 w-4" />,
+        description: "Browse or create a project",
+        keywords: ["project", "workspace"],
+      }),
+    ];
+  }, [navigate]);
 
   return { open, setOpen, items };
+}
+
+export function AppCommandPalette() {
+  const { open, setOpen, items } = useAppCommandPalette();
+  return (
+    <>
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        aria-label="Open command palette"
+        aria-keyshortcuts="Control+K Meta+K"
+        className="inline-flex h-10 min-w-10 items-center justify-center gap-2 rounded-xl border border-border/70 bg-card/55 px-3 text-muted-foreground transition hover:border-primary/40 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:min-w-52 sm:justify-start"
+      >
+        <Search className="h-4 w-4 shrink-0" />
+        <span className="hidden flex-1 text-left text-xs sm:inline">Search or jump to…</span>
+        <kbd className="hidden rounded border border-border/70 px-1.5 py-0.5 text-[10px] text-muted-foreground md:inline">
+          Ctrl / ⌘ K
+        </kbd>
+      </button>
+      <CommandPaletteComponent open={open} onOpenChange={setOpen} items={items} />
+    </>
+  );
 }

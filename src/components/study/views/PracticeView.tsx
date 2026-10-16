@@ -1,10 +1,11 @@
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Target, Lightbulb, Check, X, Clock, SkipForward, Play } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useCurrentUser } from "@/hooks/use-current-user";
 import { recordAttempt } from "@/lib/learning/client";
 import { selectNextConcept } from "@/lib/learning/mastery";
+import { filterConceptsForClass } from "@/lib/learning/class";
 import { callLearningSession } from "../lib/session-api";
 import { StudyHeader } from "../StudyHeader";
 import { MasteryBadge } from "../ui/MasteryBadge";
@@ -24,18 +25,31 @@ interface PracticeViewProps {
 
 type PracticeStep = "select" | "question" | "answering" | "feedback";
 
-export function PracticeView({ snapshot, userId, conceptId, onBack, refresh }: PracticeViewProps) {
+export function PracticeView({
+  snapshot,
+  userId,
+  conceptId,
+  onNavigate,
+  onBack,
+  refresh,
+}: PracticeViewProps) {
   const { user } = useCurrentUser();
   const [step, setStep] = useState<PracticeStep>("select");
   const [question, setQuestion] = useState<Question | null>(null);
   const [selectedAnswer, setSelectedAnswer] = useState<number | null>(null);
   const [correct, setCorrect] = useState<boolean | null>(null);
-  const [hint, setHint] = useState<string>("");
   const [showHint, setShowHint] = useState(false);
   const [showExplanation, setShowExplanation] = useState(false);
+  const [questionError, setQuestionError] = useState<string | null>(null);
+  const [attemptSaveError, setAttemptSaveError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [timeElapsed, setTimeElapsed] = useState(0);
   const [startTime, setStartTime] = useState<number>(0);
+  const concepts = useMemo(
+    () => filterConceptsForClass(snapshot?.concepts ?? [], snapshot?.profile?.class),
+    [snapshot?.concepts, snapshot?.profile?.class],
+  );
+  const nextConceptId = selectNextConcept(concepts, snapshot?.mastery ?? [])?.id;
 
   useEffect(() => {
     let interval: ReturnType<typeof setInterval>;
@@ -50,7 +64,8 @@ export function PracticeView({ snapshot, userId, conceptId, onBack, refresh }: P
   const fetchQuestion = useCallback(async () => {
     if (!user?.id) return;
     const concept =
-      conceptId || selectNextConcept(snapshot?.concepts ?? [], snapshot?.mastery ?? [])?.id;
+      (conceptId && concepts.some((item) => item.id === conceptId) ? conceptId : null) ||
+      nextConceptId;
     if (!concept) return;
 
     setLoading(true);
@@ -58,9 +73,10 @@ export function PracticeView({ snapshot, userId, conceptId, onBack, refresh }: P
     setQuestion(null);
     setSelectedAnswer(null);
     setCorrect(null);
-    setHint("");
     setShowHint(false);
     setShowExplanation(false);
+    setQuestionError(null);
+    setAttemptSaveError(null);
 
     try {
       const res = await callLearningSession({
@@ -81,15 +97,21 @@ export function PracticeView({ snapshot, userId, conceptId, onBack, refresh }: P
       if (q) {
         setQuestion(q);
         setStep("question");
+      } else {
+        setStep("select");
+        setQuestionError("LORD did not return a question. Please try again.");
       }
-    } catch {
+    } catch (error) {
       setStep("select");
+      setQuestionError(
+        error instanceof Error ? error.message : "Could not generate a question. Please try again.",
+      );
     } finally {
       setLoading(false);
       setStartTime(Date.now());
       setTimeElapsed(0);
     }
-  }, [user?.id, conceptId, snapshot]);
+  }, [user?.id, conceptId, concepts, nextConceptId, snapshot]);
 
   if (!snapshot || !user) {
     return (
@@ -108,7 +130,8 @@ export function PracticeView({ snapshot, userId, conceptId, onBack, refresh }: P
 
   const handleStartPractice = () => {
     const concept =
-      conceptId || selectNextConcept(snapshot.concepts ?? [], snapshot.mastery ?? [])?.id;
+      (conceptId && concepts.some((item) => item.id === conceptId) ? conceptId : null) ||
+      nextConceptId;
     if (!concept) return;
     void fetchQuestion();
   };
@@ -122,6 +145,7 @@ export function PracticeView({ snapshot, userId, conceptId, onBack, refresh }: P
     if (!question || selectedAnswer === null || !user?.id) return;
 
     setLoading(true);
+    setAttemptSaveError(null);
     const isCorrect = selectedAnswer === question.correctIndex;
     setCorrect(isCorrect);
     setShowExplanation(true);
@@ -131,7 +155,9 @@ export function PracticeView({ snapshot, userId, conceptId, onBack, refresh }: P
       await recordAttempt(user.id, question, selectedAnswer);
       refresh();
     } catch {
-      // Silently handle — mastery will still update on next refresh
+      setAttemptSaveError(
+        "Your answer was checked, but it could not be saved. Check your connection and try again later.",
+      );
     } finally {
       setLoading(false);
     }
@@ -142,12 +168,8 @@ export function PracticeView({ snapshot, userId, conceptId, onBack, refresh }: P
     setCorrect(null);
     setShowExplanation(false);
     setShowHint(false);
-    setHint("");
+    setAttemptSaveError(null);
     void fetchQuestion();
-  };
-
-  const handleRevealAnswer = () => {
-    setShowExplanation(true);
   };
 
   const handleShowHint = () => {
@@ -155,12 +177,16 @@ export function PracticeView({ snapshot, userId, conceptId, onBack, refresh }: P
   };
 
   const getSelectedConcept = () => {
-    const id = conceptId || selectNextConcept(snapshot.concepts ?? [], snapshot.mastery ?? [])?.id;
-    return id ? (snapshot.concepts ?? []).find((c) => c.id === id) : undefined;
+    const id =
+      (conceptId && concepts.some((item) => item.id === conceptId) ? conceptId : null) ||
+      nextConceptId;
+    return id ? concepts.find((c) => c.id === id) : undefined;
   };
 
   const getMasteryForConcept = () => {
-    const id = conceptId || selectNextConcept(snapshot.concepts ?? [], snapshot.mastery ?? [])?.id;
+    const id =
+      (conceptId && concepts.some((item) => item.id === conceptId) ? conceptId : null) ||
+      nextConceptId;
     return id ? snapshot.mastery.find((m) => m.concept_id === id) : undefined;
   };
 
@@ -205,6 +231,12 @@ export function PracticeView({ snapshot, userId, conceptId, onBack, refresh }: P
                 interval.
               </p>
 
+              {questionError && (
+                <p role="alert" className="mt-4 text-sm text-rose-300">
+                  {questionError}
+                </p>
+              )}
+
               {selectedConcept ? (
                 <div className="mt-4 rounded-lg border border-border/30 bg-background/30 p-4">
                   <div className="flex items-center justify-between">
@@ -222,6 +254,15 @@ export function PracticeView({ snapshot, userId, conceptId, onBack, refresh }: P
                 <EmptyState
                   title="No concepts available"
                   description="You need concepts in your learning path to practice."
+                  action={
+                    <button
+                      type="button"
+                      onClick={() => onNavigate("concepts")}
+                      className="rounded-lg bg-primary px-4 py-2 text-xs font-semibold text-primary-foreground hover:bg-primary/90"
+                    >
+                      Browse Concept Library
+                    </button>
+                  }
                   className="py-6"
                 />
               )}
@@ -272,7 +313,7 @@ export function PracticeView({ snapshot, userId, conceptId, onBack, refresh }: P
                 <div className="rounded-xl border border-border/40 bg-card/50 p-6">
                   <h2 className="text-lg font-medium text-foreground">{question.prompt}</h2>
 
-                  {question.hint && (
+                  {question.hint && showHint && (
                     <div className="mt-4 flex items-start gap-2 rounded-lg border border-amber-500/20 bg-amber-500/5 p-3">
                       <Lightbulb className="mt-0.5 h-4 w-4 text-amber-400" />
                       <p className="text-sm text-muted-foreground">
@@ -306,17 +347,22 @@ export function PracticeView({ snapshot, userId, conceptId, onBack, refresh }: P
                   </div>
 
                   <div className="mt-5 flex items-center justify-between">
-                    <button
-                      onClick={handleShowHint}
-                      disabled={showHint}
-                      className={cn(
-                        "inline-flex items-center gap-1.5 rounded-lg border border-border/30 bg-background/40 px-3 py-1.5 text-xs text-muted-foreground transition-colors",
-                        showHint && "cursor-default opacity-50",
-                      )}
-                    >
-                      <Lightbulb className="h-3.5 w-3.5" />
-                      Show Hint
-                    </button>
+                    {question.hint ? (
+                      <button
+                        type="button"
+                        onClick={handleShowHint}
+                        disabled={showHint}
+                        className={cn(
+                          "inline-flex items-center gap-1.5 rounded-lg border border-border/30 bg-background/40 px-3 py-1.5 text-xs text-muted-foreground transition-colors",
+                          showHint && "cursor-default opacity-50",
+                        )}
+                      >
+                        <Lightbulb className="h-3.5 w-3.5" />
+                        Show Hint
+                      </button>
+                    ) : (
+                      <span />
+                    )}
 
                     <motion.button
                       whileHover={{ scale: 1.02 }}
@@ -386,6 +432,12 @@ export function PracticeView({ snapshot, userId, conceptId, onBack, refresh }: P
               <p className="text-sm text-muted-foreground leading-relaxed">
                 {question.explanation}
               </p>
+
+              {attemptSaveError && (
+                <p role="alert" className="mt-3 text-sm text-amber-200">
+                  {attemptSaveError}
+                </p>
+              )}
 
               {showExplanation && (
                 <div className="mt-4 rounded-lg border border-border/30 bg-background/30 p-3">

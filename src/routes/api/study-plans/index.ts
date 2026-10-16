@@ -5,22 +5,57 @@ import { requireSupabaseRequestAuth } from "@/integrations/supabase/auth-middlew
 import { apiErrorResponse, apiOkResponse, apiNoContentResponse } from "@/lib/api-error";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
-const CreatePlanSchema = z.object({
-  title: z.string().min(1).max(200),
-  description: z.string().max(2000).optional(),
-  startDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
-  targetDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
-  dailyMinutes: z.number().int().min(5).max(480),
-  subjects: z.array(z.string()).optional(),
-  preferredDays: z.array(z.number().int().min(0).max(6)).optional(),
-  difficulty: z.enum(["easy", "medium", "hard"]).optional(),
-  examDate: z
-    .string()
-    .regex(/^\d{4}-\d{2}-\d{2}$/)
-    .optional(),
-  source: z.enum(["manual", "ai", "mixed"]).default("manual"),
-  conceptIds: z.array(z.string()).optional(),
-});
+const CreatePlanSchema = z
+  .object({
+    title: z.string().min(1).max(200),
+    description: z.string().max(2000).optional(),
+    startDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+    targetDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+    dailyMinutes: z.number().int().min(5).max(480),
+    subjects: z.array(z.string()).optional(),
+    preferredDays: z
+      .array(z.number().int().min(0).max(6))
+      .min(1)
+      .max(7)
+      .refine((days) => new Set(days).size === days.length, "Study days must be unique.")
+      .optional(),
+    difficulty: z.enum(["easy", "medium", "hard"]).optional(),
+    examDate: z
+      .string()
+      .regex(/^\d{4}-\d{2}-\d{2}$/)
+      .optional(),
+    source: z.enum(["manual", "ai", "mixed"]).default("manual"),
+    conceptIds: z.array(z.string()).optional(),
+  })
+  .superRefine((plan, ctx) => {
+    const start = parseCalendarDate(plan.startDate);
+    const target = parseCalendarDate(plan.targetDate);
+    if (!start) {
+      ctx.addIssue({ code: "custom", path: ["startDate"], message: "Invalid start date." });
+    }
+    if (!target) {
+      ctx.addIssue({ code: "custom", path: ["targetDate"], message: "Invalid target date." });
+    }
+    if (start && target && target.getTime() < start.getTime()) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["targetDate"],
+        message: "Target date must be on or after the start date.",
+      });
+    }
+    if (plan.examDate) {
+      const exam = parseCalendarDate(plan.examDate);
+      if (!exam) {
+        ctx.addIssue({ code: "custom", path: ["examDate"], message: "Invalid exam date." });
+      } else if (start && exam.getTime() < start.getTime()) {
+        ctx.addIssue({
+          code: "custom",
+          path: ["examDate"],
+          message: "Exam date must be on or after the start date.",
+        });
+      }
+    }
+  });
 
 export const Route = createFileRoute("/api/study-plans/")({
   server: {
@@ -51,9 +86,13 @@ export const Route = createFileRoute("/api/study-plans/")({
             daily_minutes: parsed.data.dailyMinutes,
             status: "active",
             source: parsed.data.source,
-            generated_from: parsed.data.conceptIds?.length
-              ? { conceptIds: parsed.data.conceptIds }
-              : {},
+            generated_from: {
+              ...(parsed.data.conceptIds?.length ? { conceptIds: parsed.data.conceptIds } : {}),
+              ...(parsed.data.subjects ? { subjects: parsed.data.subjects } : {}),
+              ...(parsed.data.preferredDays ? { preferred_days: parsed.data.preferredDays } : {}),
+              ...(parsed.data.difficulty ? { difficulty: parsed.data.difficulty } : {}),
+              ...(parsed.data.examDate ? { exam_date: parsed.data.examDate } : {}),
+            },
           })
           .select("*")
           .single();
@@ -80,3 +119,8 @@ export const Route = createFileRoute("/api/study-plans/")({
     },
   },
 });
+
+function parseCalendarDate(value: string): Date | null {
+  const date = new Date(`${value}T00:00:00.000Z`);
+  return Number.isFinite(date.getTime()) && date.toISOString().slice(0, 10) === value ? date : null;
+}

@@ -70,6 +70,7 @@ const EMPTY_RESEARCH: DashboardResearch = {
 const EMPTY_AI: DashboardAI = {
   openRouterAvailable: false,
   localAvailable: false,
+  providerStatus: "unavailable",
   activeModel: null,
   activeMode: "balanced",
   lastSuccessfulRequest: null,

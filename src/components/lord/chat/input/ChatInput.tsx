@@ -430,6 +430,7 @@ export function ChatInput({
 
           <textarea
             ref={taRef}
+            data-chat-composer="true"
             value={value}
             onChange={(e) => onChange(e.target.value)}
             onKeyDown={handleKeyDown}

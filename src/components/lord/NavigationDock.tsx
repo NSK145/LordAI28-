@@ -1,29 +1,10 @@
 import { Link, useLocation } from "@tanstack/react-router";
 import { motion, AnimatePresence } from "framer-motion";
-import {
-  LayoutDashboard,
-  MessageSquare,
-  GraduationCap,
-  Target,
-  Search,
-  FileText,
-  Settings,
-  ChevronRight,
-  BarChart3,
-} from "lucide-react";
+import { ChevronRight } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { useState, useEffect, useCallback, useRef } from "react";
 import { cn } from "@/lib/utils";
-
-const NAV = [
-  { to: "/", label: "Dashboard", icon: LayoutDashboard },
-  { to: "/chat", label: "Chat", icon: MessageSquare },
-  { to: "/study", label: "Study", icon: GraduationCap },
-  { to: "/tasks", label: "Tasks", icon: Target },
-  { to: "/documents", label: "Documents", icon: FileText },
-  { to: "/statistics", label: "Statistics", icon: BarChart3 },
-  { to: "/settings", label: "Settings", icon: Settings },
-] as const;
+import { APP_NAVIGATION } from "./app-navigation";
 
 const STORAGE_KEY = "lord-sidebar-collapsed";
 
@@ -227,7 +208,7 @@ export function NavigationDock() {
       >
         {/* Nav items */}
         <ul className="flex flex-col items-center gap-1 px-1.5">
-          {NAV.map(({ to, label, icon }, index) => {
+          {APP_NAVIGATION.map(({ to, label, icon }, index) => {
             const active = to === "/" ? path === "/" : path.startsWith(to);
             return (
               <NavItem

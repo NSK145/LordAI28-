@@ -30,3 +30,20 @@ export function getConceptClass(
   // NGSS (MS-/HS-) and CCSS.MATH.HS have no single class -> null.
   return null;
 }
+
+/** Keep student-facing learning activities scoped to the learner's selected class. */
+export function filterConceptsForClass<T extends LearningConcept>(
+  concepts: readonly T[],
+  classNumber: string | number | null | undefined,
+): T[] {
+  const gradeBand = classToGradeBand(classNumber);
+  if (!gradeBand) return [...concepts];
+  const parsedClass =
+    typeof classNumber === "number" ? classNumber : Number.parseInt(String(classNumber), 10);
+
+  return concepts.filter((concept) => {
+    if (concept.is_custom) return true;
+    const conceptClass = getConceptClass(concept);
+    return conceptClass === null ? concept.grade_band === gradeBand : conceptClass === parsedClass;
+  });
+}

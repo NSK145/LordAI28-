@@ -458,6 +458,14 @@ export function AIStatusWidget({ data, state }: PanelProps<DashboardAI>) {
       </HudPanel>
     );
   const health = AI_HEALTH[data.health];
+  const providerLabel: Record<DashboardAI["providerStatus"], string> = {
+    available: "Connected",
+    missing_credentials: "Not configured",
+    invalid_credentials: "Credentials rejected",
+    rate_limited: "Rate limit reached",
+    timeout: "Connection timed out",
+    unavailable: "Provider unavailable",
+  };
   return (
     <HudPanel title="AI Status" subtitle="Model health">
       <PulseOnChange
@@ -474,7 +482,7 @@ export function AIStatusWidget({ data, state }: PanelProps<DashboardAI>) {
             ) : (
               <WifiOff className="h-3.5 w-3.5 text-destructive" />
             )}
-            OpenRouter {data.openRouterAvailable ? "up" : "down"}
+            {providerLabel[data.providerStatus]}
           </span>
         </div>
         <div className="mt-3 grid grid-cols-2 gap-2 text-xs">
@@ -509,8 +517,7 @@ export function AIStatusWidget({ data, state }: PanelProps<DashboardAI>) {
           </div>
         </div>
         <div className="mt-2 flex items-center gap-1 text-[11px] text-muted-foreground">
-          <Boxes className="h-3 w-3" /> Local inference:{" "}
-          {data.localAvailable ? "available" : "unavailable"}
+          <Boxes className="h-3 w-3" /> Provider model list verified against OpenRouter.
         </div>
       </PulseOnChange>
     </HudPanel>

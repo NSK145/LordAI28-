@@ -30,7 +30,14 @@ import { PlanActionsMenu } from "../planner/PlanActionsMenu";
 import { LordPlanAssistant } from "../planner/LordPlanAssistant";
 import { PlanHealth } from "../planner/PlanHealth";
 import { SmartSuggestions } from "../planner/SmartSuggestions";
-import { createStudyPlan, generateAIPlan, listStudyPlans, getStudyPlan } from "@/lib/study-plans";
+import {
+  createStudyPlan,
+  deleteStudyPlan,
+  generateAIPlan,
+  listStudyPlans,
+  getStudyPlan,
+} from "@/lib/study-plans";
+import { filterConceptsForClass } from "@/lib/learning/class";
 
 type ViewMode = "list" | "calendar" | "timeline";
 
@@ -47,6 +54,7 @@ export function PlannerView({ snapshot, userId, onNavigate, onBack, refresh }: P
   const [plans, setPlans] = useState<LearningPlan[]>([]);
   const [selectedPlan, setSelectedPlan] = useState<PlanWithTasks | null>(null);
   const [loading, setLoading] = useState(true);
+  const [planLoadError, setPlanLoadError] = useState<string | null>(null);
   const [generating, setGenerating] = useState(false);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showAddTask, setShowAddTask] = useState(false);
@@ -60,11 +68,15 @@ export function PlannerView({ snapshot, userId, onNavigate, onBack, refresh }: P
   const selectedPlanRef = useRef(selectedPlan);
   selectedPlanRef.current = selectedPlan;
 
-  const concepts = useMemo(() => snapshot?.concepts ?? [], [snapshot]);
+  const concepts = useMemo(
+    () => filterConceptsForClass(snapshot?.concepts ?? [], snapshot?.profile?.class),
+    [snapshot?.concepts, snapshot?.profile?.class],
+  );
 
   const loadPlans = useCallback(async () => {
     if (!userId) return;
     setLoading(true);
+    setPlanLoadError(null);
     try {
       const allPlans = await listStudyPlans();
       setPlans(allPlans);
@@ -80,6 +92,7 @@ export function PlannerView({ snapshot, userId, onNavigate, onBack, refresh }: P
         }
       }
     } catch {
+      setPlanLoadError("Could not sync your study plans. Retry when your connection is available.");
       if (snapshot?.tasks && snapshot.tasks.length > 0) {
         const now = new Date().toISOString().slice(0, 10);
         const planTasks = snapshot.tasks as LearningPlanTask[];
@@ -134,16 +147,22 @@ export function PlannerView({ snapshot, userId, onNavigate, onBack, refresh }: P
     try {
       const detail = await getStudyPlan(plan.id);
       setSelectedPlan(detail);
-    } catch {
-      // ignore
+    } catch (error) {
+      toast.error(
+        error instanceof Error
+          ? `Could not open this study plan: ${error.message}`
+          : "Could not open this study plan. Retry when your connection is available.",
+      );
     }
   };
 
   const handleGeneratePlan = async () => {
     if (!userId || !snapshot) return;
     setGenerating(true);
+    let planIdToClean: string | null = null;
+    let generatedPlanId: string | null = null;
     try {
-      const conceptIds = (snapshot.concepts ?? [])
+      const conceptIds = concepts
         .map((concept) => ({
           id: concept.id,
           score: snapshot.mastery.find((item) => item.concept_id === concept.id)?.score ?? 0.3,
@@ -169,6 +188,7 @@ export function PlannerView({ snapshot, userId, onNavigate, onBack, refresh }: P
         source: "ai",
         conceptIds,
       });
+      planIdToClean = plan.id;
       await generateAIPlan(plan.id, {
         conceptIds,
         weeklyMinutes: dailyMinutes * 7,
@@ -177,11 +197,26 @@ export function PlannerView({ snapshot, userId, onNavigate, onBack, refresh }: P
         dailyMinutes,
         planName: plan.title,
       });
+      planIdToClean = null;
+      generatedPlanId = plan.id;
       await handleCreatePlan(plan.id);
       refresh();
       toast("Adaptive plan generated!");
-    } catch {
-      toast("Failed to generate plan. Please try again.");
+    } catch (error) {
+      let cleanupFailed = false;
+      if (planIdToClean) {
+        try {
+          await deleteStudyPlan(planIdToClean);
+        } catch {
+          cleanupFailed = true;
+        }
+      }
+      const message = error instanceof Error ? error.message : "Please try again.";
+      toast.error(
+        generatedPlanId
+          ? `The plan was generated, but the planner could not refresh: ${message}`
+          : `Could not generate the study plan: ${message}${cleanupFailed ? " An empty plan may remain in your planner." : ""}`,
+      );
     } finally {
       setGenerating(false);
     }
@@ -296,72 +331,53 @@ export function PlannerView({ snapshot, userId, onNavigate, onBack, refresh }: P
     setEditingTask(null);
   };
 
-  const handleTaskContextAction = async (action: string) => {
-    if (!editingTask || !selectedPlan) return;
+  const handleTaskContextAction = async (task: LearningPlanTask, action: string) => {
+    if (!selectedPlan) return;
+    if (action === "reschedule" || action === "duration") {
+      setEditingTask(task);
+      return;
+    }
     try {
       const studyPlans = await import("@/lib/study-plans");
       switch (action) {
-        case "reschedule": {
-          const newDate = prompt("Enter new date (YYYY-MM-DD):");
-          if (newDate) {
-            await studyPlans.reschedulePlanTask(selectedPlan.id, editingTask.id, newDate);
-            await handleTaskSaved();
-            toast("Task rescheduled.");
-          }
-          break;
-        }
-        case "duration": {
-          const newDuration = prompt("Enter new duration (minutes):");
-          if (newDuration && !Number.isNaN(Number(newDuration))) {
-            await studyPlans.updatePlanTask(selectedPlan.id, editingTask.id, {
-              estimatedMinutes: Number(newDuration),
-            });
-            await handleTaskSaved();
-            toast("Duration updated.");
-          }
-          break;
-        }
         case "priority": {
           const priorities = ["low", "medium", "high"] as const;
-          const currentIndex = priorities.indexOf(
-            editingTask.priority as (typeof priorities)[number],
-          );
+          const currentIndex = priorities.indexOf(task.priority as (typeof priorities)[number]);
           const nextPriority = priorities[(currentIndex + 1) % priorities.length];
-          await studyPlans.updatePlanTask(selectedPlan.id, editingTask.id, {
+          await studyPlans.updatePlanTask(selectedPlan.id, task.id, {
             priority: nextPriority,
           });
-          await handleTaskSaved();
+          await reloadSelectedPlan();
           toast(`Priority set to ${nextPriority}.`);
           break;
         }
         case "duplicate": {
           await studyPlans.addPlanTask(selectedPlan.id, {
-            title: `${editingTask.title} (copy)`,
-            description: editingTask.description ?? undefined,
-            conceptId: editingTask.concept_id ?? undefined,
-            taskType: editingTask.task_type as LearningPlanTask["task_type"],
-            scheduledDate: new Date(editingTask.due_at).toISOString().slice(0, 10),
-            estimatedMinutes: editingTask.estimated_minutes,
-            priority: editingTask.priority as LearningPlanTask["priority"],
-            notes: editingTask.notes ?? undefined,
+            title: `${task.title} (copy)`,
+            description: task.description ?? undefined,
+            conceptId: task.concept_id ?? undefined,
+            taskType: task.task_type as LearningPlanTask["task_type"],
+            scheduledDate: new Date(task.due_at).toISOString().slice(0, 10),
+            estimatedMinutes: task.estimated_minutes,
+            priority: task.priority as LearningPlanTask["priority"],
+            notes: task.notes ?? undefined,
           });
-          await handleTaskSaved();
+          await reloadSelectedPlan();
           toast("Task duplicated.");
           break;
         }
         case "complete":
-          await handleCompleteTask(editingTask.id);
-          setEditingTask(null);
+          await handleCompleteTask(task.id);
           break;
         case "skip": {
-          await studyPlans.skipPlanTask(selectedPlan.id, editingTask.id);
-          await handleTaskSaved();
+          await studyPlans.skipPlanTask(selectedPlan.id, task.id);
+          await reloadSelectedPlan();
           toast("Task skipped.");
           break;
         }
         case "delete": {
-          await studyPlans.deletePlanTask(selectedPlan.id, editingTask.id);
-          await handleTaskSaved();
+          await studyPlans.deletePlanTask(selectedPlan.id, task.id);
+          await reloadSelectedPlan();
           toast("Task deleted.");
           break;
         }
@@ -369,6 +385,12 @@ export function PlannerView({ snapshot, userId, onNavigate, onBack, refresh }: P
     } catch {
       toast("Failed to update task. Please try again.");
     }
+  };
+
+  const reloadSelectedPlan = async () => {
+    if (!selectedPlan) return;
+    const detail = await getStudyPlan(selectedPlan.id);
+    setSelectedPlan(detail);
   };
 
   const handleLordApplyChanges = async (changes: AIProposedChange[]) => {
@@ -539,6 +561,22 @@ export function PlannerView({ snapshot, userId, onNavigate, onBack, refresh }: P
         }
       />
 
+      {planLoadError && (
+        <div
+          role="status"
+          className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-amber-500/30 bg-amber-500/10 p-4 text-sm text-amber-100"
+        >
+          <span>{planLoadError}</span>
+          <button
+            type="button"
+            onClick={() => void loadPlans()}
+            className="rounded-md border border-amber-200/30 px-3 py-1.5 font-medium hover:bg-amber-200/10"
+          >
+            Retry
+          </button>
+        </div>
+      )}
+
       {noPlans && (
         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="mt-8">
           <EmptyState
@@ -665,7 +703,7 @@ export function PlannerView({ snapshot, userId, onNavigate, onBack, refresh }: P
               tasks={tasks}
               dailyTarget={dailyTarget}
               onTaskClick={(task) => setEditingTask(task)}
-              onTaskAction={(task) => setEditingTask(task)}
+              onTaskAction={(task, action) => void handleTaskContextAction(task, action)}
             />
           )}
           {viewMode === "calendar" && (
@@ -697,7 +735,7 @@ export function PlannerView({ snapshot, userId, onNavigate, onBack, refresh }: P
         userId={userId}
         concepts={concepts}
         onCreated={handleCreatePlan}
-        onAskLord={() => setShowLordAssistant(true)}
+        onBrowseConcepts={() => onNavigate("concepts")}
       />
 
       {selectedPlan && (

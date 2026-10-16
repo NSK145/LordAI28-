@@ -6,7 +6,7 @@ import { ConceptCard } from "../ui/ConceptCard";
 import { StudyHeader } from "../StudyHeader";
 import { AddSubjectDialog } from "./AddSubjectDialog";
 import { AddConceptDialog } from "./AddConceptDialog";
-import { getConceptClass, classToGradeBand } from "@/lib/learning/class";
+import { filterConceptsForClass } from "@/lib/learning/class";
 import type { LearningSnapshot, StudyView } from "../types";
 
 interface ConceptBrowserProps {
@@ -35,31 +35,14 @@ export function ConceptBrowser({
 
   const profile = useMemo(() => snapshot?.profile, [snapshot?.profile]);
   const classNumber = profile?.class ?? null;
-  const selectedClass = useMemo(() => {
-    if (!classNumber) return null;
-    const n = Number.parseInt(classNumber, 10);
-    return Number.isNaN(n) ? null : n;
-  }, [classNumber]);
-  const studentGradeBand = useMemo(() => classToGradeBand(classNumber), [classNumber]);
-
   const allConcepts = useMemo(() => snapshot?.concepts ?? [], [snapshot?.concepts]);
   const mastery = useMemo(() => snapshot?.mastery ?? [], [snapshot?.mastery]);
   const tasks = useMemo(() => snapshot?.tasks ?? [], [snapshot?.tasks]);
   const masteryMap = useMemo(() => new Map(mastery.map((m) => [m.concept_id, m])), [mastery]);
 
-  // Class-based curriculum:
-  //  - exact-class concepts match the student's selected class (e.g. CBSE-10-MATH-3 for Class 10)
-  //  - band-only concepts (NGSS-MS/HS, CCSS.HSA) match when the student's grade band matches
-  //  - student-defined concepts are always visible regardless of class
   const concepts = useMemo(() => {
-    if (!selectedClass) return allConcepts;
-    return allConcepts.filter((c) => {
-      if (c.is_custom) return true;
-      const conceptClass = getConceptClass(c);
-      if (conceptClass !== null) return conceptClass === selectedClass;
-      return c.grade_band === studentGradeBand;
-    });
-  }, [allConcepts, selectedClass, studentGradeBand]);
+    return filterConceptsForClass(allConcepts, classNumber);
+  }, [allConcepts, classNumber]);
 
   const customSubjects = useMemo(
     () => (profile?.custom_subjects ?? []).map((s) => s.name),
@@ -69,6 +52,10 @@ export function ConceptBrowser({
   const subjects = useMemo(
     () => Array.from(new Set([...concepts.map((c) => c.subject), ...customSubjects])).sort(),
     [concepts, customSubjects],
+  );
+  const frameworks = useMemo(
+    () => Array.from(new Set(concepts.map((concept) => concept.framework).filter(Boolean))).sort(),
+    [concepts],
   );
 
   const filtered = useMemo(() => {
@@ -161,6 +148,7 @@ export function ConceptBrowser({
         <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground/60" />
         <input
           type="text"
+          aria-label="Search concepts, curriculum codes, and keywords"
           placeholder="Search concepts, codes, or keywords..."
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
@@ -175,7 +163,7 @@ export function ConceptBrowser({
         className="mb-4 flex flex-wrap items-center gap-3"
       >
         <div className="flex flex-wrap gap-2">
-          {(subjectFilter || frameworkFilter) && (
+          {(searchQuery || subjectFilter || frameworkFilter) && (
             <button
               onClick={clearFilters}
               className="inline-flex items-center gap-1 rounded-md border border-border/40 bg-muted/20 px-2.5 py-1 text-xs text-muted-foreground hover:bg-muted/30"
@@ -188,6 +176,7 @@ export function ConceptBrowser({
             <button
               key={subject}
               onClick={() => setSubjectFilter(subjectFilter === subject ? null : subject)}
+              aria-pressed={subjectFilter === subject}
               className={cn(
                 "rounded-md px-2.5 py-1 text-xs font-medium transition-colors",
                 subjectFilter === subject
@@ -202,6 +191,20 @@ export function ConceptBrowser({
 
         <div className="ml-auto flex items-center gap-2">
           <select
+            aria-label="Filter by curriculum"
+            value={frameworkFilter ?? ""}
+            onChange={(event) => setFrameworkFilter(event.target.value || null)}
+            className="max-w-36 rounded-md border border-border/40 bg-background/60 px-2 py-1.5 text-xs text-foreground focus:border-primary/50 focus:outline-none"
+          >
+            <option value="">All curricula</option>
+            {frameworks.map((framework) => (
+              <option key={framework} value={framework}>
+                {framework}
+              </option>
+            ))}
+          </select>
+          <select
+            aria-label="Sort concepts by"
             value={String(sortBy)}
             onChange={(e) => setSortBy(e.target.value as SortKey)}
             className="rounded-md border border-border/40 bg-background/60 px-2 py-1.5 text-xs text-foreground focus:border-primary/50 focus:outline-none"

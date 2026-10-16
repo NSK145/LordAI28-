@@ -33,7 +33,7 @@ const VIEW_ICONS: Record<StudyView, LucideIcon> = {
 export function StudyTopNav({ activeView, onViewChange }: StudyTopNavProps) {
   return (
     <nav
-      className="min-w-0 flex-1 border-b border-border/40 bg-background/60 backdrop-blur-sm"
+      className="w-full min-w-0 border-b border-border/40 bg-background/60 backdrop-blur-sm"
       aria-label="Study sections"
     >
       <div className="mx-auto max-w-6xl">
@@ -45,8 +45,9 @@ export function StudyTopNav({ activeView, onViewChange }: StudyTopNavProps) {
               <motion.button
                 key={id}
                 onClick={() => onViewChange(id)}
+                aria-current={active ? "page" : undefined}
                 className={cn(
-                  "relative flex items-center gap-2 rounded-lg px-3.5 py-2 text-sm font-medium transition-all duration-200 whitespace-nowrap",
+                  "relative flex shrink-0 items-center gap-2 rounded-lg px-3.5 py-2 text-sm font-medium transition-all duration-200 whitespace-nowrap",
                   "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
                   active
                     ? "bg-primary/15 text-primary"

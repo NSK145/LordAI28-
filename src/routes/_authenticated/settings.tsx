@@ -243,7 +243,17 @@ function SettingsPage() {
     setVoiceRate(Number(settings.voice_rate ?? 1));
     setAutoSpeak(settings.auto_speak ?? true);
     setNotifications(settings.notifications_enabled ?? true);
-    setTheme(settings.theme ?? "dark");
+    const savedTheme = settings.theme ?? "dark";
+    setTheme(savedTheme);
+    if (typeof window !== "undefined") {
+      try {
+        window.localStorage.setItem("lord-theme", savedTheme);
+      } catch {
+        // Keep the current page theme even when storage is unavailable.
+      }
+      document.documentElement.classList.toggle("light", savedTheme === "light");
+      document.documentElement.classList.toggle("dark", savedTheme !== "light");
+    }
   }, [data]);
 
   const { data: memories = [], isLoading: memoriesLoading } = useMemories(user?.id);
@@ -488,6 +498,12 @@ function SettingsPage() {
                       onClick={() => {
                         setTheme(t);
                         if (typeof window !== "undefined") {
+                          try {
+                            window.localStorage.setItem("lord-theme", t);
+                          } catch {
+                            // The theme still applies for this session.
+                          }
+                          document.documentElement.classList.toggle("light", t === "light");
                           document.documentElement.classList.toggle("dark", t === "dark");
                         }
                         themeMutation.mutate(t);

@@ -40,9 +40,19 @@ const QUALITY_COLORS: Record<FL, string> = {
   5: "bg-emerald-500",
 };
 
+const QUALITY_BORDER_COLORS: Record<FL, string> = {
+  0: "hover:border-slate-400/50",
+  1: "hover:border-rose-400/50",
+  2: "hover:border-orange-400/50",
+  3: "hover:border-amber-400/50",
+  4: "hover:border-emerald-300/50",
+  5: "hover:border-emerald-400/50",
+};
+
 export function FlashcardStudy({
   snapshot,
   userId,
+  conceptId,
   onBack,
   onNavigate,
   refresh,
@@ -75,20 +85,23 @@ export function FlashcardStudy({
       setLoading(true);
       try {
         if (!navigator.onLine) {
-          setCards(snapshot.flashcards ?? []);
+          const cached = snapshot.flashcards ?? [];
+          setCards(conceptId ? cached.filter((card) => card.concept_id === conceptId) : cached);
           return;
         }
         const due = await getDueFlashcards(user.id, 30);
-        setCards(mapDueFlashcards(due));
+        const mapped = mapDueFlashcards(due);
+        setCards(conceptId ? mapped.filter((card) => card.concept_id === conceptId) : mapped);
       } catch {
-        setCards(snapshot.flashcards ?? []);
+        const cached = snapshot.flashcards ?? [];
+        setCards(conceptId ? cached.filter((card) => card.concept_id === conceptId) : cached);
       } finally {
         setLoading(false);
       }
     };
 
     void loadCards();
-  }, [user?.id, snapshot, isOnline]);
+  }, [user?.id, snapshot, isOnline, conceptId]);
 
   const handleRate = useCallback(
     async (quality: FL) => {
@@ -122,12 +135,13 @@ export function FlashcardStudy({
   );
 
   const handleFlip = () => {
-    if (!showRating) {
-      setFlipped(!flipped);
-      if (!flipped) {
-        setShowRating(true);
-      }
+    if (flipped) {
+      setFlipped(false);
+      setShowRating(false);
+      return;
     }
+    setFlipped(true);
+    setShowRating(true);
   };
 
   const handleSkip = () => {
@@ -175,6 +189,16 @@ export function FlashcardStudy({
         >
           Offline study mode: cached flashcards are available to read. Ratings will be available
           after reconnecting.
+        </p>
+      )}
+
+      {isOnline && !loading && cards.length > 0 && !cards[currentIndex]?.reviewId && (
+        <p
+          role="status"
+          className="mb-4 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-sm text-amber-200"
+        >
+          These cached cards are available to read, but their review schedule could not be loaded.
+          Refresh the page to try again.
         </p>
       )}
 
@@ -277,9 +301,12 @@ export function FlashcardStudy({
                       whileHover={{ scale: 1.05 }}
                       whileTap={{ scale: 0.95 }}
                       onClick={() => handleRate(q)}
+                      disabled={!isOnline || !cards[currentIndex]?.reviewId}
                       className={cn(
                         "flex flex-col items-center gap-1 rounded-lg border border-border/20 py-2 text-xs font-medium transition-all",
-                        `border-${QUALITY_COLORS[q].split(" ")[0].replace("bg-", "border-")}/30`,
+                        QUALITY_BORDER_COLORS[q],
+                        (!isOnline || !cards[currentIndex]?.reviewId) &&
+                          "cursor-not-allowed opacity-50",
                       )}
                     >
                       <span

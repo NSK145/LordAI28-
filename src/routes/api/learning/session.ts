@@ -227,92 +227,6 @@ async function generateAIQuestion(
   };
 }
 
-function fallbackQuestion(
-  concept: LearningConcept,
-  difficulty: number,
-  topic: string | undefined,
-  questionType: "mcq" | "numerical" | "short_answer" | "diagram" | "essay",
-): Question {
-  const diffLabels = ["", "introductory", "foundational", "standard", "advanced", "mastery"];
-  const diffLabel = diffLabels[difficulty] ?? "standard";
-  const focus = topic ? ` on "${topic}"` : "";
-
-  const templates: Record<string, Question> = {
-    mcq: {
-      id: crypto.randomUUID(),
-      conceptId: concept.id,
-      prompt: `Which statement best demonstrates ${diffLabel} understanding of ${concept.title}${focus}?`,
-      choices: [
-        `I can explain ${concept.title}${focus} and apply it to a new exam-style example.`,
-        `I recognize the term but cannot explain it clearly.`,
-        `It is unrelated to the topic being studied.`,
-        `Memorizing a definition is always enough.`,
-      ],
-      correctIndex: 0,
-      hint: `Choose the option that requires both explanation and application of ${concept.title}${focus}.`,
-      explanation: `Mastery of ${concept.title}${focus} means explaining the idea and using it in an unfamiliar situation, not just recalling facts.`,
-      difficulty: difficulty as Question["difficulty"],
-      rubric: "Award credit for explanation and correct application, not recall alone.",
-      aiGenerated: false,
-      questionType: "mcq",
-    },
-    numerical: {
-      id: crypto.randomUUID(),
-      conceptId: concept.id,
-      prompt: `Solve a ${diffLabel} numerical problem related to ${concept.title}${focus}. Show your work.`,
-      choices: ["Numerical answer required"],
-      correctIndex: 0,
-      hint: `Identify the known variables and the formula that relates them to ${concept.title}${focus}.`,
-      explanation: `The solution requires applying the core formula for ${concept.title} with the given values.`,
-      difficulty: difficulty as Question["difficulty"],
-      rubric: "Correct formula selection, substitution, and arithmetic.",
-      aiGenerated: false,
-      questionType: "numerical",
-    },
-    short_answer: {
-      id: crypto.randomUUID(),
-      conceptId: concept.id,
-      prompt: `Explain ${concept.title}${focus} in your own words. Give one concrete example.`,
-      choices: ["Short answer required"],
-      correctIndex: 0,
-      hint: `Start with a definition, then describe a real-world situation where ${concept.title} applies.`,
-      explanation: `A good answer defines the concept clearly and provides a relevant, original example.`,
-      difficulty: difficulty as Question["difficulty"],
-      rubric: "Clear definition + accurate, original example.",
-      aiGenerated: false,
-      questionType: "short_answer",
-    },
-    diagram: {
-      id: crypto.randomUUID(),
-      conceptId: concept.id,
-      prompt: `A diagram shows [description of diagram related to ${concept.title}${focus}]. What does this diagram illustrate about ${concept.title}?`,
-      choices: ["Diagram analysis required"],
-      correctIndex: 0,
-      hint: `Look for the key components labeled in the diagram and how they relate to ${concept.title}.`,
-      explanation: `The diagram visualizes the core mechanism of ${concept.title}. The correct interpretation identifies the relationship shown.`,
-      difficulty: difficulty as Question["difficulty"],
-      rubric: "Identifies the illustrated principle and explains the diagram's key elements.",
-      aiGenerated: false,
-      questionType: "diagram",
-    },
-    essay: {
-      id: crypto.randomUUID(),
-      conceptId: concept.id,
-      prompt: `Write a structured response: Define ${concept.title}${focus}, explain its significance, and describe two applications with examples.`,
-      choices: ["Essay response required"],
-      correctIndex: 0,
-      hint: `Organize as: 1) Definition 2) Significance 3) Application 1 4) Application 2.`,
-      explanation: `A complete answer covers all four parts with accurate content and clear examples.`,
-      difficulty: difficulty as Question["difficulty"],
-      rubric: "Definition, significance, and two distinct applications with examples.",
-      aiGenerated: false,
-      questionType: "essay",
-    },
-  };
-
-  return templates[questionType] ?? templates.mcq;
-}
-
 async function generatePlan(
   conceptIds: string[],
   weeklyMinutes: number,
@@ -348,7 +262,7 @@ async function generatePlan(
     };
   });
 
-  return { title: "Adaptive study plan", tasks, aiGenerated: true };
+  return { title: "Adaptive study plan", tasks, aiGenerated: false };
 }
 
 async function generateFlashcards(
@@ -424,21 +338,14 @@ async function generateExam(
       Math.floor(questionCount / validConcepts.length) +
       (conceptIndex < questionCount % validConcepts.length ? 1 : 0);
     for (let i = 0; i < questionsForConcept; i++) {
-      let question: Question;
-      try {
-        question = await generateAIQuestion(
-          concept,
-          mastery,
-          difficulty,
-          undefined,
-          "mcq",
-          language,
-        );
-      } catch {
-        if (language)
-          throw new Error("Could not generate exam questions in the selected language.");
-        question = fallbackQuestion(concept, difficulty, undefined, "mcq");
-      }
+      const question = await generateAIQuestion(
+        concept,
+        mastery,
+        difficulty,
+        undefined,
+        "mcq",
+        language,
+      );
       questions.push({
         concept_id: concept.id,
         question,
@@ -704,19 +611,11 @@ export const Route = createFileRoute("/api/learning/session")({
                 parsed.data.language,
               );
             } catch {
-              if (parsed.data.language) {
-                return apiErrorResponse(
-                  503,
-                  "AI_UPSTREAM_ERROR",
-                  "Could not generate a practice question in the selected language. Please retry.",
-                  requestId,
-                );
-              }
-              question = fallbackQuestion(
-                concept,
-                parsed.data.difficulty ?? 2,
-                parsed.data.topic,
-                parsed.data.questionType ?? "mcq",
+              return apiErrorResponse(
+                503,
+                "AI_UPSTREAM_ERROR",
+                "Could not generate a practice question right now. Please retry.",
+                requestId,
               );
             }
 
@@ -906,7 +805,7 @@ export const Route = createFileRoute("/api/learning/session")({
               console.error("Failed to create auto study session:", sessionError);
             }
 
-            return Response.json({ sessionPlan, aiGenerated: true });
+            return Response.json({ sessionPlan, aiGenerated: false });
           }
 
           return apiErrorResponse(400, "INVALID_ACTION", "Unknown action.", requestId);

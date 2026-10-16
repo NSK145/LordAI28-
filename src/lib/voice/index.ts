@@ -1,23 +1,20 @@
-import type { WakeEngine } from "./wake-engine";
-import { OpenWakeWordEngine } from "./openwakeword-engine";
 import { WebSpeechWakeEngine } from "./webspeech-wake-engine";
+import type { WakeEngine } from "./wake-engine";
 
 export type { WakeEngine };
+export { WebSpeechWakeEngine };
 
-/**
- * Try OpenWakeWord first; fall back to Web Speech if model load or
- * AudioWorklet setup fails (e.g. older Android WebViews).
- */
-export async function createWakeEngine(onWake: () => void): Promise<WakeEngine> {
-  const oww = new OpenWakeWordEngine();
-  try {
-    await oww.start(onWake);
-    return oww;
-  } catch (err) {
-    console.warn("[LORD] OpenWakeWord unavailable, falling back to Web Speech:", err);
-    await oww.stop().catch(() => {});
-    const fb = new WebSpeechWakeEngine();
-    await fb.start(onWake);
-    return fb;
-  }
+/** Uses exact browser speech recognition for “Hey, LORD”; no substitute model is used. */
+export async function createWakeEngine(
+  onWake: (phrase: string, command: string) => void,
+  onInterim?: (transcript: string) => void,
+  onError?: (message: string) => void,
+  onInterrupted?: () => void,
+): Promise<WakeEngine> {
+  const engine = new WebSpeechWakeEngine();
+  if (onInterim) engine.onInterim = onInterim;
+  if (onError) engine.onError = onError;
+  if (onInterrupted) engine.onInterrupted = onInterrupted;
+  await engine.start(onWake);
+  return engine;
 }

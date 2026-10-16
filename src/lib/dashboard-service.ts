@@ -4,7 +4,6 @@ import { monitoring } from "@/lib/monitoring-service";
 import { DEFAULT_MODEL_ID, MODEL_REGISTRY } from "@/lib/ai/models";
 import { DEFAULT_MODE } from "@/lib/modes";
 import { getApiBaseUrl } from "@/lib/api-config";
-import { Capacitor } from "@capacitor/core";
 
 export type DashboardEventKind =
   | "system"
@@ -104,6 +103,13 @@ export interface DashboardAIModel {
 export interface DashboardAI {
   openRouterAvailable: boolean;
   localAvailable: boolean;
+  providerStatus:
+    | "available"
+    | "missing_credentials"
+    | "invalid_credentials"
+    | "rate_limited"
+    | "timeout"
+    | "unavailable";
   activeModel: string | null;
   activeMode: string;
   lastSuccessfulRequest: number | null;
@@ -409,38 +415,60 @@ export async function fetchSystem(): Promise<DashboardSystem> {
   };
 }
 
-function hasLocalInference(): boolean {
-  if (typeof window === "undefined") return false;
-  if (Capacitor.isNativePlatform()) return true;
-  return "gpu" in navigator;
-}
-
 export async function fetchAI(): Promise<DashboardAI> {
   const metrics = monitoring.getMetrics();
-  const online = metrics.apiStatus !== "offline";
-  const openRouterAvailable = online;
-  const localAvailable = online && hasLocalInference();
+  let providerStatus: DashboardAI["providerStatus"] = "unavailable";
+  let availableModelIds = new Set<string>();
+  try {
+    const base = getApiBaseUrl();
+    const response = await fetch(`${base}/api/openrouter-test`, { cache: "no-store" });
+    const result: unknown = await response.json();
+    if (result && typeof result === "object") {
+      const value = result as { status?: unknown; modelIds?: unknown };
+      if (
+        value.status === "available" ||
+        value.status === "missing_credentials" ||
+        value.status === "invalid_credentials" ||
+        value.status === "rate_limited" ||
+        value.status === "timeout" ||
+        value.status === "unavailable"
+      ) {
+        providerStatus = value.status;
+      }
+      if (Array.isArray(value.modelIds)) {
+        availableModelIds = new Set(
+          value.modelIds.filter((id): id is string => typeof id === "string"),
+        );
+      }
+    }
+  } catch {
+    providerStatus = "unavailable";
+  }
+  const openRouterAvailable = providerStatus === "available";
 
   const mode = store.get("chat-mode", DEFAULT_MODE);
   const activeModelLabel = MODEL_REGISTRY.find((m) => m.id === DEFAULT_MODEL_ID)?.label ?? null;
 
-  const models: DashboardAIModel[] = MODEL_REGISTRY.map((m) => ({
-    id: m.id,
-    label: m.label,
-    provider: m.provider,
-    available: online,
-  }));
+  const models: DashboardAIModel[] = MODEL_REGISTRY.filter((m) => m.provider === "openrouter").map(
+    (m) => ({
+      id: m.id,
+      label: m.label,
+      provider: m.provider,
+      available: availableModelIds.has(m.id),
+    }),
+  );
 
   const health: DashboardAI["health"] =
-    metrics.apiStatus === "offline"
-      ? "offline"
-      : metrics.apiStatus === "degraded"
-        ? "degraded"
-        : "healthy";
+    providerStatus === "available"
+      ? "healthy"
+      : providerStatus === "missing_credentials" || providerStatus === "invalid_credentials"
+        ? "offline"
+        : "degraded";
 
   return {
     openRouterAvailable,
-    localAvailable,
+    localAvailable: false,
+    providerStatus,
     activeModel: activeModelLabel,
     activeMode: mode,
     lastSuccessfulRequest: monitoring.getLastSuccessAt(),

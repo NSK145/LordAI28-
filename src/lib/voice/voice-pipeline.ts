@@ -1,9 +1,15 @@
 import { authenticatedFetch } from "@/lib/authenticated-fetch";
 import { getApiBaseUrl } from "@/lib/api-config";
+import { supabase } from "@/integrations/supabase/client";
 import { streamTextLines } from "@/lib/stream-text-lines";
 import type { LordMode } from "@/lib/modes";
+import {
+  getSpeechRecognitionConstructor,
+  type SpeechRecognitionLike,
+} from "./webspeech-wake-engine";
 
-export type VoicePipelineStatus = "idle" | "listening" | "processing" | "speaking" | "error";
+export type VoicePipelineStatus =
+  "command_listening" | "processing" | "speaking" | "wake_listening" | "error";
 
 export interface VoiceMessage {
   id: string;
@@ -11,284 +17,380 @@ export interface VoiceMessage {
   text: string;
 }
 
-interface SpeechRecognitionLike {
-  lang: string;
-  continuous: boolean;
-  interimResults: boolean;
-  start: () => void;
-  stop: () => void;
-  abort: () => void;
-  onresult:
-    | ((event: {
-        resultIndex: number;
-        results: ArrayLike<ArrayLike<{ transcript: string }> & { isFinal: boolean }>;
-      }) => void)
-    | null;
-  onend: (() => void) | null;
-  onerror: ((event: { error?: string }) => void) | null;
-}
-
-function getRecognitionCtor(): (new () => SpeechRecognitionLike) | null {
-  if (typeof window === "undefined") return null;
-  const w = window as unknown as {
-    SpeechRecognition?: new () => SpeechRecognitionLike;
-    webkitSpeechRecognition?: new () => SpeechRecognitionLike;
-  };
-  return w.SpeechRecognition ?? w.webkitSpeechRecognition ?? null;
+function splitSpeechText(text: string, maxLength = 1200): string[] {
+  const sentences = text.match(/[^.!?]+[.!?]+|[^.!?]+$/g) ?? [text];
+  return sentences.flatMap((sentence) => {
+    const chunks: string[] = [];
+    let remaining = sentence.trim();
+    while (remaining.length > maxLength) {
+      const splitAt = remaining.lastIndexOf(" ", maxLength);
+      const boundary = splitAt > maxLength * 0.6 ? splitAt : maxLength;
+      chunks.push(remaining.slice(0, boundary).trim());
+      remaining = remaining.slice(boundary).trim();
+    }
+    if (remaining) chunks.push(remaining);
+    return chunks;
+  });
 }
 
 export class VoicePipeline {
   private recognition: SpeechRecognitionLike | null = null;
   private abortController: AbortController | null = null;
-  private speaking = false;
   private processing = false;
+  private messages: VoiceMessage[] = [];
+  private conversationId: string | null = null;
+  private mode: LordMode;
+  private autoSpeak: boolean;
+  private voiceRate: number;
+  private interimTranscript = "";
+  private failedUserMessage: VoiceMessage | null = null;
+  private failedUserSaved = false;
+  private speechStoppedByUser = false;
+  private cancelled = false;
 
   onStatusChange: (status: VoicePipelineStatus) => void = () => {};
   onTranscript: (text: string) => void = () => {};
   onResponse: (text: string) => void = () => {};
   onError: (error: string) => void = () => {};
   onMessagesChange: (messages: VoiceMessage[]) => void = () => {};
+  onConversationChange: (conversationId: string | null) => void = () => {};
 
-  private messages: VoiceMessage[] = [];
-  private mode: LordMode = "balanced";
-  private autoSpeak = true;
-  private voiceRate = 1;
-  private currentTranscript = "";
-
-  async initialize(mode: LordMode, autoSpeak: boolean, voiceRate: number) {
+  constructor(mode: LordMode = "balanced", autoSpeak = true, voiceRate = 1) {
     this.mode = mode;
     this.autoSpeak = autoSpeak;
     this.voiceRate = voiceRate;
   }
 
-  startListening() {
-    if (this.processing) return;
-    this.stopListening();
-    this.currentTranscript = "";
+  setVoiceOutput(enabled: boolean) {
+    this.autoSpeak = enabled;
+    if (!enabled) this.stopSpeaking();
+  }
 
-    const Ctor = getRecognitionCtor();
-    if (!Ctor) {
-      this.onError("Speech recognition not supported in this browser.");
+  startListening() {
+    if (this.processing) return false;
+    this.cancelled = false;
+    this.stopListening();
+    const Recognition = getSpeechRecognitionConstructor();
+    if (!Recognition) {
+      this.onError(
+        "Speech recognition is not supported in this browser. Use the text command box.",
+      );
       this.onStatusChange("error");
-      return;
+      return false;
     }
 
-    const rec = new Ctor();
-    rec.lang = "en-US";
-    rec.continuous = false;
-    rec.interimResults = true;
-
-    rec.onresult = (event) => {
-      let interimTranscript = "";
-      let finalTranscript = "";
-      for (let i = event.resultIndex; i < event.results.length; i++) {
-        const result = event.results[i];
-        const transcript = result[0].transcript;
-        if (result.isFinal) {
-          finalTranscript += transcript;
-        } else {
-          interimTranscript += transcript;
-        }
-      }
-
-      const displayText = finalTranscript || interimTranscript;
-      if (displayText) {
-        this.currentTranscript = displayText;
-        this.onTranscript(displayText);
-      }
-
-      if (finalTranscript) {
-        this.stopListening();
-        this.processSpeech(finalTranscript.trim());
+    const recognition = new Recognition();
+    recognition.lang = "en-US";
+    recognition.continuous = false;
+    recognition.interimResults = true;
+    let finalHandled = false;
+    this.interimTranscript = "";
+    recognition.onresult = (event) => {
+      const transcript = Array.from(event.results)
+        .map((result) => result[0]?.transcript ?? "")
+        .join(" ")
+        .trim();
+      this.interimTranscript = transcript;
+      if (transcript) this.onTranscript(transcript);
+      const finalTranscript = Array.from(event.results)
+        .filter((result) => result.isFinal)
+        .map((result) => result[0]?.transcript ?? "")
+        .join(" ")
+        .trim();
+      if (finalTranscript && !finalHandled) {
+        finalHandled = true;
+        void this.processSpeech(finalTranscript);
       }
     };
-
-    rec.onend = () => {
-      if (this.currentTranscript && !this.processing) {
-        this.processSpeech(this.currentTranscript.trim());
+    recognition.onerror = (event) => {
+      if (event.error === "aborted") return;
+      if (event.error === "no-speech") {
+        this.onStatusChange("wake_listening");
+        return;
       }
-    };
-
-    rec.onerror = (event) => {
-      const error = event.error;
-      if (error === "no-speech") {
-        this.onTranscript("No speech detected. Please try again.");
-      } else if (error !== "aborted") {
-        this.onError(`Speech recognition error: ${error}`);
-        this.onStatusChange("error");
-      }
-    };
-
-    this.recognition = rec;
-    try {
-      rec.start();
-      this.onStatusChange("listening");
-    } catch {
-      this.onError("Failed to start speech recognition.");
+      this.onError(
+        event.error === "not-allowed" || event.error === "service-not-allowed"
+          ? "Microphone permission was denied. Allow access and try again."
+          : `Speech recognition was interrupted (${event.error ?? "unknown error"}). Tap the microphone to retry.`,
+      );
       this.onStatusChange("error");
+    };
+    recognition.onend = () => {
+      if (this.recognition === recognition) this.recognition = null;
+      if (!finalHandled && !this.processing) this.onStatusChange("wake_listening");
+    };
+    this.recognition = recognition;
+    try {
+      recognition.start();
+      this.onStatusChange("command_listening");
+      return true;
+    } catch {
+      this.recognition = null;
+      this.onError("Speech recognition could not start. Use the text command box or retry.");
+      this.onStatusChange("error");
+      return false;
     }
   }
 
-  private async processSpeech(text: string) {
-    if (!text) return;
+  async submitText(text: string) {
+    await this.processSpeech(text);
+  }
+
+  async retryLast() {
+    if (!this.failedUserMessage || this.processing) return;
+    await this.processSpeech(this.failedUserMessage.text, true);
+  }
+
+  private async ensureConversation(firstText: string): Promise<{ id: string; userId: string }> {
+    const { data, error: authError } = await supabase.auth.getUser();
+    if (authError || !data.user) throw new Error("Sign in to save and send voice conversations.");
+    if (this.conversationId) return { id: this.conversationId, userId: data.user.id };
+
+    const { data: conversation, error } = await supabase
+      .from("conversations")
+      .insert({
+        user_id: data.user.id,
+        title: firstText.slice(0, 60) || "Voice conversation",
+        metadata: { source: "voice" },
+      })
+      .select("id")
+      .single();
+    if (error) throw error;
+    this.conversationId = conversation.id;
+    this.onConversationChange(conversation.id);
+    return { id: conversation.id, userId: data.user.id };
+  }
+
+  async loadConversation(conversationId: string) {
+    this.stop();
+    const { data: auth, error: authError } = await supabase.auth.getUser();
+    if (authError || !auth.user) throw new Error("Sign in to view saved voice conversations.");
+
+    const { data: conversation, error: conversationError } = await supabase
+      .from("conversations")
+      .select("id")
+      .eq("id", conversationId)
+      .eq("user_id", auth.user.id)
+      .contains("metadata", { source: "voice" })
+      .maybeSingle();
+    if (conversationError) throw conversationError;
+    if (!conversation) throw new Error("That voice conversation is unavailable.");
+
+    const { data: rows, error } = await supabase
+      .from("messages")
+      .select("id, role, content")
+      .eq("conversation_id", conversationId)
+      .eq("user_id", auth.user.id)
+      .order("created_at", { ascending: true });
+    if (error) throw error;
+
+    this.conversationId = conversationId;
+    this.failedUserMessage = null;
+    this.failedUserSaved = false;
+    this.messages = (rows ?? [])
+      .filter(
+        (row): row is typeof row & { role: "user" | "assistant" } =>
+          row.role === "user" || row.role === "assistant",
+      )
+      .map((row) => ({ id: row.id, role: row.role, text: row.content ?? "" }));
+    this.onConversationChange(conversationId);
+    this.onMessagesChange([...this.messages]);
+    this.onResponse("");
+    this.onTranscript("");
+  }
+
+  startNewConversation() {
+    this.stop();
+    this.conversationId = null;
+    this.failedUserMessage = null;
+    this.failedUserSaved = false;
+    this.messages = [];
+    this.onConversationChange(null);
+    this.onMessagesChange([]);
+    this.onResponse("");
+    this.onTranscript("");
+  }
+
+  private async processSpeech(rawText: string, retry = false) {
+    const text = rawText.trim();
+    if (!text || this.processing) return;
+    this.cancelled = false;
+    this.stopListening();
     this.processing = true;
     this.onStatusChange("processing");
 
-    const userMsg: VoiceMessage = {
-      id: crypto.randomUUID(),
-      role: "user",
-      text,
-    };
-    this.messages.push(userMsg);
-    this.onMessagesChange([...this.messages]);
-
-    const assistantText = await this.sendToChat(text);
-    if (assistantText === null) return;
-
-    const assistantMsg: VoiceMessage = {
-      id: crypto.randomUUID(),
-      role: "assistant",
-      text: assistantText,
-    };
-    this.messages.push(assistantMsg);
-    this.onMessagesChange([...this.messages]);
-
-    this.processing = false;
-
-    if (this.autoSpeak && assistantText) {
-      this.onStatusChange("speaking");
-      await this.speak(assistantText);
-    } else {
-      this.onStatusChange("idle");
+    let userMessage = retry ? this.failedUserMessage : null;
+    if (!userMessage) {
+      userMessage = { id: crypto.randomUUID(), role: "user", text };
+      this.failedUserMessage = userMessage;
+      this.failedUserSaved = false;
+      this.messages.push(userMessage);
+      this.onMessagesChange([...this.messages]);
     }
-  }
-
-  private async sendToChat(text: string): Promise<string | null> {
-    this.abortController = new AbortController();
 
     try {
-      const apiBase = getApiBaseUrl();
-      const url = `${apiBase}/api/chat`;
+      const { id: conversationId, userId } = await this.ensureConversation(text);
+      if (!this.failedUserSaved) {
+        const { error } = await supabase.from("messages").insert({
+          id: userMessage.id,
+          conversation_id: conversationId,
+          user_id: userId,
+          role: "user",
+          content: userMessage.text,
+          model: this.mode,
+        });
+        if (error) throw error;
+        this.failedUserSaved = true;
+        await supabase
+          .from("conversations")
+          .update({ last_message_at: new Date().toISOString() })
+          .eq("id", conversationId);
+      }
 
       const body = {
-        messages: [
-          {
-            role: "user" as const,
-            parts: [{ type: "text", text }],
-          },
-        ],
+        messages: this.messages.map((message) => ({
+          id: message.id,
+          role: message.role,
+          parts: [{ type: "text", text: message.text }],
+        })),
         mode: this.mode,
       };
-
-      const res = await authenticatedFetch(url, {
+      const abortController = new AbortController();
+      this.abortController = abortController;
+      const response = await authenticatedFetch(`${getApiBaseUrl()}/api/chat`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
-        signal: this.abortController.signal,
+        signal: abortController.signal,
       });
-
-      if (!res.ok) {
-        const errorText = await res.text();
-        let errorMessage = `API error: ${res.status}`;
-        try {
-          const errorJson = JSON.parse(errorText);
-          errorMessage = errorJson.message || errorMessage;
-        } catch {
-          errorMessage = errorText || errorMessage;
-        }
-        this.onError(errorMessage);
-        this.onStatusChange("error");
-        return null;
+      if (!response.ok) {
+        const payload = (await response.json().catch(() => null)) as {
+          error?: { message?: string };
+          message?: string;
+        } | null;
+        throw new Error(
+          payload?.error?.message ??
+            payload?.message ??
+            `Chat request failed (${response.status}).`,
+        );
       }
 
-      let fullText = "";
-      await streamTextLines(res, (delta) => {
-        fullText = delta;
-        this.onResponse(fullText);
-      });
+      const answer = await streamTextLines(response, (partial) => this.onResponse(partial));
+      if (!answer.trim()) throw new Error("LORD returned an empty response. Retry your command.");
+      const assistantMessage: VoiceMessage = {
+        id: crypto.randomUUID(),
+        role: "assistant",
+        text: answer,
+      };
+      this.messages.push(assistantMessage);
+      this.onMessagesChange([...this.messages]);
 
-      return fullText;
-    } catch (err) {
-      if (err instanceof Error && err.name === "AbortError") return null;
-      const message = err instanceof Error ? err.message : "Failed to send message";
-      this.onError(message);
-      this.onStatusChange("error");
-      return null;
-    } finally {
+      const { error: saveError } = await supabase.from("messages").insert({
+        id: assistantMessage.id,
+        conversation_id: conversationId,
+        user_id: userId,
+        role: "assistant",
+        content: answer,
+        model: this.mode,
+      });
+      if (saveError)
+        throw new Error(`The response arrived but could not be saved: ${saveError.message}`);
+      await supabase
+        .from("conversations")
+        .update({ last_message_at: new Date().toISOString() })
+        .eq("id", conversationId);
+
+      this.failedUserMessage = null;
+      this.failedUserSaved = false;
+      this.processing = false;
+      if (this.autoSpeak && this.speak(answer)) this.onStatusChange("speaking");
+      else this.onStatusChange("wake_listening");
+    } catch (error) {
+      this.processing = false;
       this.abortController = null;
+      if (error instanceof Error && error.name === "AbortError") return;
+      this.onError(
+        error instanceof Error
+          ? error.message
+          : "The voice request failed. Your transcript is saved here for retry.",
+      );
+      this.onStatusChange("error");
     }
   }
 
-  private speak(text: string): Promise<void> {
-    return new Promise((resolve) => {
-      if (typeof window === "undefined" || !("speechSynthesis" in window)) {
-        resolve();
+  private speak(text: string): boolean {
+    if (typeof window === "undefined" || !("speechSynthesis" in window) || !text) return false;
+    window.speechSynthesis.cancel();
+    this.speechStoppedByUser = false;
+    const chunks = splitSpeechText(text);
+    let index = 0;
+    const speakNext = () => {
+      const part = chunks[index++]?.trim();
+      if (!part) {
+        this.onStatusChange("wake_listening");
         return;
       }
-
-      window.speechSynthesis.cancel();
-
-      const utterance = new SpeechSynthesisUtterance(text);
+      const utterance = new SpeechSynthesisUtterance(part);
       utterance.rate = this.voiceRate;
-      utterance.pitch = 1;
-      utterance.volume = 1;
-
       utterance.onend = () => {
-        this.speaking = false;
-        this.onStatusChange("idle");
-        resolve();
+        if (this.cancelled) return;
+        if (this.speechStoppedByUser) {
+          this.speechStoppedByUser = false;
+          return;
+        }
+        speakNext();
       };
-
       utterance.onerror = () => {
-        this.speaking = false;
-        this.onStatusChange("idle");
-        resolve();
+        if (this.cancelled) return;
+        if (this.speechStoppedByUser) {
+          this.speechStoppedByUser = false;
+          this.onStatusChange("wake_listening");
+          return;
+        }
+        this.onError("Speech playback stopped. The text response is still available.");
+        this.onStatusChange("wake_listening");
       };
-
-      this.speaking = true;
       window.speechSynthesis.speak(utterance);
-    });
+    };
+    speakNext();
+    return true;
   }
 
   stopListening() {
-    if (this.recognition) {
-      try {
-        this.recognition.abort();
-      } catch {
-        /* noop */
-      }
-      this.recognition = null;
+    const recognition = this.recognition;
+    this.recognition = null;
+    try {
+      recognition?.abort();
+    } catch {
+      // Recognition may already have ended.
     }
   }
 
   stopSpeaking() {
-    if ("speechSynthesis" in window) {
+    if (typeof window !== "undefined" && "speechSynthesis" in window) {
+      this.speechStoppedByUser = true;
       window.speechSynthesis.cancel();
+      this.onStatusChange("wake_listening");
     }
-    this.speaking = false;
   }
 
   stop() {
+    this.cancelled = true;
     this.stopListening();
-    this.stopSpeaking();
-    if (this.abortController) {
-      this.abortController.abort();
-      this.abortController = null;
+    this.speechStoppedByUser = true;
+    if (typeof window !== "undefined" && "speechSynthesis" in window) {
+      window.speechSynthesis.cancel();
     }
+    this.abortController?.abort();
+    this.abortController = null;
     this.processing = false;
-    this.currentTranscript = "";
+  }
+
+  clearMessages() {
+    this.startNewConversation();
   }
 
   getMessages(): VoiceMessage[] {
     return [...this.messages];
-  }
-
-  clearMessages() {
-    this.messages = [];
-    this.onMessagesChange([]);
-  }
-
-  isProcessing(): boolean {
-    return this.processing || this.speaking;
   }
 }

@@ -21,6 +21,7 @@ import {
 } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 import type { LearningConcept, PlanTaskInput } from "@/lib/learning/types";
+import { toast } from "sonner";
 
 interface AddTaskModalProps {
   open: boolean;
@@ -79,10 +80,12 @@ export function AddTaskModal({
         priority,
         notes: notes.trim() || undefined,
       });
-      onAdded();
+      await onAdded();
       onOpenChange(false);
-    } catch {
-      // ignore
+    } catch (error) {
+      toast.error(
+        error instanceof Error ? `Could not add task: ${error.message}` : "Could not add task.",
+      );
     } finally {
       setAdding(false);
     }
@@ -100,18 +103,20 @@ export function AddTaskModal({
         estimatedMinutes: concept.estimated_study_minutes ?? 20,
         priority: "medium",
       });
-      onAdded();
+      await onAdded();
       onOpenChange(false);
-    } catch {
-      // ignore
+    } catch (error) {
+      toast.error(
+        error instanceof Error ? `Could not add task: ${error.message}` : "Could not add task.",
+      );
     } finally {
       setAdding(false);
     }
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg">
+    <Dialog open={open} onOpenChange={(nextOpen) => !adding && onOpenChange(nextOpen)}>
+      <DialogContent className="w-[calc(100vw-2rem)] max-w-lg">
         <DialogHeader>
           <DialogTitle className="font-display text-xl">Add Task</DialogTitle>
           <DialogDescription>Add a new task to your study plan.</DialogDescription>
@@ -166,7 +171,7 @@ export function AddTaskModal({
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <div className="grid gap-2">
                   <Label htmlFor="task-concept">Concept / subject</Label>
                   <Select value={conceptId} onValueChange={setConceptId}>
@@ -284,7 +289,7 @@ export function AddTaskModal({
 
         {mode === "task" && (
           <div className="flex justify-end gap-2">
-            <Button variant="outline" onClick={() => onOpenChange(false)}>
+            <Button variant="outline" onClick={() => onOpenChange(false)} disabled={adding}>
               Cancel
             </Button>
             <Button onClick={handleAdd} disabled={adding || !title.trim()}>

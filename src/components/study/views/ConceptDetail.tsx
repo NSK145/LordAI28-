@@ -104,19 +104,19 @@ export function ConceptDetail({
     {
       label: "Start Practice",
       icon: <Target className="h-4 w-4" />,
-      onClick: () => onStartInContext?.("practice") ?? onNavigate("practice"),
+      onClick: () => (onStartInContext ? onStartInContext("practice") : onNavigate("practice")),
       variant: "primary" as const,
     },
     {
       label: "Ask LORD Tutor",
       icon: <GraduationCap className="h-4 w-4" />,
-      onClick: () => onStartInContext?.("tutor") ?? onNavigate("tutor"),
+      onClick: () => (onStartInContext ? onStartInContext("tutor") : onNavigate("tutor")),
       variant: "secondary" as const,
     },
     {
       label: "Flashcards",
       icon: <Brain className="h-4 w-4" />,
-      onClick: () => onStartInContext?.("flashcards") ?? onNavigate("flashcards"),
+      onClick: () => (onStartInContext ? onStartInContext("flashcards") : onNavigate("flashcards")),
       variant: "secondary" as const,
     },
     {

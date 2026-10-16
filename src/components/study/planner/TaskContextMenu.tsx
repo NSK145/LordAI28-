@@ -43,6 +43,9 @@ export function TaskContextMenu({
   return (
     <div className="relative">
       <button
+        type="button"
+        aria-label="Task actions"
+        aria-expanded={open}
         onClick={() => setOpen(!open)}
         className={cn(
           "rounded-lg p-1.5 transition",

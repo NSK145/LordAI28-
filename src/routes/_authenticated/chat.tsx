@@ -5,6 +5,7 @@ import { useState, useRef, useEffect, useMemo, useCallback } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   LayoutPanelLeft,
+  History,
   Copy,
   Check,
   RefreshCcw,
@@ -60,6 +61,13 @@ import { emitDashboardEvent } from "@/lib/dashboard-service";
 import { generateChatTitle, shouldGenerateTitle } from "@/lib/chat-title";
 import { cancelTitleGeneration, generateConversationTitle } from "@/lib/title-service";
 import { cn } from "@/lib/utils";
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet";
 import { parseLordError, formatUserFacingError, type LordError } from "@/lib/lord-error";
 import { getSafeErrorMessage } from "@/lib/api-error";
 import { useMessageRealtime } from "@/lib/realtime/use-realtime-sync";
@@ -302,6 +310,7 @@ function ChatPage() {
   const [conversationId, setConversationId] = useState<string | null>(null);
 
   const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [mobileHistoryOpen, setMobileHistoryOpen] = useState(false);
   const [persistenceError, setPersistenceError] = useState<string | null>(null);
   const [failedPayload, setFailedPayload] = useState<ChatSubmitPayload | null>(null);
   const [networkOnline, setNetworkOnline] = useState(() =>
@@ -1255,8 +1264,12 @@ function ChatPage() {
       return;
     }
     startNewChat();
+    setInput("");
     createConversationOptimistic("New Chat");
   };
+
+  const chatCommandHandlersRef = useRef({ newChat: handleNewChat });
+  chatCommandHandlersRef.current = { newChat: handleNewChat };
 
   const loadConversation = (id: string) => {
     if (busy) {
@@ -1391,6 +1404,34 @@ function ChatPage() {
   };
 
   const busy = savingMessage || status === "submitted" || status === "streaming";
+
+  useEffect(() => {
+    const focusComposer = () => {
+      requestAnimationFrame(() => {
+        document.querySelector<HTMLTextAreaElement>('[data-chat-composer="true"]')?.focus();
+      });
+    };
+    const onNewChat = () => {
+      chatCommandHandlersRef.current.newChat();
+      focusComposer();
+    };
+    const onPrefill = (event: Event) => {
+      const detail = (event as CustomEvent<{ text?: unknown }>).detail;
+      const text = typeof detail?.text === "string" ? detail.text.trim() : "";
+      if (!text || busy) return;
+      chatCommandHandlersRef.current.newChat();
+      setInput(text);
+      focusComposer();
+    };
+    window.addEventListener("lord:new-chat", onNewChat);
+    window.addEventListener("lord:chat-prefill", onPrefill);
+    window.addEventListener("lord:chat-focus", focusComposer);
+    return () => {
+      window.removeEventListener("lord:new-chat", onNewChat);
+      window.removeEventListener("lord:chat-prefill", onPrefill);
+      window.removeEventListener("lord:chat-focus", focusComposer);
+    };
+  }, [busy]);
 
   useEffect(() => {
     if (status === "streaming" || (status === "ready" && !savingMessage)) {
@@ -2428,6 +2469,15 @@ function ChatPage() {
           <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
             <div className="flex min-w-0 items-center gap-2 px-1 pb-2">
               <button
+                type="button"
+                onClick={() => setMobileHistoryOpen(true)}
+                className="grid h-9 w-9 shrink-0 place-items-center rounded-xl border border-border/60 bg-background/40 text-muted-foreground transition hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/70 lg:hidden"
+                aria-label="Open chat history"
+                title="Chat history"
+              >
+                <History className="h-4 w-4" />
+              </button>
+              <button
                 onClick={() => setSidebarOpen(!sidebarOpen)}
                 className="hidden rounded-md border border-border/60 bg-background/40 p-2 text-muted-foreground transition hover:text-primary lg:block"
                 aria-label="Toggle sidebar"
@@ -2580,6 +2630,44 @@ function ChatPage() {
             </div>
           </div>
         </div>
+        <Sheet open={mobileHistoryOpen} onOpenChange={setMobileHistoryOpen}>
+          <SheetContent
+            side="left"
+            className="flex w-[min(88vw,22rem)] max-w-none flex-col border-border/70 bg-background/95 p-3 pt-12 lg:hidden"
+          >
+            <SheetHeader className="sr-only">
+              <SheetTitle>Chat history</SheetTitle>
+              <SheetDescription>Browse, search, and select a saved conversation.</SheetDescription>
+            </SheetHeader>
+            <div className="min-h-0 flex-1">
+              <FolderSidebar
+                userId={user.id}
+                conversationsQueryKey={conversationsQueryKey}
+                conversations={conversationsWithFolder}
+                currentId={conversationId}
+                onSelect={(id) => {
+                  loadConversation(id);
+                  setMobileHistoryOpen(false);
+                }}
+                onNew={() => {
+                  handleNewChat();
+                  setMobileHistoryOpen(false);
+                }}
+                onDelete={(id) => {
+                  if (busy && id === conversationId) {
+                    toast.info("Stop or wait for the current response before deleting this chat.");
+                    return;
+                  }
+                  deleteMutation.mutate(id);
+                }}
+                onRename={(id, title) => renameMutation.mutate({ id, title })}
+                onPin={(id, pinned) => pinMutation.mutate({ id, pinned })}
+                onFavorite={(id, favorite) => favoriteMutation.mutate({ id, favorite })}
+                patchConversationFolder={patchConversationFolder}
+              />
+            </div>
+          </SheetContent>
+        </Sheet>
       </AppShell>
       <Toaster />
       <ImageGenModal

@@ -613,12 +613,15 @@ export async function saveToBoard(userId: string, boardId: string, resourceId: s
 }
 
 export async function completePlanTask(userId: string, taskId: string) {
-  const { error } = await db
+  const { data, error } = await db
     .from("learning_plan_tasks")
     .update({ status: "completed" })
     .eq("id", taskId)
-    .eq("user_id", userId);
+    .eq("user_id", userId)
+    .select("id")
+    .maybeSingle();
   if (error) throw error;
+  if (!data) throw new Error("Task was not found or is no longer available.");
 }
 
 export async function addConceptToPlan(userId: string, concept: { id: string; title: string }) {
@@ -720,6 +723,7 @@ export async function listFlashcards(userId: string, conceptId?: string, limit =
 export async function createExam(
   userId: string,
   input: {
+    title?: string;
     conceptIds: string[];
     examType: "mock" | "chapter" | "full_syllabus" | "custom" | "timed_quiz";
     questionCount: number;
@@ -732,7 +736,14 @@ export async function createExam(
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ action: "create", ...input }),
   });
-  if (!response.ok) throw new Error("Failed to create exam");
+  if (!response.ok) {
+    const payload = await response.json().catch(() => null);
+    const message =
+      typeof payload?.error?.message === "string"
+        ? payload.error.message
+        : "Failed to create exam. Please try again.";
+    throw new Error(message);
+  }
   const result = await response.json();
   return result.exam;
 }

@@ -14,7 +14,7 @@ import {
   Rocket,
   Zap,
 } from "lucide-react";
-import { selectNextConcept, isReadyForTest } from "@/lib/learning/mastery";
+import { selectNextConcept } from "@/lib/learning/mastery";
 import { getConceptClass, classToGradeBand } from "@/lib/learning/class";
 import { generateDailyMissions, generateRecommendations } from "@/lib/learning/brain";
 import { StatCard } from "../ui/StatCard";
@@ -137,36 +137,31 @@ export function DashboardView({
   const xp = (mastery ?? []).reduce((sum, m) => sum + (m.evidence_count ?? 0) * 25, 0);
 
   const upcomingTasks = (tasks ?? []).slice(0, 5);
-  const isReady = isReadyForTest(mastery ?? []);
 
   const quickActions = [
     {
       icon: <Target className="h-5 w-5" />,
-      title: "Adaptive Practice",
-      subtitle: "AI-generated questions",
-      onClick: () => onStartPractice(nextConcept?.id),
-      disabled: !nextConcept,
+      title: nextConcept ? "Adaptive Practice" : "Browse Concepts",
+      subtitle: nextConcept ? "AI-generated questions" : "Choose a topic to practice",
+      onClick: () => (nextConcept ? onStartPractice(nextConcept.id) : onNavigate("concepts")),
     },
     {
       icon: <GraduationCap className="h-5 w-5" />,
       title: "AI Tutor Session",
       subtitle: "Ask LORD anything",
       onClick: () => onStartTutor(nextConcept?.id),
-      disabled: !nextConcept,
     },
     {
       icon: <Brain className="h-5 w-5" />,
       title: "Flashcard Study",
       subtitle: "Spaced repetition",
       onClick: () => onNavigate("flashcards"),
-      disabled: !nextConcept,
     },
     {
       icon: <FileQuestion className="h-5 w-5" />,
       title: "Take a Test",
       subtitle: "Mastery checkpoint",
       onClick: () => onNavigate("exams"),
-      disabled: !isReady,
     },
   ];
 
@@ -471,7 +466,6 @@ export function DashboardView({
               title={action.title}
               subtitle={action.subtitle}
               onClick={action.onClick}
-              disabled={action.disabled}
               delay={i}
             />
           ))}

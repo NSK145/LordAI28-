@@ -18,6 +18,7 @@ export const studySearchSchema = z.object({
     .optional()
     .default("dashboard"),
   concept: z.string().optional(),
+  prompt: z.string().max(2000).optional(),
 });
 
 export const Route = createFileRoute("/_authenticated/study")({

@@ -4,30 +4,47 @@ import { z } from "zod";
 import { requireSupabaseRequestAuth } from "@/integrations/supabase/auth-middleware";
 import { apiErrorResponse, apiOkResponse, apiNoContentResponse } from "@/lib/api-error";
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { buildStudyPlanUpdate, isValidPlanCalendarDate } from "@/lib/learning/plan-updates";
 
-const UpdatePlanSchema = z.object({
-  title: z.string().min(1).max(200).optional(),
-  description: z.string().max(2000).optional().nullable(),
-  startDate: z
-    .string()
-    .regex(/^\d{4}-\d{2}-\d{2}$/)
-    .optional(),
-  targetDate: z
-    .string()
-    .regex(/^\d{4}-\d{2}-\d{2}$/)
-    .optional(),
-  dailyMinutes: z.number().int().min(5).max(480).optional(),
-  status: z.enum(["active", "paused", "completed", "archived"]).optional(),
-  source: z.enum(["manual", "ai", "mixed"]).optional(),
-  subjects: z.array(z.string()).optional(),
-  preferredDays: z.array(z.number().int().min(0).max(6)).optional(),
-  difficulty: z.enum(["easy", "medium", "hard"]).optional(),
-  examDate: z
-    .string()
-    .regex(/^\d{4}-\d{2}-\d{2}$/)
-    .optional()
-    .nullable(),
-});
+const UpdatePlanSchema = z
+  .object({
+    title: z.string().min(1).max(200).optional(),
+    description: z.string().max(2000).optional().nullable(),
+    startDate: z
+      .string()
+      .regex(/^\d{4}-\d{2}-\d{2}$/)
+      .optional(),
+    targetDate: z
+      .string()
+      .regex(/^\d{4}-\d{2}-\d{2}$/)
+      .optional(),
+    dailyMinutes: z.number().int().min(5).max(480).optional(),
+    status: z.enum(["active", "paused", "completed", "archived"]).optional(),
+    source: z.enum(["manual", "ai", "mixed"]).optional(),
+    subjects: z.array(z.string()).optional(),
+    preferredDays: z.array(z.number().int().min(0).max(6)).optional(),
+    difficulty: z.enum(["easy", "medium", "hard"]).optional(),
+    examDate: z
+      .string()
+      .regex(/^\d{4}-\d{2}-\d{2}$/)
+      .optional()
+      .nullable(),
+  })
+  .superRefine((patch, ctx) => {
+    for (const field of ["startDate", "targetDate", "examDate"] as const) {
+      const value = patch[field];
+      if (typeof value === "string" && !isValidPlanCalendarDate(value)) {
+        ctx.addIssue({ code: "custom", path: [field], message: `Invalid ${field}.` });
+      }
+    }
+    if (patch.startDate && patch.targetDate && patch.targetDate < patch.startDate) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["targetDate"],
+        message: "Target date must be on or after the start date.",
+      });
+    }
+  });
 
 export const Route = createFileRoute("/api/study-plans/$id")({
   server: {
@@ -97,16 +114,43 @@ export const Route = createFileRoute("/api/study-plans/$id")({
         if (!parsed.success)
           return apiErrorResponse(400, "INVALID_REQUEST", "Invalid plan data.", requestId);
 
-        const update: Record<string, unknown> = { ...parsed.data };
-        if (parsed.data.startDate) update.starts_on = parsed.data.startDate;
-        if (parsed.data.targetDate) update.ends_on = parsed.data.targetDate;
-        if (parsed.data.dailyMinutes) update.daily_minutes = parsed.data.dailyMinutes;
-        if (parsed.data.examDate !== undefined) {
-          update.generated_from = {
-            ...((update.generated_from as Record<string, unknown>) ?? {}),
-            exam_date: parsed.data.examDate,
-          };
+        const { data: currentPlan, error: currentPlanError } = await auth.supabase
+          .from("learning_plans")
+          .select("starts_on,ends_on,generated_from")
+          .eq("id", params.id)
+          .eq("user_id", auth.userId)
+          .maybeSingle();
+        if (currentPlanError) {
+          return apiErrorResponse(500, "DB_ERROR", "Could not load the current plan.", requestId);
         }
+        if (!currentPlan) return apiErrorResponse(404, "NOT_FOUND", "Plan not found.", requestId);
+
+        const nextStart = parsed.data.startDate ?? currentPlan.starts_on;
+        const nextTarget = parsed.data.targetDate ?? currentPlan.ends_on;
+        if (nextTarget < nextStart) {
+          return apiErrorResponse(
+            400,
+            "INVALID_REQUEST",
+            "Target date must be on or after the start date.",
+            requestId,
+          );
+        }
+        const currentMetadata =
+          currentPlan.generated_from && typeof currentPlan.generated_from === "object"
+            ? (currentPlan.generated_from as Record<string, unknown>)
+            : {};
+        const nextExamDate =
+          parsed.data.examDate === undefined ? currentMetadata.exam_date : parsed.data.examDate;
+        if (typeof nextExamDate === "string" && nextExamDate < nextStart) {
+          return apiErrorResponse(
+            400,
+            "INVALID_REQUEST",
+            "Exam date must be on or after the start date.",
+            requestId,
+          );
+        }
+
+        const update = buildStudyPlanUpdate(parsed.data, currentMetadata);
 
         const { data, error } = await auth.supabase
           .from("learning_plans")

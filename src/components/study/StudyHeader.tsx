@@ -32,8 +32,13 @@ export function StudyHeader({
   masteredCount,
 }: StudyHeaderProps) {
   return (
-    <header className={cn("mb-6 flex items-center justify-between gap-4", className)}>
-      <div className="flex items-center gap-3 flex-1">
+    <header
+      className={cn(
+        "mb-6 flex flex-wrap items-start justify-between gap-3 sm:flex-nowrap sm:items-center sm:gap-4",
+        className,
+      )}
+    >
+      <div className="flex min-w-0 flex-1 items-center gap-3">
         {showBack && onBack && (
           <button
             onClick={onBack}
@@ -48,8 +53,8 @@ export function StudyHeader({
             {icon}
           </div>
         )}
-        <div className="flex flex-col">
-          <h1 className="font-display text-2xl font-bold tracking-wide text-foreground sm:text-3xl">
+        <div className="flex min-w-0 flex-col">
+          <h1 className="break-words font-display text-2xl font-bold tracking-wide text-foreground sm:text-3xl">
             {title}
           </h1>
           {subtitle && <p className="text-sm text-muted-foreground/70">{subtitle}</p>}
@@ -63,7 +68,7 @@ export function StudyHeader({
             )}
         </div>
       </div>
-      {action && <div className="shrink-0">{action}</div>}
+      {action && <div className="flex w-full justify-end sm:w-auto sm:shrink-0">{action}</div>}
     </header>
   );
 }

@@ -1,24 +1,7 @@
 import { Link, useLocation, useNavigate } from "@tanstack/react-router";
 import { motion, useReducedMotion } from "framer-motion";
-import {
-  LayoutDashboard,
-  MessageSquare,
-  GraduationCap,
-  Target,
-  Search,
-  FileText,
-  Settings,
-  LogOut,
-  LogIn,
-  User as UserIcon,
-  Menu,
-  X,
-  Calendar,
-  BarChart3,
-  FolderOpen,
-} from "lucide-react";
+import { Settings, LogOut, LogIn, User as UserIcon, Menu, X } from "lucide-react";
 import { useEffect, useState, type ReactNode } from "react";
-import { AnimatePresence } from "framer-motion";
 import { useQueryClient } from "@tanstack/react-query";
 import type { User } from "@supabase/supabase-js";
 import { cn } from "@/lib/utils";
@@ -28,33 +11,8 @@ import { WakeIndicator } from "./WakeIndicator";
 import { HealthHud } from "./HealthHud";
 import { NavigationDock } from "./NavigationDock";
 import { DailyBriefing } from "./DailyBriefing";
-
-const NAV = [
-  { to: "/", label: "Dashboard", icon: LayoutDashboard },
-  { to: "/projects", label: "Projects", icon: FolderOpen },
-  { to: "/chat", label: "Chat", icon: MessageSquare },
-  { to: "/study", label: "Study", icon: GraduationCap },
-  { to: "/calendar", label: "Calendar", icon: Calendar },
-  { to: "/tasks", label: "Tasks", icon: Target },
-  { to: "/documents", label: "Documents", icon: FileText },
-  { to: "/statistics", label: "Statistics", icon: BarChart3 },
-  { to: "/settings", label: "Settings", icon: Settings },
-] as const;
-
-const PRIMARY_NAV = NAV.filter((item) =>
-  ["/", "/projects", "/chat", "/study", "/calendar"].includes(item.to),
-);
-const SECONDARY_NAV = NAV.filter((item) => !PRIMARY_NAV.some((primary) => primary.to === item.to));
-
-const LIVE_STATUS = [
-  "Ready for your next task.",
-  "Memory synchronized.",
-  "Vision models online.",
-  "Agent initialized.",
-  "Repository indexed.",
-  "Reasoning engine active.",
-  "Typing engine ready.",
-];
+import { PRIMARY_NAVIGATION, SECONDARY_NAVIGATION } from "./app-navigation";
+import { AppCommandPalette } from "@/features/command-palette/app-command-palette";
 
 export function AppShell({ children }: { children: ReactNode }) {
   const location = useLocation();
@@ -65,13 +23,17 @@ export function AppShell({ children }: { children: ReactNode }) {
 
   const [user, setUser] = useState<User | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
-  const [statusIndex, setStatusIndex] = useState(0);
 
   useEffect(() => {
-    const interval = window.setInterval(() => {
-      setStatusIndex((index) => (index + 1) % LIVE_STATUS.length);
-    }, 8_800);
-    return () => window.clearInterval(interval);
+    let savedTheme: string | null = null;
+    try {
+      savedTheme = window.localStorage.getItem("lord-theme");
+    } catch {
+      // Storage may be unavailable in private browsing; the default is dark.
+    }
+    const isLight = savedTheme === "light";
+    document.documentElement.classList.toggle("light", isLight);
+    document.documentElement.classList.toggle("dark", !isLight);
   }, []);
 
   useEffect(() => {
@@ -146,71 +108,52 @@ export function AppShell({ children }: { children: ReactNode }) {
 
       {/* Top status bar */}
       <header className="mobile-safe-top sticky top-0 z-40 border-b border-border/60 bg-background/90 backdrop-blur-xl">
-        <div className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-4 px-4 py-3 sm:px-6 md:px-8">
-          <button
-            onClick={() => setDrawerOpen(true)}
-            className="grid h-10 w-10 shrink-0 place-items-center rounded-xl border border-border bg-card/70 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground md:hidden"
-            aria-label="Open navigation"
-          >
-            <Menu className="h-5 w-5" />
-          </button>
-          <Link to="/" className="flex min-w-0 items-center gap-3">
-            <motion.svg
-              aria-hidden="true"
-              viewBox="0 0 400 400"
-              className="lord-brand-mark h-9 w-9 shrink-0 text-[#4f8dff]"
-              fill="none"
-              xmlns="http://www.w3.org/2000/svg"
-              initial={reduceMotion ? false : { opacity: 0, scale: 0.94, rotate: -4 }}
-              animate={{ opacity: 1, scale: 1, rotate: 0 }}
-              whileHover={reduceMotion ? undefined : { rotate: 4, scale: 1.03 }}
-              whileTap={reduceMotion ? undefined : { scale: 0.97 }}
-              transition={{ duration: 0.28, ease: "easeOut" }}
-              style={{ transformOrigin: "center" }}
+        <div className="flex items-center justify-between gap-3 px-4 py-3 sm:gap-4 sm:px-6 md:px-8">
+          <div className="flex min-w-0 items-center gap-3 sm:gap-4">
+            <button
+              onClick={() => setDrawerOpen(true)}
+              className="grid h-10 w-10 shrink-0 place-items-center rounded-xl border border-border bg-card/70 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground md:hidden"
+              aria-label="Open navigation"
             >
-              <g
-                stroke="currentColor"
-                strokeWidth="12"
-                strokeLinecap="round"
-                strokeLinejoin="round"
+              <Menu className="h-5 w-5" />
+            </button>
+            <Link to="/" className="flex min-w-0 items-center gap-3">
+              <motion.svg
+                aria-hidden="true"
+                viewBox="0 0 400 400"
+                className="lord-brand-mark h-9 w-9 shrink-0 text-[#4f8dff]"
+                fill="none"
+                xmlns="http://www.w3.org/2000/svg"
+                initial={reduceMotion ? false : { opacity: 0, scale: 0.94, rotate: -4 }}
+                animate={{ opacity: 1, scale: 1, rotate: 0 }}
+                whileHover={reduceMotion ? undefined : { rotate: 4, scale: 1.03 }}
+                whileTap={reduceMotion ? undefined : { scale: 0.97 }}
+                transition={{ duration: 0.28, ease: "easeOut" }}
+                style={{ transformOrigin: "center" }}
               >
-                <path d="M105 52C151 44 224 105 281 166C334 223 361 286 344 329C326 373 262 330 202 273C142 216 82 143 73 92C67 61 84 49 105 52Z" />
-                <path d="M295 52C249 44 176 105 119 166C66 223 39 286 56 329C74 373 138 330 198 273C258 216 318 143 327 92C333 61 316 49 295 52Z" />
-                <path d="M140 184L197 245L264 178" />
-              </g>
-            </motion.svg>
-            <div className="min-w-0 leading-tight">
-              <div className="truncate font-display text-lg font-bold tracking-wider gradient-text">
-                LORD
+                <g
+                  stroke="currentColor"
+                  strokeWidth="12"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <path d="M105 52C151 44 224 105 281 166C334 223 361 286 344 329C326 373 262 330 202 273C142 216 82 143 73 92C67 61 84 49 105 52Z" />
+                  <path d="M295 52C249 44 176 105 119 166C66 223 39 286 56 329C74 373 138 330 198 273C258 216 318 143 327 92C333 61 316 49 295 52Z" />
+                  <path d="M140 184L197 245L264 178" />
+                </g>
+              </motion.svg>
+              <div className="min-w-0 leading-tight">
+                <div className="truncate font-display text-lg font-bold tracking-wider gradient-text">
+                  LORD
+                </div>
+                <div className="text-[10px] uppercase tracking-[0.25em] text-muted-foreground">
+                  AI
+                </div>
               </div>
-              <div className="text-[10px] uppercase tracking-[0.25em] text-muted-foreground">
-                AI
-              </div>
-            </div>
-          </Link>
-
-          <div
-            className="hidden min-w-[190px] items-center justify-center gap-2 text-xs text-muted-foreground lg:flex"
-            aria-live="polite"
-          >
-            <span
-              className="status-pulse h-1.5 w-1.5 shrink-0 rounded-full bg-cyan-300"
-              aria-hidden="true"
-            />
-            <AnimatePresence mode="wait" initial={false}>
-              <motion.span
-                key={statusIndex}
-                initial={reduceMotion ? false : { opacity: 0, y: 5 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={reduceMotion ? undefined : { opacity: 0, y: -5 }}
-                transition={{ duration: reduceMotion ? 0 : 0.28, ease: "easeOut" }}
-                className="whitespace-nowrap"
-              >
-                {LIVE_STATUS[statusIndex]}
-              </motion.span>
-            </AnimatePresence>
+            </Link>
           </div>
 
+          <AppCommandPalette />
           {user ? <UserMenu user={user} onSignOut={signOut} /> : <SignInButton />}
         </div>
       </header>
@@ -253,7 +196,7 @@ export function AppShell({ children }: { children: ReactNode }) {
             </div>
             <HealthHud compact />
             <ul className="grid gap-2">
-              {SECONDARY_NAV.map(({ to, label, icon: Icon }) => {
+              {SECONDARY_NAVIGATION.map(({ to, label, icon: Icon }) => {
                 const active = to === "/" ? path === "/" : path.startsWith(to);
                 return (
                   <li key={to}>
@@ -281,7 +224,7 @@ export function AppShell({ children }: { children: ReactNode }) {
       {/* Bottom nav (mobile) */}
       <nav className="mobile-safe-bottom fixed bottom-0 left-0 right-0 z-40 px-2 pb-2 md:hidden">
         <ul className="glass-panel grid grid-cols-4 gap-1.5 p-2">
-          {PRIMARY_NAV.map(({ to, label, icon: Icon }) => {
+          {PRIMARY_NAVIGATION.map(({ to, label, icon: Icon }) => {
             const active = to === "/" ? path === "/" : path.startsWith(to);
             return (
               <li key={to} className="min-w-0">

@@ -58,21 +58,21 @@ export const Route = createFileRoute("/api/learning/voice")({
 
         try {
           if (parsed.data.action === "stt") {
-            // In production, use OpenAI Whisper or similar STT service
-            // For now, return a placeholder - real implementation would call STT API
-            return Response.json({
-              transcript: "[Speech-to-text would be processed here with Whisper or similar]",
-              confidence: 0.95,
-            });
+            return apiErrorResponse(
+              503,
+              "AI_NOT_CONFIGURED",
+              "Speech-to-text is not configured for study voice sessions.",
+              requestId,
+            );
           }
 
           if (parsed.data.action === "tts") {
-            // In production, use OpenAI TTS or ElevenLabs
-            // For now, return audio URL placeholder
-            return Response.json({
-              audioUrl: "/api/learning/voice/tts-audio", // Would stream audio
-              duration: Math.ceil(parsed.data.text.length / 15),
-            });
+            return apiErrorResponse(
+              503,
+              "AI_NOT_CONFIGURED",
+              "Text-to-speech is not configured for study voice sessions.",
+              requestId,
+            );
           }
 
           if (parsed.data.action === "start_session") {

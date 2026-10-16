@@ -20,6 +20,7 @@ function getOpenRouterProvider() {
 const ExamRequestSchema = z.discriminatedUnion("action", [
   z.object({
     action: z.literal("create"),
+    title: z.string().trim().min(1).max(200).optional(),
     conceptIds: z.array(z.string().min(1)).min(1).max(20),
     examType: z.enum(["mock", "chapter", "full_syllabus", "custom", "timed_quiz"]).optional(),
     questionCount: z.number().int().min(5).max(50).optional(),
@@ -365,21 +366,16 @@ export const Route = createFileRoute("/api/learning/features")({
                 i < questionsPerConcept && questions.length < (parsed.data.questionCount ?? 10);
                 i++
               ) {
-                const difficulty = mastery
-                  ? Math.ceil((1 - (mastery.score ?? 0.35)) * 5)
-                  : (parsed.data.difficulty ?? 3);
-                let question;
-                try {
-                  question = await generateAIQuestion(
-                    concept,
-                    mastery,
-                    difficulty,
-                    undefined,
-                    "mcq",
-                  );
-                } catch {
-                  question = fallbackQuestion(concept, difficulty, undefined, "mcq");
-                }
+                const difficulty =
+                  parsed.data.difficulty ??
+                  (mastery ? Math.ceil((1 - (mastery.score ?? 0.35)) * 5) : 3);
+                const question = await generateAIQuestion(
+                  concept,
+                  mastery,
+                  difficulty,
+                  undefined,
+                  "mcq",
+                );
                 questions.push({
                   concept_id: concept.id,
                   question,
@@ -395,7 +391,9 @@ export const Route = createFileRoute("/api/learning/features")({
               .from("learning_exams")
               .insert({
                 user_id: userId,
-                title: `${(parsed.data.examType ?? "chapter").charAt(0).toUpperCase() + (parsed.data.examType ?? "chapter").slice(1)} exam`,
+                title:
+                  parsed.data.title ??
+                  `${(parsed.data.examType ?? "chapter").charAt(0).toUpperCase() + (parsed.data.examType ?? "chapter").slice(1)} exam`,
                 exam_type: parsed.data.examType ?? "chapter",
                 concept_ids: parsed.data.conceptIds,
                 status: "draft",
@@ -613,36 +611,43 @@ function generateAIQuestion(
   topic: string | undefined,
   questionType: "mcq" | "numerical" | "short_answer" | "diagram" | "essay",
 ): Promise<any> {
-  // Simplified inline version
-  return Promise.resolve(fallbackQuestion(concept, difficulty, topic, questionType));
-}
-
-function fallbackQuestion(
-  concept: any,
-  difficulty: number,
-  topic: string | undefined,
-  questionType: "mcq" | "numerical" | "short_answer" | "diagram" | "essay",
-): any {
-  const diffLabels = ["", "introductory", "foundational", "standard", "advanced", "mastery"];
-  const diffLabel = diffLabels[difficulty] ?? "standard";
-  const focus = topic ? ` on "${topic}"` : "";
-
-  return {
-    id: crypto.randomUUID(),
-    conceptId: concept.id,
-    prompt: `Which statement best demonstrates ${diffLabel} understanding of ${concept.title}${focus}?`,
-    choices: [
-      `I can explain ${concept.title}${focus} and apply it to a new exam-style example.`,
-      `I recognize the term but cannot explain it clearly.`,
-      `It is unrelated to the topic being studied.`,
-      `Memorizing a definition is always enough.`,
-    ],
-    correctIndex: 0,
-    hint: `Choose the option that requires both explanation and application of ${concept.title}${focus}.`,
-    explanation: `Mastery of ${concept.title}${focus} means explaining the idea and using it in an unfamiliar situation, not just recalling facts.`,
-    difficulty: difficulty,
-    rubric: "Award credit for explanation and correct application, not recall alone.",
-    aiGenerated: false,
-    questionType,
-  };
+  return (async () => {
+    const difficultyLabel =
+      ["", "introductory", "foundational", "standard", "advanced", "mastery"][difficulty] ??
+      "standard";
+    const focus = topic ? ` Focus on: ${topic}.` : "";
+    const { text } = await generateText({
+      model: getOpenRouterProvider()(OPENROUTER_DEFAULT_MODEL),
+      system: `Create age-appropriate ${difficultyLabel} ${questionType} assessment questions for ${concept.framework}. Return strict JSON only.`,
+      prompt: `Create one original ${questionType} question for ${concept.title} (${concept.standard_code}), a ${concept.grade_band} ${concept.subject} concept.\n\nConcept description: ${concept.description}\nStudent mastery estimate: ${mastery ? Math.round((mastery.score ?? 0.35) * 100) : 35}%\nDifficulty: ${difficultyLabel}.${focus}\n\nReturn one JSON object with keys prompt, choices (four distinct answer strings), correctIndex (0-3), hint, explanation, rubric, metadata. Exactly one choice must be correct. Make distractors plausible and specific to the concept.`,
+      maxOutputTokens: 800,
+      temperature: 0.4,
+      maxRetries: 2,
+    });
+    const jsonMatch = text.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) throw new Error("AI did not return a valid question");
+    const parsed = z
+      .object({
+        prompt: z.string().min(1),
+        choices: z.array(z.string().min(1)).length(4),
+        correctIndex: z.number().int().min(0).max(3),
+        hint: z.string(),
+        explanation: z.string().min(1),
+        rubric: z.string().optional(),
+        metadata: z.record(z.string(), z.unknown()).optional(),
+      })
+      .safeParse(JSON.parse(jsonMatch[0]));
+    if (!parsed.success || new Set(parsed.data.choices).size !== parsed.data.choices.length) {
+      throw new Error("AI question failed validation");
+    }
+    return {
+      ...parsed.data,
+      id: crypto.randomUUID(),
+      conceptId: concept.id,
+      difficulty,
+      rubric: parsed.data.rubric ?? "Concept understanding",
+      aiGenerated: true,
+      questionType,
+    };
+  })();
 }

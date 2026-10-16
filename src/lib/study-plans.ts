@@ -212,6 +212,8 @@ export async function generateAIPlan(
     targetDate?: string;
     dailyMinutes?: number;
     difficulty?: "easy" | "medium" | "hard";
+    goal?: string;
+    preferredDays?: number[];
   },
 ): Promise<{ plan: LearningPlan; tasks: LearningPlanTask[]; count: number }> {
   return api(`/api/study-plans/${encodeURIComponent(planId)}/ai/generate`, {

@@ -37,6 +37,7 @@ import { LearningJourney } from "../ui/LearningJourney";
 import { getLearnerStats } from "@/lib/learning/gamification";
 import { buildLearningJourney } from "@/lib/learning/journey";
 import { getFocusRecords, type FocusRecord } from "@/lib/learning/focus-sessions";
+import { filterConceptsForClass } from "@/lib/learning/class";
 import type { LearningSnapshot, StudyView } from "../types";
 
 interface ProgressViewProps {
@@ -76,7 +77,8 @@ export function ProgressView({ snapshot, userId, onNavigate, onBack, refresh }: 
     );
   }
 
-  const { concepts, mastery, attempts, sessions, analytics } = snapshot;
+  const concepts = filterConceptsForClass(snapshot.concepts, snapshot.profile?.class);
+  const { mastery, attempts, sessions, analytics } = snapshot;
   const masteryMap = new Map(mastery.map((m) => [m.concept_id, m]));
 
   const masteredCount = concepts.filter(
@@ -174,7 +176,7 @@ export function ProgressView({ snapshot, userId, onNavigate, onBack, refresh }: 
         <StatCard
           icon={<Award className="h-5 w-5" />}
           label="Mastery Level"
-          value={`${masteredCount}/${mastery.length}`}
+          value={`${masteredCount}/${concepts.length}`}
           detail={`${masteredCount} concepts mastered`}
           accent="emerald"
           delay={0}

@@ -15,6 +15,7 @@ import {
 } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 import type { LearningPlanTask, PlanTaskInput } from "@/lib/learning/types";
+import { toast } from "sonner";
 
 interface EditTaskModalProps {
   task: LearningPlanTask | null;
@@ -75,10 +76,12 @@ export function EditTaskModal({
         priority,
         notes: notes.trim() ? notes.trim() : undefined,
       });
-      onSaved();
+      await onSaved();
       onOpenChange(false);
-    } catch {
-      // ignore
+    } catch (error) {
+      toast.error(
+        error instanceof Error ? `Could not save task: ${error.message}` : "Could not save task.",
+      );
     } finally {
       setSaving(false);
     }
@@ -87,8 +90,8 @@ export function EditTaskModal({
   if (!task) return null;
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg">
+    <Dialog open={open} onOpenChange={(nextOpen) => !saving && onOpenChange(nextOpen)}>
+      <DialogContent className="w-[calc(100vw-2rem)] max-w-lg">
         <DialogHeader>
           <DialogTitle className="font-display text-xl">Edit Task</DialogTitle>
         </DialogHeader>
@@ -109,7 +112,7 @@ export function EditTaskModal({
             />
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div className="grid gap-2">
               <Label htmlFor="edit-task-concept">Concept</Label>
               <Select value={conceptId} onValueChange={setConceptId}>
@@ -214,7 +217,7 @@ export function EditTaskModal({
             </Button>
           </div>
           <div className="flex gap-2">
-            <Button variant="outline" onClick={() => onOpenChange(false)}>
+            <Button variant="outline" onClick={() => onOpenChange(false)} disabled={saving}>
               Cancel
             </Button>
             <Button onClick={handleSave} disabled={saving || !title.trim()}>

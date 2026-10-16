@@ -3,12 +3,20 @@ import { motion, AnimatePresence } from "framer-motion";
 import { FileQuestion, Clock, CheckCircle, XCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useCurrentUser } from "@/hooks/use-current-user";
-import { createExam, submitExamAnswer, completeExam, listExams } from "@/lib/learning/client";
+import {
+  createExam,
+  submitExamAnswer,
+  completeExam,
+  getExam,
+  listExams,
+} from "@/lib/learning/client";
 import { StudyHeader } from "../StudyHeader";
 import { DifficultyStars } from "../ui/DifficultyStars";
 import { LoadingState } from "../ui/LoadingState";
 import { EmptyState } from "../ui/EmptyState";
 import type { LearningSnapshot, StudyView, Exam, ExamQuestion } from "../types";
+import { filterConceptsForClass } from "@/lib/learning/class";
+import { mapExamReviewPayload } from "@/lib/learning/exams";
 
 interface TestCenterProps {
   snapshot: LearningSnapshot | undefined;
@@ -31,7 +39,9 @@ export function TestCenter({ snapshot, userId, onBack, refresh }: TestCenterProp
   const [timeRemaining, setTimeRemaining] = useState<number | null>(null);
   const [answersSubmitted, setAnswersSubmitted] = useState<Record<string, unknown>>({});
   const [loading, setLoading] = useState(true);
+  const [examListError, setExamListError] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
+  const [openingExamId, setOpeningExamId] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [examError, setExamError] = useState<string | null>(null);
   const submitLock = useRef(false);
@@ -44,26 +54,29 @@ export function TestCenter({ snapshot, userId, onBack, refresh }: TestCenterProp
     difficulty: 3,
   });
 
-  useEffect(() => {
+  const loadExams = useCallback(async () => {
     if (!user?.id || !snapshot) return;
-
     setLoading(true);
-    void listExams(undefined, 10)
-      .then((data) => {
-        setExams(data?.exams ?? []);
-        setLoading(false);
-      })
-      .catch(() => {
-        setExams([]);
-        setLoading(false);
-      });
+    setExamListError(null);
+    try {
+      const data = await listExams(undefined, 10);
+      setExams(data?.exams ?? []);
+    } catch {
+      setExamListError("Could not load exam history. Check your connection and retry.");
+    } finally {
+      setLoading(false);
+    }
   }, [user?.id, snapshot]);
+
+  useEffect(() => {
+    void loadExams();
+  }, [loadExams]);
 
   const handleCreateExam = useCallback(async () => {
     if (!user?.id || !snapshot) return;
 
     // Exam question rows currently reference the shared curriculum concepts table.
-    const conceptIds = (snapshot.concepts ?? [])
+    const conceptIds = filterConceptsForClass(snapshot.concepts ?? [], snapshot.profile?.class)
       .filter((concept) => !concept.is_custom)
       .slice(0, 5)
       .map((concept) => concept.id);
@@ -76,6 +89,7 @@ export function TestCenter({ snapshot, userId, onBack, refresh }: TestCenterProp
     setExamError(null);
     try {
       const exam = await createExam(user.id, {
+        title: newExamInputs.title.trim(),
         examType: newExamInputs.examType as
           "mock" | "chapter" | "full_syllabus" | "custom" | "timed_quiz",
         conceptIds,
@@ -99,6 +113,30 @@ export function TestCenter({ snapshot, userId, onBack, refresh }: TestCenterProp
       setCreating(false);
     }
   }, [user?.id, snapshot, newExamInputs]);
+
+  const handleReviewExam = useCallback(async (examId: string) => {
+    setOpeningExamId(examId);
+    setExamError(null);
+    try {
+      const data = mapExamReviewPayload(await getExam(examId));
+      if (!data) throw new Error("The saved exam data could not be read.");
+      if (data.questions.length === 0) {
+        throw new Error("This exam has no saved questions to review.");
+      }
+
+      setActiveExam(data.exam);
+      setActiveQuestions(data.questions);
+      setSelectedAnswers(data.selectedAnswers);
+      setAnswersSubmitted(data.selectedAnswers);
+      setCurrentQuestion(0);
+      setTimeRemaining(null);
+      setStep("results");
+    } catch (error) {
+      setExamError(error instanceof Error ? error.message : "Could not open this exam for review.");
+    } finally {
+      setOpeningExamId(null);
+    }
+  }, []);
 
   const handleAnswerSelect = (questionId: string, index: number) => {
     setSelectedAnswers((prev) => ({ ...prev, [questionId]: index }));
@@ -224,7 +262,7 @@ export function TestCenter({ snapshot, userId, onBack, refresh }: TestCenterProp
                 </h3>
                 {exams.map((exam) => (
                   <div key={exam.id} className="rounded-lg border border-border/40 bg-card/50 p-4">
-                    <div className="flex items-start justify-between">
+                    <div className="flex flex-wrap items-start justify-between gap-3">
                       <div>
                         <h4 className="font-semibold text-foreground">{exam.title}</h4>
                         <p className="mt-1 text-xs text-muted-foreground">
@@ -247,8 +285,32 @@ export function TestCenter({ snapshot, userId, onBack, refresh }: TestCenterProp
                         {exam.status}
                       </span>
                     </div>
+                    {exam.status === "completed" && (
+                      <button
+                        type="button"
+                        onClick={() => void handleReviewExam(exam.id)}
+                        disabled={openingExamId === exam.id}
+                        className="mt-3 rounded-md border border-border/40 px-3 py-1.5 text-xs font-medium text-foreground hover:bg-muted/30 disabled:cursor-wait disabled:opacity-60"
+                      >
+                        {openingExamId === exam.id ? "Loading…" : "Review answers"}
+                      </button>
+                    )}
                   </div>
                 ))}
+              </div>
+            ) : examListError ? (
+              <div
+                role="alert"
+                className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-amber-500/30 bg-amber-500/10 p-4 text-sm text-amber-100"
+              >
+                <span>{examListError}</span>
+                <button
+                  type="button"
+                  onClick={() => void loadExams()}
+                  className="rounded-md border border-amber-200/30 px-3 py-1.5 font-medium hover:bg-amber-200/10"
+                >
+                  Retry
+                </button>
               </div>
             ) : (
               <EmptyState
@@ -269,22 +331,35 @@ export function TestCenter({ snapshot, userId, onBack, refresh }: TestCenterProp
               </h3>
               <p className="mb-4 text-sm text-muted-foreground">
                 LORD will generate an adaptive {newExamInputs.examType} exam covering{" "}
-                {(snapshot.concepts ?? []).slice(0, 5).length} concepts.
+                {
+                  filterConceptsForClass(snapshot.concepts ?? [], snapshot.profile?.class)
+                    .filter((concept) => !concept.is_custom)
+                    .slice(0, 5).length
+                }{" "}
+                concepts.
               </p>
               <div className="grid gap-4 sm:grid-cols-2">
                 <div>
-                  <label className="text-xs font-medium text-muted-foreground">Exam Title</label>
+                  <label htmlFor="exam-title" className="text-xs font-medium text-muted-foreground">
+                    Exam Title
+                  </label>
                   <input
+                    id="exam-title"
                     type="text"
                     value={newExamInputs.title}
                     onChange={(e) => setNewExamInputs({ ...newExamInputs, title: e.target.value })}
+                    maxLength={200}
                     placeholder="e.g. Chapter 1 Review"
+                    aria-label="Exam title"
                     className="mt-1 w-full rounded-lg border border-border/30 bg-background/60 px-3 py-2 text-sm text-foreground placeholder-muted-foreground/50 focus:border-primary/50 focus:outline-none"
                   />
                 </div>
                 <div>
-                  <label className="text-xs font-medium text-muted-foreground">Exam Type</label>
+                  <label htmlFor="exam-type" className="text-xs font-medium text-muted-foreground">
+                    Exam Type
+                  </label>
                   <select
+                    id="exam-type"
                     value={newExamInputs.examType}
                     onChange={(e) =>
                       setNewExamInputs({
@@ -302,10 +377,14 @@ export function TestCenter({ snapshot, userId, onBack, refresh }: TestCenterProp
                   </select>
                 </div>
                 <div>
-                  <label className="text-xs font-medium text-muted-foreground">
+                  <label
+                    htmlFor="exam-question-count"
+                    className="text-xs font-medium text-muted-foreground"
+                  >
                     Questions (5–50)
                   </label>
                   <input
+                    id="exam-question-count"
                     type="number"
                     min={5}
                     max={50}
@@ -313,23 +392,44 @@ export function TestCenter({ snapshot, userId, onBack, refresh }: TestCenterProp
                     onChange={(e) =>
                       setNewExamInputs({
                         ...newExamInputs,
-                        questionCount: parseInt(e.target.value) || 10,
+                        questionCount: Math.max(5, Math.min(50, parseInt(e.target.value) || 10)),
                       })
                     }
                     className="mt-1 w-full rounded-lg border border-border/30 bg-background/60 px-3 py-2 text-sm text-foreground focus:border-primary/50 focus:outline-none"
                   />
                 </div>
                 <div>
-                  <label className="text-xs font-medium text-muted-foreground">Difficulty</label>
-                  <div className="mt-1">
-                    <DifficultyStars difficulty={newExamInputs.difficulty} showLabel />
-                  </div>
+                  <label
+                    htmlFor="exam-difficulty"
+                    className="text-xs font-medium text-muted-foreground"
+                  >
+                    Difficulty
+                  </label>
+                  <select
+                    id="exam-difficulty"
+                    aria-label="Exam difficulty"
+                    value={newExamInputs.difficulty}
+                    onChange={(event) =>
+                      setNewExamInputs({ ...newExamInputs, difficulty: Number(event.target.value) })
+                    }
+                    className="mt-1 w-full rounded-lg border border-border/30 bg-background/60 px-3 py-2 text-sm text-foreground focus:border-primary/50 focus:outline-none"
+                  >
+                    <option value={1}>Introductory</option>
+                    <option value={2}>Foundational</option>
+                    <option value={3}>Standard</option>
+                    <option value={4}>Advanced</option>
+                    <option value={5}>Mastery</option>
+                  </select>
                 </div>
                 <div>
-                  <label className="text-xs font-medium text-muted-foreground">
+                  <label
+                    htmlFor="exam-time-limit"
+                    className="text-xs font-medium text-muted-foreground"
+                  >
                     Time Limit (minutes)
                   </label>
                   <input
+                    id="exam-time-limit"
                     type="number"
                     min={5}
                     max={180}
@@ -337,7 +437,10 @@ export function TestCenter({ snapshot, userId, onBack, refresh }: TestCenterProp
                     onChange={(e) =>
                       setNewExamInputs({
                         ...newExamInputs,
-                        timeLimitMinutes: parseInt(e.target.value) || 30,
+                        timeLimitMinutes: Math.max(
+                          5,
+                          Math.min(180, parseInt(e.target.value) || 30),
+                        ),
                       })
                     }
                     className="mt-1 w-full rounded-lg border border-border/30 bg-background/60 px-3 py-2 text-sm text-foreground focus:border-primary/50 focus:outline-none"
