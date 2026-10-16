@@ -8,7 +8,7 @@ import {
   Scripts,
   type ErrorComponentProps,
 } from "@tanstack/react-router";
-import { useEffect, type ReactNode, useState } from "react";
+import { useEffect, type ReactNode, useRef, useState } from "react";
 
 import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
@@ -21,6 +21,11 @@ import { useQuery } from "@tanstack/react-query";
 import { DEFAULT_MODE, type LordMode } from "../lib/modes";
 import { supabase } from "../integrations/supabase/client";
 import { X } from "lucide-react";
+import {
+  decideConnectivity,
+  probeBackendReachability,
+  type ConnectivityDecision,
+} from "../lib/connectivity";
 
 function UserSettingsHydrator({ children }: { children: ReactNode }) {
   const { data: userSettings } = useQuery({
@@ -241,70 +246,174 @@ function RootComponent() {
 }
 
 function ConnectivityNotice() {
-  const [online, setOnline] = useState(() =>
-    typeof navigator === "undefined" ? true : navigator.onLine,
-  );
+  const [connectivity, setConnectivity] = useState<ConnectivityDecision>("unknown");
+  const connectivityRef = useRef<ConnectivityDecision>("unknown");
   const [expanded, setExpanded] = useState(true);
   const [dismissed, setDismissed] = useState(false);
 
   useEffect(() => {
-    const update = () => {
-      const connected = navigator.onLine;
-      setOnline(connected);
-      if (!connected) {
+    let disposed = false;
+    let nativeOnline: boolean | null = null;
+    let offlineFailures = 0;
+    let probeSequence = 0;
+    let verificationTimer: number | undefined;
+    let retryTimer: number | undefined;
+    let removeNativeListener: () => void = () => {};
+
+    const report = (
+      reason: string,
+      source: string,
+      backendReachable: boolean | null,
+      result: ConnectivityDecision,
+    ) => {
+      if (import.meta.env.DEV) {
+        console.debug("[connectivity]", {
+          navigatorOnLine: navigator.onLine,
+          connectivitySource: source,
+          backendReachability: backendReachable,
+          nativeOnline,
+          result,
+          reason,
+        });
+      }
+    };
+
+    const apply = (
+      next: ConnectivityDecision,
+      reason: string,
+      source: string,
+      backendReachable: boolean | null,
+    ) => {
+      report(reason, source, backendReachable, next);
+      if (next === "unknown" || connectivityRef.current === next) return;
+      connectivityRef.current = next;
+      setConnectivity(next);
+      if (next === "offline") {
         setDismissed(false);
         setExpanded(true);
       }
     };
-    window.addEventListener("online", update);
-    window.addEventListener("offline", update);
-    let removeNativeListener: () => void = () => {};
-    let disposed = false;
+
+    const clearVerificationTimers = () => {
+      if (verificationTimer !== undefined) window.clearTimeout(verificationTimer);
+      if (retryTimer !== undefined) window.clearTimeout(retryTimer);
+      verificationTimer = undefined;
+      retryTimer = undefined;
+    };
+
+    const verify = async (reason: string) => {
+      if (disposed) return;
+      const probeId = ++probeSequence;
+      const reachable = await probeBackendReachability();
+      if (disposed || probeId !== probeSequence) return;
+
+      if (reachable === null && !navigator.onLine) {
+        offlineFailures = 0;
+        apply("unknown", `${reason}; backend probe unavailable`, "backend-unconfigured", null);
+        retryTimer = window.setTimeout(() => void verify("connectivity retry"), 8_000);
+        return;
+      }
+
+      if (navigator.onLine || reachable === true) {
+        offlineFailures = 0;
+        const decision = decideConnectivity({
+          navigatorOnline: navigator.onLine,
+          backendReachable: reachable,
+          nativeOnline,
+          consecutiveFailures: offlineFailures,
+        });
+        apply(decision, reason, reachable === true ? "backend" : "navigator", reachable);
+        return;
+      }
+
+      offlineFailures += 1;
+      const decision = decideConnectivity({
+        navigatorOnline: navigator.onLine,
+        backendReachable: false,
+        nativeOnline,
+        consecutiveFailures: offlineFailures,
+      });
+      apply(decision, `${reason}; failed probe ${offlineFailures}/2`, "navigator+backend", false);
+
+      if (decision !== "offline") {
+        verificationTimer = window.setTimeout(() => void verify("offline confirmation"), 700);
+      } else {
+        retryTimer = window.setTimeout(() => void verify("offline retry"), 8_000);
+      }
+    };
+
+    const scheduleVerification = (reason: string) => {
+      probeSequence += 1;
+      if (navigator.onLine) {
+        clearVerificationTimers();
+        offlineFailures = 0;
+        apply("online", reason, "navigator", null);
+        void verify(`${reason}; backend diagnostic`);
+        return;
+      }
+      if (verificationTimer !== undefined) window.clearTimeout(verificationTimer);
+      verificationTimer = window.setTimeout(() => void verify(reason), 350);
+    };
+
+    const onOnline = () => {
+      clearVerificationTimers();
+      offlineFailures = 0;
+      apply("online", "browser online event", "navigator", null);
+      void verify("browser online event; backend diagnostic");
+    };
+    const onOffline = () => scheduleVerification("browser offline event");
+    const onVisibility = () => {
+      if (document.visibilityState === "visible") scheduleVerification("page became visible");
+    };
+
+    window.addEventListener("online", onOnline);
+    window.addEventListener("offline", onOffline);
+    document.addEventListener("visibilitychange", onVisibility);
+    if (navigator.onLine) {
+      apply("online", "startup browser signal", "navigator", null);
+      void verify("startup backend diagnostic");
+    } else {
+      scheduleVerification("startup browser signal is offline");
+    }
+
     void import("../lib/mobile-native").then(async ({ isNativeMobile, mobileNetwork }) => {
-      if (!isNativeMobile()) return;
+      if (disposed || !isNativeMobile()) return;
       const status = await mobileNetwork.status().catch(() => null);
       if (status) {
-        setOnline(status.connected);
-        if (!status.connected) {
-          setDismissed(false);
-          setExpanded(true);
-        }
+        nativeOnline = status.connected;
+        report("native startup signal", "capacitor", null, connectivityRef.current);
+        if (!navigator.onLine && !status.connected)
+          scheduleVerification("native startup signal is offline");
       }
       const handle = await mobileNetwork.listen(({ connected }) => {
-        setOnline(connected);
-        if (!connected) {
-          setDismissed(false);
-          setExpanded(true);
-        }
+        nativeOnline = connected;
+        report("native network status changed", "capacitor", null, connectivityRef.current);
+        if (navigator.onLine) return;
+        if (!connected) scheduleVerification("native network reports offline");
+        else void verify("native network restored; verify backend");
       });
       if (disposed) void handle.remove();
       else removeNativeListener = () => void handle.remove();
     });
     return () => {
       disposed = true;
-      window.removeEventListener("online", update);
-      window.removeEventListener("offline", update);
+      clearVerificationTimers();
+      window.removeEventListener("online", onOnline);
+      window.removeEventListener("offline", onOffline);
+      document.removeEventListener("visibilitychange", onVisibility);
       removeNativeListener();
     };
   }, []);
 
   useEffect(() => {
-    if (online || !expanded) return;
-    let timer = window.setTimeout(() => setExpanded(false), 3000);
-    const resetCollapseTimer = () => {
-      window.clearTimeout(timer);
-      timer = window.setTimeout(() => setExpanded(false), 3000);
-    };
-    window.addEventListener("pointerdown", resetCollapseTimer, { passive: true });
-    window.addEventListener("keydown", resetCollapseTimer);
+    if (connectivity !== "offline" || !expanded) return;
+    const timer = window.setTimeout(() => setExpanded(false), 5000);
     return () => {
       window.clearTimeout(timer);
-      window.removeEventListener("pointerdown", resetCollapseTimer);
-      window.removeEventListener("keydown", resetCollapseTimer);
     };
-  }, [online, expanded]);
+  }, [connectivity, expanded]);
 
-  if (online || dismissed) return null;
+  if (connectivity !== "offline" || dismissed) return null;
   return (
     <div
       role="status"
@@ -312,7 +421,7 @@ function ConnectivityNotice() {
       className={`fixed top-3 z-[100] mx-auto transition-all duration-300 ${expanded ? "inset-x-3 max-w-xl" : "right-3"}`}
     >
       {expanded ? (
-        <div className="relative rounded-2xl border border-amber-300/20 bg-slate-950/95 px-10 py-3 text-center text-sm leading-6 text-amber-100 shadow-lg">
+        <div className="offline-notice relative rounded-2xl border px-10 py-3 text-center text-sm leading-6 text-amber-100">
           <button
             type="button"
             onClick={() => setDismissed(true)}
@@ -331,7 +440,7 @@ function ConnectivityNotice() {
           aria-label="Offline. Show connection details."
           aria-expanded={false}
           title="Show connection details"
-          className="inline-flex items-center gap-2 rounded-full border border-amber-300/20 bg-slate-950/95 px-3 py-1.5 text-xs font-medium text-amber-100 shadow-md transition-colors duration-200 hover:border-amber-300/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-300"
+          className="offline-notice inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-medium text-amber-100 transition-colors duration-200 hover:border-amber-300/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-300"
         >
           <span className="h-1.5 w-1.5 rounded-full bg-amber-300" aria-hidden="true" />
           Offline

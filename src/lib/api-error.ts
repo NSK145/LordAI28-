@@ -11,6 +11,7 @@ export type ApiErrorCode =
   | "WEB_SEARCH_NOT_CONFIGURED"
   | "WEB_SEARCH_UNAVAILABLE"
   | "DB_ERROR"
+  | "NO_VALID_CONCEPTS"
   | "INTERNAL_ERROR"
   | "NOT_FOUND";
 

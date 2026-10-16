@@ -359,7 +359,9 @@ function ScreenshotRegionSelector({
   region: CropRegion | null;
   onRegionChange: (region: CropRegion | null) => void;
 }) {
-  const dragRef = React.useRef<{ x: number; y: number; width: number; height: number } | null>(null);
+  const dragRef = React.useRef<{ x: number; y: number; width: number; height: number } | null>(
+    null,
+  );
   const point = (event: React.PointerEvent<HTMLDivElement>) => {
     const bounds = event.currentTarget.getBoundingClientRect();
     return {
@@ -556,7 +558,9 @@ export function VisionPanel() {
     )
       .then(setImages)
       .catch((error: unknown) =>
-        setCameraError(error instanceof Error ? error.message : "Could not read the selected images."),
+        setCameraError(
+          error instanceof Error ? error.message : "Could not read the selected images.",
+        ),
       );
   };
 
@@ -605,26 +609,27 @@ export function VisionPanel() {
             {cameraOn ? "CAMERA ON" : "CAMERA OFF"}
           </p>
         </div>
-        <Button
-          variant={cameraOn ? "secondary" : "default"}
-          onClick={toggleCamera}
-        >
+        <Button variant={cameraOn ? "secondary" : "default"} onClick={toggleCamera}>
           {cameraOn ? "Turn Off" : "Turn On"}
         </Button>
       </div>
-      {cameraError && <p role="alert" className="mb-3 text-sm text-destructive">{cameraError}</p>}
+      {cameraError && (
+        <p role="alert" className="mb-3 text-sm text-destructive">
+          {cameraError}
+        </p>
+      )}
       <div className={cameraOn ? "mb-4 space-y-3" : "hidden"}>
         <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto]">
-        <video
-          ref={videoRef}
-          muted
-          playsInline
-          className="max-h-72 w-full rounded-lg border border-border bg-black object-contain"
-          aria-label="Live camera preview"
-        />
-        <Button onClick={captureFrame} disabled={!cameraOn} className="self-start">
-          Capture Frame
-        </Button>
+          <video
+            ref={videoRef}
+            muted
+            playsInline
+            className="max-h-72 w-full rounded-lg border border-border bg-black object-contain"
+            aria-label="Live camera preview"
+          />
+          <Button onClick={captureFrame} disabled={!cameraOn} className="self-start">
+            Capture Frame
+          </Button>
         </div>
         <div className="flex flex-wrap items-center gap-3 rounded-lg border border-border/70 p-3">
           <label className="flex items-center gap-2 text-sm">
@@ -697,10 +702,7 @@ export function VisionPanel() {
               onChange={(e) => setQuestion(e.target.value)}
             />
           </Field>
-          <Button
-            disabled={images.length === 0}
-            onClick={() => void analyze()}
-          >
+          <Button disabled={images.length === 0} onClick={() => void analyze()}>
             Analyze Image{images.length > 1 ? "s" : ""}
           </Button>
           {images.length === 0 && (
@@ -742,7 +744,9 @@ export function VisionPanel() {
                   {repositoryReport.steps.map((step, index) => (
                     <div key={`${step.tool}-${index}`} className="mt-2 text-muted-foreground">
                       <span className="font-mono text-xs">{step.tool}</span>
-                      {step.result?.message && <p className="mt-1 whitespace-pre-wrap">{step.result.message}</p>}
+                      {step.result?.message && (
+                        <p className="mt-1 whitespace-pre-wrap">{step.result.message}</p>
+                      )}
                     </div>
                   ))}
                   {repositoryReport.status === "needs-confirmation" && repositoryReport.planId && (
@@ -758,12 +762,16 @@ export function VisionPanel() {
                               <p>{step.intent}</p>
                               <p className="text-xs text-muted-foreground">
                                 {step.tool} · {step.risk} risk
-                                {typeof step.params.path === "string" ? ` · ${step.params.path}` : ""}
+                                {typeof step.params.path === "string"
+                                  ? ` · ${step.params.path}`
+                                  : ""}
                               </p>
                               {typeof step.params.content === "string" && (
                                 <pre className="mt-2 max-h-28 overflow-auto whitespace-pre-wrap text-xs">
                                   {step.params.content.slice(0, 1_000)}
-                                  {step.params.content.length > 1_000 ? "\n[preview truncated]" : ""}
+                                  {step.params.content.length > 1_000
+                                    ? "\n[preview truncated]"
+                                    : ""}
                                 </pre>
                               )}
                             </li>

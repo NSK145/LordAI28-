@@ -74,8 +74,8 @@ export function createChatRoute() {
             }),
           );
 
-            const authContext = context as
-              { userId?: string; supabase?: Parameters<typeof buildMemoryPrompt>[0] } | undefined;
+          const authContext = context as
+            { userId?: string; supabase?: Parameters<typeof buildMemoryPrompt>[0] } | undefined;
           let memoryPrompt = "";
           if (authContext?.userId && authContext.supabase) {
             memoryPrompt = await buildMemoryPrompt(
@@ -103,7 +103,8 @@ export function createChatRoute() {
                 return (
                   item.type === "file" &&
                   typeof item.url === "string" &&
-                  ((typeof item.mediaType === "string" && item.mediaType.startsWith("image/") &&
+                  ((typeof item.mediaType === "string" &&
+                    item.mediaType.startsWith("image/") &&
                     item.url.startsWith("data:image/")) ||
                     (item.mediaType === "application/pdf" &&
                       item.url.startsWith("data:application/pdf;base64,")))
@@ -251,23 +252,20 @@ export function createChatRoute() {
               : context?.webSearch
                 ? "\n\nWEB SOURCE STATUS\nWeb search was enabled, but no usable search results were returned. State that you could not verify the requested facts from web sources. Do not fabricate citations or imply that you searched successfully."
                 : "";
-            const chatMessages = buildChatContextMessages(
-              contextMessages,
-              {
-                systemPrompt: `${LORD_SYSTEM_PROMPT}\n\nRESPONSE STYLE\n${RESPONSE_STYLE_INSTRUCTIONS[(context?.responseStyle as ResponseStyle | undefined) ?? "balanced"]}${webSourceContext}`,
-                memoryPrompt,
-                contextBudgetTokens: Math.floor(contextLimit * 0.7),
-                application: {
-                  page: context?.page,
-                  workflow: context?.workflow,
-                  projectId: context?.projectId,
-                  mode,
-                  task: taskType,
-                  provider: selectedModel?.provider ?? "openrouter",
-                  modelId: selectedCandidates[0],
-                },
+            const chatMessages = buildChatContextMessages(contextMessages, {
+              systemPrompt: `${LORD_SYSTEM_PROMPT}\n\nRESPONSE STYLE\n${RESPONSE_STYLE_INSTRUCTIONS[(context?.responseStyle as ResponseStyle | undefined) ?? "balanced"]}${webSourceContext}`,
+              memoryPrompt,
+              contextBudgetTokens: Math.floor(contextLimit * 0.7),
+              application: {
+                page: context?.page,
+                workflow: context?.workflow,
+                projectId: context?.projectId,
+                mode,
+                task: taskType,
+                provider: selectedModel?.provider ?? "openrouter",
+                modelId: selectedCandidates[0],
               },
-            );
+            });
 
             return streamChat(
               chatMessages,
@@ -377,11 +375,11 @@ async function restoreChatAttachmentReferences(
   if (!supabase || !userId) return messages;
   let remaining = Math.max(
     0,
-    4 - messages.reduce(
-      (total, message) =>
-        total + message.parts.filter((part) => part.type === "file").length,
-      0,
-    ),
+    4 -
+      messages.reduce(
+        (total, message) => total + message.parts.filter((part) => part.type === "file").length,
+        0,
+      ),
   );
   if (!remaining) return messages;
   const restored = messages.slice();

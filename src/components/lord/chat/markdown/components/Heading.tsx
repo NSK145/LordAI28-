@@ -19,7 +19,7 @@ const headingStyles: Record<number, string> = {
 };
 
 export function Heading({ level, children, className, ...props }: HeadingProps) {
-  const Component = `h${level}` as React.ElementType;
+  const Component = `h${level}` as "h1" | "h2" | "h3" | "h4" | "h5" | "h6";
 
   return (
     <Component className={cn(headingStyles[level], className)} {...props}>

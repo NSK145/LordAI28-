@@ -79,7 +79,9 @@ export function ProgressView({ snapshot, userId, onNavigate, onBack, refresh }: 
   const { concepts, mastery, attempts, sessions, analytics } = snapshot;
   const masteryMap = new Map(mastery.map((m) => [m.concept_id, m]));
 
-  const masteredCount = concepts.filter((concept) => (masteryMap.get(concept.id)?.score ?? 0) >= 0.8).length;
+  const masteredCount = concepts.filter(
+    (concept) => (masteryMap.get(concept.id)?.score ?? 0) >= 0.8,
+  ).length;
   const learningCount = concepts.filter((concept) => {
     const score = masteryMap.get(concept.id)?.score ?? 0;
     return score >= 0.6 && score < 0.8;

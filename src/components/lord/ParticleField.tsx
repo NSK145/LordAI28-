@@ -1,11 +1,11 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, type CSSProperties } from "react";
 
 /**
  * ParticleField - Animated background particle effect
  */
 export function ParticleField() {
   const [particles, setParticles] = useState<
-    Array<{ id: number; x: number; y: number; vx: number; vy: number }>
+    Array<{ id: number; x: number; y: number; duration: number; delay: number }>
   >([]);
 
   useEffect(() => {
@@ -17,29 +17,15 @@ export function ParticleField() {
       id: i,
       x: Math.random() * 100,
       y: Math.random() * 100,
-      vx: (Math.random() - 0.5) * 0.5,
-      vy: (Math.random() - 0.5) * 0.5,
+      duration: 18 + Math.random() * 24,
+      delay: -Math.random() * 30,
     }));
     setParticles(initialParticles);
-
-    // Animation loop
-    if (reduced) return;
-    const interval = setInterval(() => {
-      setParticles((prev) =>
-        prev.map((p) => ({
-          ...p,
-          x: (p.x + p.vx + 100) % 100,
-          y: (p.y + p.vy + 100) % 100,
-        })),
-      );
-    }, 80);
-
-    return () => clearInterval(interval);
   }, []);
 
   return (
     <div className="fixed inset-0 -z-10 overflow-hidden pointer-events-none">
-      <svg className="w-full h-full">
+      <svg className="h-full w-full" aria-hidden="true">
         {particles.map((p) => (
           <circle
             key={p.id}
@@ -48,6 +34,13 @@ export function ParticleField() {
             r="0.5"
             fill="var(--hud)"
             opacity="0.055"
+            className="ambient-particle"
+            style={
+              {
+                "--particle-duration": `${p.duration}s`,
+                "--particle-delay": `${p.delay}s`,
+              } as CSSProperties
+            }
           />
         ))}
       </svg>

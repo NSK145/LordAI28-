@@ -174,7 +174,8 @@ export async function getLearningSnapshot(userId: string): Promise<LearningSnaps
   ]);
 
   const failedQuery = results.find(
-    (result) => result.status === "rejected" || (result.status === "fulfilled" && result.value.error),
+    (result) =>
+      result.status === "rejected" || (result.status === "fulfilled" && result.value.error),
   );
   if (failedQuery) {
     throw new Error("Some learning data could not be loaded. Please retry before continuing.");

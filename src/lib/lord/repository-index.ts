@@ -288,41 +288,47 @@ function packageMetadata(manifest: PackageManifest, files: ReadonlyMap<string, C
   const dependencies = [
     ...new Set([...stringKeys(manifest.dependencies), ...stringKeys(manifest.devDependencies)]),
   ].sort();
-  const frameworks = ([
-    ["React", dependencies.includes("react")],
-    ["Vite", dependencies.includes("vite") || files.has("vite.config.ts")],
-    ["TanStack Router", dependencies.includes("@tanstack/react-router")],
-    ["Next.js", dependencies.includes("next")],
-    ["Vue", dependencies.includes("vue")],
-    ["Svelte", dependencies.includes("svelte")],
-    ["Express", dependencies.includes("express")],
-    ["Hono", dependencies.includes("hono")],
-  ] as [string, boolean][])
+  const frameworks = (
+    [
+      ["React", dependencies.includes("react")],
+      ["Vite", dependencies.includes("vite") || files.has("vite.config.ts")],
+      ["TanStack Router", dependencies.includes("@tanstack/react-router")],
+      ["Next.js", dependencies.includes("next")],
+      ["Vue", dependencies.includes("vue")],
+      ["Svelte", dependencies.includes("svelte")],
+      ["Express", dependencies.includes("express")],
+      ["Hono", dependencies.includes("hono")],
+    ] as [string, boolean][]
+  )
     .filter(([, present]) => present)
     .map(([name]) => name as string);
-  const testFrameworks = ([
-    ["Vitest", dependencies.includes("vitest") || files.has("vitest.config.ts")],
-    ["Jest", dependencies.includes("jest")],
+  const testFrameworks = (
     [
-      "Playwright",
-      dependencies.includes("playwright") || dependencies.includes("@playwright/test"),
-    ],
-    ["Cypress", dependencies.includes("cypress")],
-    ["Mocha", dependencies.includes("mocha")],
-  ] as [string, boolean][])
+      ["Vitest", dependencies.includes("vitest") || files.has("vitest.config.ts")],
+      ["Jest", dependencies.includes("jest")],
+      [
+        "Playwright",
+        dependencies.includes("playwright") || dependencies.includes("@playwright/test"),
+      ],
+      ["Cypress", dependencies.includes("cypress")],
+      ["Mocha", dependencies.includes("mocha")],
+    ] as [string, boolean][]
+  )
     .filter(([, present]) => present)
     .map(([name]) => name as string);
-  const databases = ([
+  const databases = (
     [
-      "Supabase",
-      dependencies.some((item) => item.startsWith("@supabase/")) ||
-        files.has("supabase/config.toml"),
-    ],
-    ["Prisma", dependencies.includes("prisma") || dependencies.includes("@prisma/client")],
-    ["Drizzle", dependencies.some((item) => item.startsWith("drizzle-orm"))],
-    ["PostgreSQL", dependencies.includes("pg")],
-    ["SQLite", dependencies.includes("better-sqlite3") || dependencies.includes("sqlite3")],
-  ] as [string, boolean][])
+      [
+        "Supabase",
+        dependencies.some((item) => item.startsWith("@supabase/")) ||
+          files.has("supabase/config.toml"),
+      ],
+      ["Prisma", dependencies.includes("prisma") || dependencies.includes("@prisma/client")],
+      ["Drizzle", dependencies.some((item) => item.startsWith("drizzle-orm"))],
+      ["PostgreSQL", dependencies.includes("pg")],
+      ["SQLite", dependencies.includes("better-sqlite3") || dependencies.includes("sqlite3")],
+    ] as [string, boolean][]
+  )
     .filter(([, present]) => present)
     .map(([name]) => name as string);
   const scripts = stringKeys(manifest.scripts).sort();
@@ -419,7 +425,8 @@ export function createRepositoryIndexer(): RepositoryIndexer {
       );
       const componentEdges = importEdges.filter(
         (edge) =>
-          current.get(edge.from)?.kind === "component" || current.get(edge.to)?.kind === "component",
+          current.get(edge.from)?.kind === "component" ||
+          current.get(edge.to)?.kind === "component",
       );
       const symbolOwners = new Map<string, string[]>();
       const referenced = new Set<string>();

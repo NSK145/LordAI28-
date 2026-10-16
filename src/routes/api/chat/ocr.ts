@@ -8,11 +8,11 @@ import { runLordVision } from "@/lib/lord/llm";
 
 const OCRRequest = z.object({
   filename: z.string().max(160),
-  mimeType: z.union([
-    z.string().regex(/^image\/[a-zA-Z0-9.+-]+$/),
-    z.literal("application/pdf"),
-  ]),
-  fileData: z.string().min(1).max(18 * 1024 * 1024),
+  mimeType: z.union([z.string().regex(/^image\/[a-zA-Z0-9.+-]+$/), z.literal("application/pdf")]),
+  fileData: z
+    .string()
+    .min(1)
+    .max(18 * 1024 * 1024),
 });
 
 export const Route = createFileRoute("/api/chat/ocr")({
@@ -35,10 +35,17 @@ export const Route = createFileRoute("/api/chat/ocr")({
         }
         const bytes = Buffer.from(match[2], "base64");
         if (!bytes.length || bytes.length > 12 * 1024 * 1024) {
-          return apiErrorResponse(413, "INVALID_REQUEST", "File exceeds the 12 MB limit.", requestId);
+          return apiErrorResponse(
+            413,
+            "INVALID_REQUEST",
+            "File exceeds the 12 MB limit.",
+            requestId,
+          );
         }
         const digest = await crypto.subtle.digest("SHA-256", bytes);
-        const contentSha256 = Array.from(new Uint8Array(digest), (value) => value.toString(16).padStart(2, "0")).join("");
+        const contentSha256 = Array.from(new Uint8Array(digest), (value) =>
+          value.toString(16).padStart(2, "0"),
+        ).join("");
         const cache = auth.supabase.from("chat_attachment_ocr_cache");
         const cached = await cache
           .select("extracted_text")
@@ -56,7 +63,8 @@ export const Route = createFileRoute("/api/chat/ocr")({
             ...(isPdf
               ? { files: [{ filename: parsed.data.filename, fileData }] }
               : { images: [fileData] }),
-            prompt: "Transcribe all legible text exactly. Preserve headings, line breaks, tables, and page order. Include handwriting when legible; mark uncertain words as [unclear]. Do not summarize or infer missing text.",
+            prompt:
+              "Transcribe all legible text exactly. Preserve headings, line breaks, tables, and page order. Include handwriting when legible; mark uncertain words as [unclear]. Do not summarize or infer missing text.",
           });
           const extractedText = text.trim().slice(0, 24_000);
           if (extractedText) {
@@ -76,7 +84,12 @@ export const Route = createFileRoute("/api/chat/ocr")({
             requestId,
             error: error instanceof Error ? error.message : String(error),
           });
-          return apiErrorResponse(503, "AI_UPSTREAM_ERROR", "OCR could not process this file. Try again.", requestId);
+          return apiErrorResponse(
+            503,
+            "AI_UPSTREAM_ERROR",
+            "OCR could not process this file. Try again.",
+            requestId,
+          );
         }
       },
     },

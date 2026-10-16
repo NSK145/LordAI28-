@@ -25,8 +25,8 @@ export async function reflectToolResult(
   input: ReflectionInput,
   signal?: AbortSignal,
 ): Promise<ReflectionResult> {
-  const failureAnalysis = input.failureAnalysis ??
-    (!input.result.success ? classifyFailure(input.result) : undefined);
+  const failureAnalysis =
+    input.failureAnalysis ?? (!input.result.success ? classifyFailure(input.result) : undefined);
   const retryIsSafe =
     !input.result.success && input.result.recoverable === true && input.risk === "low";
   try {

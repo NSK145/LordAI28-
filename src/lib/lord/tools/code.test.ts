@@ -204,7 +204,10 @@ describe("patch tools", () => {
     const authPath = path.join(allowedDir, "auth.ts");
     const otherPath = path.join(allowedDir, "other.ts");
     fs.writeFileSync(authPath, "export function getUser() { return null; }\n");
-    fs.writeFileSync(otherPath, 'import { getUser } from "./auth";\nexport const useUser = getUser;\n');
+    fs.writeFileSync(
+      otherPath,
+      'import { getUser } from "./auth";\nexport const useUser = getUser;\n',
+    );
     const tool = getTool("patch.apply")!;
 
     const unresolved = await tool.execute(

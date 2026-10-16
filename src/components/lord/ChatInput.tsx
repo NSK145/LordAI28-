@@ -51,10 +51,10 @@ export default function ChatInput({
         e.preventDefault();
         onSubmit();
       }}
-      className="mt-4 rounded-[32px] border border-white/10 bg-white/5 p-4 shadow-[0_24px_120px_rgba(0,255,255,0.08)] backdrop-blur-xl"
+      className="chat-composer mt-4 p-4 sm:p-5"
     >
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
-        <div className="relative flex-1 rounded-3xl border border-white/10 bg-background/80 px-4 py-3 shadow-inner shadow-[inset_0_0_24px_rgba(0,255,255,0.06)]">
+        <div className="chat-composer-field relative flex-1 border border-white/10 px-4 py-3">
           <textarea
             ref={taRef}
             value={value}
@@ -67,27 +67,27 @@ export default function ChatInput({
             }}
             placeholder="Ask LORD anything, or paste a prompt…"
             rows={1}
-            className="min-h-[56px] w-full resize-none bg-transparent text-white outline-none placeholder:text-muted-foreground/60"
+            className="min-h-[64px] w-full resize-none bg-transparent py-2 text-base leading-7 text-foreground outline-none placeholder:text-muted-foreground/70"
           />
           <div className="mt-3 flex flex-wrap gap-2 text-xs text-muted-foreground">
             <button
               type="button"
               onClick={onAttachClick}
-              className="inline-flex items-center gap-1 rounded-full bg-white/5 px-3 py-2"
+              className="chat-composer-tool inline-flex items-center gap-1.5 rounded-full px-3 py-2"
             >
               <Paperclip className="h-3.5 w-3.5" /> Attach
             </button>
             <button
               type="button"
               onClick={onImagesClick}
-              className="inline-flex items-center gap-1 rounded-full bg-white/5 px-3 py-2"
+              className="chat-composer-tool inline-flex items-center gap-1.5 rounded-full px-3 py-2"
             >
               <Image className="h-3.5 w-3.5" /> Images
             </button>
             <button
               type="button"
               onClick={onDocsClick}
-              className="inline-flex items-center gap-1 rounded-full bg-white/5 px-3 py-2"
+              className="chat-composer-tool inline-flex items-center gap-1.5 rounded-full px-3 py-2"
             >
               <FileText className="h-3.5 w-3.5" /> Docs
             </button>
@@ -96,7 +96,9 @@ export default function ChatInput({
               onClick={onToggleSearch}
               className={cn(
                 "inline-flex items-center gap-1 rounded-full px-3 py-2",
-                searchActive ? "bg-cyan-600/10 text-cyan-100" : "bg-white/5",
+                searchActive
+                  ? "border-primary/30 bg-primary/10 text-cyan-100"
+                  : "chat-composer-tool",
               )}
             >
               <Globe className="h-3.5 w-3.5" /> Search
@@ -107,8 +109,8 @@ export default function ChatInput({
               className={cn(
                 "inline-flex items-center gap-1 rounded-full px-3 py-2",
                 micActive
-                  ? "bg-cyan-600/20 text-cyan-100 shadow-[0_0_20px_rgba(56,189,248,0.12)]"
-                  : "bg-white/5",
+                  ? "border-primary/30 bg-primary/15 text-cyan-100 shadow-[0_0_20px_rgba(79,141,255,0.12)]"
+                  : "chat-composer-tool",
               )}
               aria-pressed={!!micActive}
             >
@@ -117,7 +119,7 @@ export default function ChatInput({
             <button
               type="button"
               onClick={() => window.dispatchEvent(new CustomEvent("tools:toggle"))}
-              className="inline-flex items-center gap-1 rounded-full bg-white/5 px-3 py-2"
+              className="chat-composer-tool inline-flex items-center gap-1.5 rounded-full px-3 py-2"
             >
               <svg
                 xmlns="http://www.w3.org/2000/svg"
@@ -143,7 +145,7 @@ export default function ChatInput({
             <select
               value={modelId}
               onChange={(e) => onModelIdChange(e.target.value)}
-              className="rounded-2xl bg-white/6 px-3 py-2 text-sm text-white"
+              className="model-select rounded-2xl border border-border/60 bg-slate-950/65 px-3 py-2 text-sm text-foreground"
             >
               {MODEL_REGISTRY.map((m) => (
                 <option key={m.id} value={m.id}>
@@ -156,7 +158,7 @@ export default function ChatInput({
           <button
             type="submit"
             disabled={busy || !value.trim()}
-            className="inline-flex h-14 w-14 items-center justify-center rounded-full bg-cyan-400 text-slate-950 shadow-[0_0_30px_rgba(56,189,248,0.3)] transition hover:scale-[1.03] disabled:cursor-not-allowed disabled:opacity-50"
+            className="chat-send-button inline-flex h-14 w-14 items-center justify-center text-white disabled:cursor-not-allowed disabled:opacity-45"
             aria-label="Send"
           >
             {busy ? (

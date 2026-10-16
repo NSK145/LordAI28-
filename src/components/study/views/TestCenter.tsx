@@ -92,7 +92,9 @@ export function TestCenter({ snapshot, userId, onBack, refresh }: TestCenterProp
       setTimeRemaining(exam.time_limit_seconds ?? newExamInputs.timeLimitMinutes * 60);
       setStep("taking");
     } catch (error) {
-      setExamError(error instanceof Error ? error.message : "Could not create the exam. Please retry.");
+      setExamError(
+        error instanceof Error ? error.message : "Could not create the exam. Please retry.",
+      );
     } finally {
       setCreating(false);
     }
@@ -195,7 +197,10 @@ export function TestCenter({ snapshot, userId, onBack, refresh }: TestCenterProp
       />
 
       {examError && (
-        <p role="alert" className="mb-4 rounded-lg border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive">
+        <p
+          role="alert"
+          className="mb-4 rounded-lg border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive"
+        >
           {examError}
         </p>
       )}

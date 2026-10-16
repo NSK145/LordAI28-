@@ -27,12 +27,15 @@ export function ChatAttachmentPreview({ attachment }: { attachment: ChatAttachme
       setVisible(true);
       return;
     }
-    const observer = new IntersectionObserver(([entry]) => {
-      if (entry.isIntersecting) {
-        setVisible(true);
-        observer.disconnect();
-      }
-    }, { rootMargin: "160px" });
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          setVisible(true);
+          observer.disconnect();
+        }
+      },
+      { rootMargin: "160px" },
+    );
     observer.observe(target);
     return () => observer.disconnect();
   }, [attachment.storagePath, visible]);
@@ -45,7 +48,8 @@ export function ChatAttachmentPreview({ attachment }: { attachment: ChatAttachme
       .createSignedUrl(attachment.storagePath, 300)
       .then(({ data, error }) => {
         if (!active) return;
-        if (error || !data?.signedUrl) setLoadError("Preview is unavailable. You can still refer to the attached file.");
+        if (error || !data?.signedUrl)
+          setLoadError("Preview is unavailable. You can still refer to the attached file.");
         else setResolvedUrl(data.signedUrl);
       });
     return () => {
@@ -59,12 +63,21 @@ export function ChatAttachmentPreview({ attachment }: { attachment: ChatAttachme
       <button
         ref={buttonRef}
         type="button"
-        onClick={() => { setVisible(true); setOpen(true); }}
+        onClick={() => {
+          setVisible(true);
+          setOpen(true);
+        }}
         className="group flex max-w-full items-center gap-2 rounded-xl border border-white/15 bg-black/10 p-2 text-left transition hover:border-white/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300"
         aria-label={`Preview ${attachment.filename}`}
       >
         {isImage && resolvedUrl ? (
-          <img src={resolvedUrl} alt="" loading="lazy" decoding="async" className="h-12 w-12 shrink-0 rounded-lg object-cover" />
+          <img
+            src={resolvedUrl}
+            alt=""
+            loading="lazy"
+            decoding="async"
+            className="h-12 w-12 shrink-0 rounded-lg object-cover"
+          />
         ) : isPdf && resolvedUrl ? (
           <span className="h-12 w-16 shrink-0 overflow-hidden rounded-lg bg-white">
             <iframe
@@ -82,19 +95,49 @@ export function ChatAttachmentPreview({ attachment }: { attachment: ChatAttachme
           </span>
         )}
         <span className="min-w-0">
-          <span className="block max-w-[min(52vw,18rem)] truncate text-xs font-medium">{attachment.filename}</span>
-          <span className="text-[10px] opacity-70">{isPdf ? "PDF · " : "Image · "}{(attachment.size / 1024).toFixed(0)} KB · Preview</span>
+          <span className="block max-w-[min(52vw,18rem)] truncate text-xs font-medium">
+            {attachment.filename}
+          </span>
+          <span className="text-[10px] opacity-70">
+            {isPdf ? "PDF · " : "Image · "}
+            {(attachment.size / 1024).toFixed(0)} KB · Preview
+          </span>
         </span>
       </button>
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="flex h-[90dvh] w-[calc(100vw-1.5rem)] max-w-5xl flex-col overflow-hidden p-3 sm:p-5">
           <DialogTitle className="truncate pr-8 text-sm">{attachment.filename}</DialogTitle>
           <div className="flex min-h-0 flex-1 items-center justify-center overflow-auto rounded-lg bg-black/20">
-            {!resolvedUrl && !loadError && <LoaderCircle className="h-6 w-6 animate-spin text-cyan-200" aria-label="Loading preview" />}
-            {loadError && <p role="status" className="px-4 text-center text-sm text-muted-foreground">{loadError}</p>}
-            {resolvedUrl && isImage && <img src={resolvedUrl} alt={attachment.filename} className="max-h-full max-w-full object-contain" />}
-            {resolvedUrl && isPdf && <iframe src={resolvedUrl} title={`PDF preview: ${attachment.filename}`} className="h-full min-h-0 w-full rounded-lg bg-white" />}
-            {!isImage && !isPdf && <p className="text-sm text-muted-foreground">Preview is not available for this file type.</p>}
+            {!resolvedUrl && !loadError && (
+              <LoaderCircle
+                className="h-6 w-6 animate-spin text-cyan-200"
+                aria-label="Loading preview"
+              />
+            )}
+            {loadError && (
+              <p role="status" className="px-4 text-center text-sm text-muted-foreground">
+                {loadError}
+              </p>
+            )}
+            {resolvedUrl && isImage && (
+              <img
+                src={resolvedUrl}
+                alt={attachment.filename}
+                className="max-h-full max-w-full object-contain"
+              />
+            )}
+            {resolvedUrl && isPdf && (
+              <iframe
+                src={resolvedUrl}
+                title={`PDF preview: ${attachment.filename}`}
+                className="h-full min-h-0 w-full rounded-lg bg-white"
+              />
+            )}
+            {!isImage && !isPdf && (
+              <p className="text-sm text-muted-foreground">
+                Preview is not available for this file type.
+              </p>
+            )}
           </div>
         </DialogContent>
       </Dialog>

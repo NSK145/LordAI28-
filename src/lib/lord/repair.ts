@@ -64,7 +64,9 @@ function includesAny(text: string, terms: readonly string[]): boolean {
 
 function extractPaths(text: string): string[] {
   const paths = new Set<string>();
-  for (const match of text.matchAll(/(?:[A-Za-z]:)?(?:[./\w-]+\/)?[\w.-]+\.(?:tsx?|jsx?|mjs|cjs|json)/g)) {
+  for (const match of text.matchAll(
+    /(?:[A-Za-z]:)?(?:[./\w-]+\/)?[\w.-]+\.(?:tsx?|jsx?|mjs|cjs|json)/g,
+  )) {
     paths.add(match[0].replaceAll("\\", "/").slice(0, 300));
     if (paths.size === 20) break;
   }
@@ -92,22 +94,38 @@ export function classifyFailure(
   ) {
     category = "dependency-missing";
     confidence = 0.9;
-  } else if (includesAny(text, ["network", "econnreset", "eai_again", "rate limit", "fetch failed"])) {
+  } else if (
+    includesAny(text, ["network", "econnreset", "eai_again", "rate limit", "fetch failed"])
+  ) {
     category = "network-failure";
     confidence = 0.87;
-  } else if (includesAny(text, ["typescript", "ts####", "type error", "type '" , "is not assignable"])) {
+  } else if (
+    includesAny(text, ["typescript", "ts####", "type error", "type '", "is not assignable"])
+  ) {
     category = "type-error";
     confidence = 0.88;
   } else if (includesAny(text, ["eslint", "lint", "prettier"])) {
     category = "lint-error";
     confidence = 0.85;
-  } else if (includesAny(text, ["vitest", "jest", "playwright", "cypress", "test failed", "assertion" ])) {
+  } else if (
+    includesAny(text, ["vitest", "jest", "playwright", "cypress", "test failed", "assertion"])
+  ) {
     category = "test-failure";
     confidence = 0.84;
-  } else if (includesAny(text, ["syntaxerror", "parse error", "unexpected token", "compilation error", "build failed"])) {
+  } else if (
+    includesAny(text, [
+      "syntaxerror",
+      "parse error",
+      "unexpected token",
+      "compilation error",
+      "build failed",
+    ])
+  ) {
     category = "compilation-error";
     confidence = 0.82;
-  } else if (includesAny(text, ["runtime", "uncaught", "exception", "referenceerror", "typeerror"])) {
+  } else if (
+    includesAny(text, ["runtime", "uncaught", "exception", "referenceerror", "typeerror"])
+  ) {
     category = "runtime-exception";
     confidence = 0.75;
   } else if (result.errorCode || message) {
@@ -120,15 +138,23 @@ export function classifyFailure(
     "type-error": "Change only the affected declarations, types, or call sites.",
     "lint-error": "Apply the smallest lint or formatting correction in the reported files.",
     "test-failure": "Inspect the failing test and its directly imported implementation only.",
-    "runtime-exception": "Trace the reported runtime frame to its owning module and handle that case.",
-    timeout: "Reduce the validation scope or address the specific hanging operation; do not repeat unchanged.",
-    "dependency-missing": "Check existing dependencies and imports; do not install packages automatically.",
-    "permission-failure": "Stop and request the required permission; do not retry the blocked action.",
-    "network-failure": "Retry only the network/tool operation when it is safe; do not change source code.",
-    "tool-failure": "Inspect the tool result and retry only if the tool marks the failure recoverable.",
-    unknown: "Use targeted repository context and independent reflection before proposing any patch.",
+    "runtime-exception":
+      "Trace the reported runtime frame to its owning module and handle that case.",
+    timeout:
+      "Reduce the validation scope or address the specific hanging operation; do not repeat unchanged.",
+    "dependency-missing":
+      "Check existing dependencies and imports; do not install packages automatically.",
+    "permission-failure":
+      "Stop and request the required permission; do not retry the blocked action.",
+    "network-failure":
+      "Retry only the network/tool operation when it is safe; do not change source code.",
+    "tool-failure":
+      "Inspect the tool result and retry only if the tool marks the failure recoverable.",
+    unknown:
+      "Use targeted repository context and independent reflection before proposing any patch.",
   };
-  const rootCause = message.replace(/\s+/g, " ").trim().slice(0, 1_000) || "No failure detail was returned.";
+  const rootCause =
+    message.replace(/\s+/g, " ").trim().slice(0, 1_000) || "No failure detail was returned.";
 
   return {
     category,
@@ -178,8 +204,8 @@ export function rankPatchCandidates(
 ): ScoredPatchCandidate[] {
   const failedStrategies = new Set(
     previouslyFailed
-      .filter((entry) =>
-        entry.outcome === "rejected" || entry.outcome === "applied-validation-failed",
+      .filter(
+        (entry) => entry.outcome === "rejected" || entry.outcome === "applied-validation-failed",
       )
       .map((entry) => `${entry.patch.path}\0${entry.patch.expected}\0${entry.patch.replacement}`),
   );
@@ -281,7 +307,9 @@ export function selectValidationScripts(
   const isTypeScript = extensions.some((file) => /\.tsx?$/.test(file));
   const touchesUi = extensions.some((file) => /\.(tsx|jsx|vue)$/.test(file));
   const touchesTests = extensions.some((file) => /\.(test|spec)\.[^.]+$/.test(file));
-  const touchesBackend = extensions.some((file) => /(^|\/)(api|server|database|db)(\/|\.)/.test(file));
+  const touchesBackend = extensions.some((file) =>
+    /(^|\/)(api|server|database|db)(\/|\.)/.test(file),
+  );
 
   if (isTypeScript && available.has("typecheck")) selected.add("typecheck");
   if ((touchesTests || touchesUi || touchesBackend) && available.has("test")) selected.add("test");

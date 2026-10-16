@@ -104,7 +104,9 @@ export class OpenRouterClient {
     }
   }
 
-  private async *readEventStream(body: ReadableStream<Uint8Array>): AsyncGenerator<OpenRouterStreamEvent> {
+  private async *readEventStream(
+    body: ReadableStream<Uint8Array>,
+  ): AsyncGenerator<OpenRouterStreamEvent> {
     const reader = body.getReader();
     const decoder = new TextDecoder();
     let buffer = "";

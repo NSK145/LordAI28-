@@ -23,6 +23,7 @@ import {
   DollarSign,
   Sparkles,
 } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 import { AppShell } from "@/components/lord/AppShell";
 import { useConversationStats } from "@/hooks/use-conversation-stats";
 import { cn } from "@/lib/utils";
@@ -136,7 +137,7 @@ function StatCard({
   sub,
   accent,
 }: {
-  icon: React.ElementType;
+  icon: LucideIcon;
   label: string;
   value: React.ReactNode;
   sub?: string;

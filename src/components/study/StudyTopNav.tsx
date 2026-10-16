@@ -10,6 +10,7 @@ import {
   Calendar,
   TrendingUp,
 } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 import type { StudyView } from "./types";
 import { STUDY_VIEWS } from "./types";
 
@@ -18,7 +19,7 @@ interface StudyTopNavProps {
   onViewChange: (view: StudyView) => void;
 }
 
-const VIEW_ICONS: Record<StudyView, React.ElementType> = {
+const VIEW_ICONS: Record<StudyView, LucideIcon> = {
   dashboard: LayoutDashboard,
   concepts: BookOpen,
   practice: Target,

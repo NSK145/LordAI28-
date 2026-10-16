@@ -97,7 +97,9 @@ export function MarkdownRenderer({
         remarkPlugins={[remarkGfm, remarkMath]}
         // Syntax highlighting reparses every unfinished code block on each
         // token. Defer it until the stream is complete to keep typing smooth.
-        rehypePlugins={(streaming ? [rehypeKatex] : [rehypeKatex, shikiHighlighter]) as PluggableList}
+        rehypePlugins={
+          (streaming ? [rehypeKatex] : [rehypeKatex, shikiHighlighter]) as PluggableList
+        }
         components={
           {
             h1: (props: ComponentPropsWithoutRef<"h1">) => <Heading level={1} {...props} />,

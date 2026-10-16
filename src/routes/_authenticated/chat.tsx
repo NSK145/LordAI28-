@@ -26,7 +26,10 @@ import { RichMessage } from "@/components/lord/RichMessage";
 import { TypingDots } from "@/components/lord/TypingDots";
 import { ChatInput } from "@/components/lord/chat/input/ChatInput";
 import { ModelSelector } from "@/components/lord/chat/input/ModelSelector";
-import { ChatAttachmentPreview, type ChatAttachmentReference } from "@/components/lord/chat/ChatAttachmentPreview";
+import {
+  ChatAttachmentPreview,
+  type ChatAttachmentReference,
+} from "@/components/lord/chat/ChatAttachmentPreview";
 import { ChatErrorBoundary } from "@/components/lord/ChatErrorBoundary";
 import ImageGenModal from "@/components/lord/ImageGenModal";
 import { detectImageIntent } from "@/lib/ai/image";
@@ -162,8 +165,9 @@ function attachmentReferences(metadata: unknown): ChatAttachmentReference[] {
 
 function metadataColumnMissing(error: unknown): boolean {
   const message = getSafeErrorMessage(error).toLowerCase();
-  return message.includes("metadata") &&
-    (message.includes("column") || message.includes("schema cache"));
+  return (
+    message.includes("metadata") && (message.includes("column") || message.includes("schema cache"))
+  );
 }
 
 function createOptimisticConversation(userId: string, title: string): OptimisticConversationRow {
@@ -254,10 +258,7 @@ function ChatPage() {
   const calendar = useCalendar();
 
   const [mode, setMode] = usePersistedState<LordMode>("chat-mode", DEFAULT_MODE);
-  const [responseStyle] = usePersistedState<ResponseStyle>(
-    "chat-response-style",
-    "balanced",
-  );
+  const [responseStyle] = usePersistedState<ResponseStyle>("chat-response-style", "balanced");
   const [webSearch, setWebSearch] = usePersistedState("chat-web-search", false);
   const [messageSearch, setMessageSearch] = useState("");
   const [searchOpen, setSearchOpen] = useState(false);
@@ -663,7 +664,8 @@ function ChatPage() {
       };
       const hasAssistantSupport =
         assistantSupport.chatSources.length > 0 || Boolean(assistantSupport.chatReasoning.trim());
-      const supportJson = assistantSupport as unknown as import("@/integrations/supabase/types").Json;
+      const supportJson =
+        assistantSupport as unknown as import("@/integrations/supabase/types").Json;
 
       // Finalize cross-device streaming: if `onChunk` already created the
       // assistant row incrementally, flip `streaming` off and write the final
@@ -689,7 +691,11 @@ function ChatPage() {
               client_tag: tag,
             })
             .eq("id", streamingMsgId!);
-          if (finishUpdate.error && hasAssistantSupport && metadataColumnMissing(finishUpdate.error)) {
+          if (
+            finishUpdate.error &&
+            hasAssistantSupport &&
+            metadataColumnMissing(finishUpdate.error)
+          ) {
             finishUpdate = await supabase
               .from("messages")
               .update({ content, streaming: false, client_tag: tag })
@@ -757,7 +763,11 @@ function ChatPage() {
           let assistantInsert = hasAssistantSupport
             ? await supabase.from("messages").insert({ ...assistantRow, metadata: supportJson })
             : await supabase.from("messages").insert(assistantRow);
-          if (assistantInsert.error && hasAssistantSupport && metadataColumnMissing(assistantInsert.error)) {
+          if (
+            assistantInsert.error &&
+            hasAssistantSupport &&
+            metadataColumnMissing(assistantInsert.error)
+          ) {
             assistantInsert = await supabase.from("messages").insert(assistantRow);
           }
           const insertError = assistantInsert.error;
@@ -1606,7 +1616,9 @@ function ChatPage() {
   const submit = async (payload: ChatSubmitPayload): Promise<boolean> => {
     if (requestInFlightRef.current || busy) return false;
     if (!networkOnline) {
-      setPersistenceError("You’re offline. Keep this message in the composer and retry when you reconnect.");
+      setPersistenceError(
+        "You’re offline. Keep this message in the composer and retry when you reconnect.",
+      );
       setFailedPayload(payload);
       return false;
     }
@@ -1620,13 +1632,18 @@ function ChatPage() {
     }
     setFailedPayload(null);
     const hasPdfAttachment = payload.attachments.some((attachment) => attachment.kind === "pdf");
-    const hasImageAttachment = payload.attachments.some((attachment) => attachment.kind === "image");
-    const requestsOcr = /\b(ocr|extract(?:ing)? text|read(?:ing)? the text|transcrib(?:e|ing))\b/i.test(payload.text);
+    const hasImageAttachment = payload.attachments.some(
+      (attachment) => attachment.kind === "image",
+    );
+    const requestsOcr =
+      /\b(ocr|extract(?:ing)? text|read(?:ing)? the text|transcrib(?:e|ing))\b/i.test(payload.text);
     const multimodalAttachments = payload.attachments.filter(
       (attachment) => attachment.kind === "image" || attachment.kind === "pdf",
     );
     setProcessingLabel(
-      multimodalAttachments.length ? `Uploading attachments (0/${multimodalAttachments.length})…` : null,
+      multimodalAttachments.length
+        ? `Uploading attachments (0/${multimodalAttachments.length})…`
+        : null,
     );
     requestInFlightRef.current = true;
     // Read the ref as well as state: a New Chat click updates the ref
@@ -1640,8 +1657,7 @@ function ChatPage() {
       }
       setPersistenceError(null);
       const selectedConversationId = activeConversationIdRef.current ?? conversationId;
-      const isNewConversation =
-        !selectedConversationId || isOptimisticId(selectedConversationId);
+      const isNewConversation = !selectedConversationId || isOptimisticId(selectedConversationId);
       setSavingMessage(true);
       // The sidebar may be optimistic, but message persistence waits for the
       // conversation insert and receives the real UUID.
@@ -1675,7 +1691,8 @@ function ChatPage() {
               cacheControl: "3600",
             }),
           ]);
-          if (uploaded.error) throw new Error(`Could not upload ${filename}: ${uploaded.error.message}`);
+          if (uploaded.error)
+            throw new Error(`Could not upload ${filename}: ${uploaded.error.message}`);
           chatAttachmentRefs.push({
             filename,
             mediaType,
@@ -1683,7 +1700,9 @@ function ChatPage() {
             storagePath,
           });
           completedUploads += 1;
-          setProcessingLabel(`Uploading attachments (${completedUploads}/${multimodalAttachments.length})…`);
+          setProcessingLabel(
+            `Uploading attachments (${completedUploads}/${multimodalAttachments.length})…`,
+          );
           return { type: "file" as const, mediaType, filename, url };
         }),
       );
@@ -1710,9 +1729,11 @@ function ChatPage() {
                 fileData,
               }),
             });
-            const result = (await response.json().catch(() => null)) as
-              | { text?: string; cached?: boolean; error?: { message?: string } }
-              | null;
+            const result = (await response.json().catch(() => null)) as {
+              text?: string;
+              cached?: boolean;
+              error?: { message?: string };
+            } | null;
             if (!response.ok || !result?.text) {
               throw new Error(result?.error?.message || `OCR failed for ${attachment.name}.`);
             }
@@ -1735,9 +1756,13 @@ function ChatPage() {
       const editedMessageId = editingMessageId;
       if (editedMessageId) {
         const conversationMessages = messages;
-        const editedIndex = conversationMessages.findIndex((message) => message.id === editedMessageId);
+        const editedIndex = conversationMessages.findIndex(
+          (message) => message.id === editedMessageId,
+        );
         if (editedIndex < 0 || conversationMessages[editedIndex]?.role !== "user") {
-          throw new Error("That prompt is no longer available to edit. Reload the conversation and try again.");
+          throw new Error(
+            "That prompt is no longer available to edit. Reload the conversation and try again.",
+          );
         }
         const staleMessages = conversationMessages.slice(editedIndex + 1);
         const staleIds = staleMessages.map((message) => message.id).filter(isUuid);
@@ -1762,9 +1787,9 @@ function ChatPage() {
         // the history before the edited turn in the hook state here.
         setMessages(conversationMessages.slice(0, editedIndex));
         qc.setQueryData<CachedMessageRow[]>(["messages", convId], (old) =>
-          old?.filter((row) => !staleIds.includes(row.id)).map((row) =>
-            row.id === editedMessageId ? { ...row, content: text } : row,
-          ),
+          old
+            ?.filter((row) => !staleIds.includes(row.id))
+            .map((row) => (row.id === editedMessageId ? { ...row, content: text } : row)),
         );
         setEditingMessageId(null);
         setInput("");
@@ -1817,11 +1842,19 @@ function ChatPage() {
       let userInsert = chatAttachmentRefs.length
         ? await supabase.from("messages").insert({
             ...userRow,
-            metadata: ({ chatAttachments: chatAttachmentRefs } as unknown) as import("@/integrations/supabase/types").Json,
+            metadata: {
+              chatAttachments: chatAttachmentRefs,
+            } as unknown as import("@/integrations/supabase/types").Json,
           })
         : await supabase.from("messages").insert(userRow);
-      if (userInsert.error && chatAttachmentRefs.length && metadataColumnMissing(userInsert.error)) {
-        console.warn("Chat attachment references could not be persisted; apply the message metadata migration.");
+      if (
+        userInsert.error &&
+        chatAttachmentRefs.length &&
+        metadataColumnMissing(userInsert.error)
+      ) {
+        console.warn(
+          "Chat attachment references could not be persisted; apply the message metadata migration.",
+        );
         userInsert = await supabase.from("messages").insert(userRow);
       }
       if (userInsert.error) {
@@ -2083,12 +2116,14 @@ function ChatPage() {
           const messageAttachments: ChatAttachmentReference[] = [
             ...fileParts.flatMap((file) =>
               file.filename && file.mediaType && file.url
-                ? [{
-                    filename: file.filename,
-                    mediaType: file.mediaType,
-                    size: 0,
-                    url: file.url,
-                  }]
+                ? [
+                    {
+                      filename: file.filename,
+                      mediaType: file.mediaType,
+                      size: 0,
+                      url: file.url,
+                    },
+                  ]
                 : [],
             ),
             ...persistedAttachments.filter(
@@ -2113,22 +2148,26 @@ function ChatPage() {
                 ? formatUserFacingError(lordErr)
                 : partText || "The AI request failed.";
             });
-          const storedSources = (
-            m.metadata as { chatSources?: Array<{ sourceId: string; url: string; title?: string }> } | undefined
-          )?.chatSources ?? [];
+          const storedSources =
+            (
+              m.metadata as
+                | { chatSources?: Array<{ sourceId: string; url: string; title?: string }> }
+                | undefined
+            )?.chatSources ?? [];
           const sourceParts = [
             ...m.parts
-            .filter((part) => part.type === "source-url")
-            .map((part) => part as { sourceId: string; url: string; title?: string }),
+              .filter((part) => part.type === "source-url")
+              .map((part) => part as { sourceId: string; url: string; title?: string }),
             ...storedSources,
-          ].filter((source, index, all) => all.findIndex((item) => item.url === source.url) === index);
+          ].filter(
+            (source, index, all) => all.findIndex((item) => item.url === source.url) === index,
+          );
           const reasoningText = (
-            (
-              m.metadata as { chatReasoning?: string } | undefined
-            )?.chatReasoning || m.parts
-            .filter((part) => part.type === "reasoning")
-            .map((part) => (part as { text?: string }).text ?? "")
-            .join("\n")
+            (m.metadata as { chatReasoning?: string } | undefined)?.chatReasoning ||
+            m.parts
+              .filter((part) => part.type === "reasoning")
+              .map((part) => (part as { text?: string }).text ?? "")
+              .join("\n")
           ).trim();
           return (
             <li
@@ -2212,7 +2251,9 @@ function ChatPage() {
                           {reasoningText && (
                             <div>
                               <h3 className="mb-1 font-medium text-foreground/80">Reasoning</h3>
-                              <p className="whitespace-pre-wrap leading-relaxed text-muted-foreground">{reasoningText}</p>
+                              <p className="whitespace-pre-wrap leading-relaxed text-muted-foreground">
+                                {reasoningText}
+                              </p>
                             </div>
                           )}
                         </div>
@@ -2327,7 +2368,9 @@ function ChatPage() {
                     if (!retryPayload) return;
                     void submit(retryPayload).then((sent) => {
                       if (sent) {
-                        setComposerResetAttachmentIds(retryPayload.attachments.map((file) => file.id));
+                        setComposerResetAttachmentIds(
+                          retryPayload.attachments.map((file) => file.id),
+                        );
                         setComposerResetKey((key) => key + 1);
                       }
                     });
@@ -2407,7 +2450,8 @@ function ChatPage() {
                     userId={user.id}
                     conversationId={conversationId}
                     conversationTitle={
-                      conversations.find((c) => c.id === conversationId)?.title ?? "New conversation"
+                      conversations.find((c) => c.id === conversationId)?.title ??
+                      "New conversation"
                     }
                     className="h-9 w-9 rounded-xl border-border bg-card/60 hover:bg-muted hover:text-foreground"
                   />
@@ -2503,7 +2547,10 @@ function ChatPage() {
               <div className="mx-auto w-full max-w-[860px]">
                 {editingMessageId && (
                   <div className="mb-2 flex items-center justify-between rounded-lg border border-primary/25 bg-primary/5 px-3 py-2 text-xs text-muted-foreground">
-                    <span>Editing your prompt. Sending it will replace the previous prompt and regenerate its answer.</span>
+                    <span>
+                      Editing your prompt. Sending it will replace the previous prompt and
+                      regenerate its answer.
+                    </span>
                     <button
                       type="button"
                       onClick={() => {
@@ -2674,9 +2721,7 @@ function MessageActions({
 
 function Avatar() {
   return (
-    <div
-      className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full border border-primary/30 bg-primary/10"
-    >
+    <div className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full border border-primary/30 bg-primary/10">
       <span className="font-display text-[10px] font-bold text-primary">L</span>
     </div>
   );
@@ -2691,7 +2736,9 @@ function EmptyState({ onPick }: { onPick: (s: string) => void }) {
   ];
   return (
     <div className="flex h-full flex-col items-center justify-center px-4 text-center">
-      <div className="mb-3 font-display text-xl font-semibold tracking-tight text-foreground">What can I help with?</div>
+      <div className="mb-3 font-display text-xl font-semibold tracking-tight text-foreground">
+        What can I help with?
+      </div>
       <p className="mb-6 max-w-md text-sm leading-6 text-muted-foreground">
         Issue a directive and I shall respond. Pick a model above to bias the active model.
       </p>

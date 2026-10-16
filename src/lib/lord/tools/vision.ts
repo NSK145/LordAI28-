@@ -20,7 +20,12 @@ export function registerVisionTools(): void {
     risk: "low",
     requiresConfirmation: false,
     parameters: [
-      { name: "image", type: "string", description: "Optional single image as a base64 data URL", required: false },
+      {
+        name: "image",
+        type: "string",
+        description: "Optional single image as a base64 data URL",
+        required: false,
+      },
       {
         name: "images",
         type: "string[]",

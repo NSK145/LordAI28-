@@ -9,15 +9,12 @@ const OCRRequestSchema = z.discriminatedUnion("action", [
   z.object({
     action: z.literal("process"),
     sourceId: z.string().uuid(),
-    mimeType: z.enum([
-      "image/jpeg",
-      "image/png",
-      "image/webp",
-      "image/gif",
-      "application/pdf",
-    ]),
+    mimeType: z.enum(["image/jpeg", "image/png", "image/webp", "image/gif", "application/pdf"]),
     filename: z.string().max(160).optional(),
-    fileBase64: z.string().min(1).max(12 * 1024 * 1024),
+    fileBase64: z
+      .string()
+      .min(1)
+      .max(12 * 1024 * 1024),
   }),
   z.object({
     action: z.literal("status"),
@@ -58,7 +55,12 @@ export const Route = createFileRoute("/api/learning/ocr")({
               /^data:(image\/[\w.+-]+|application\/pdf);base64,([\s\S]+)$/,
             );
             if (embeddedDataUrl && embeddedDataUrl[1] !== parsed.data.mimeType) {
-              return apiErrorResponse(400, "INVALID_REQUEST", "Image MIME type does not match.", requestId);
+              return apiErrorResponse(
+                400,
+                "INVALID_REQUEST",
+                "Image MIME type does not match.",
+                requestId,
+              );
             }
             const base64 = embeddedDataUrl?.[2] ?? parsed.data.fileBase64;
             if (!base64 || !/^[A-Za-z0-9+/]+={0,2}$/.test(base64)) {

@@ -261,7 +261,11 @@ export function ChatInput({
   const handlePaste = (e: React.ClipboardEvent<HTMLTextAreaElement>) => {
     const files = Array.from(e.clipboardData?.files ?? []);
     const itemFiles = Array.from(e.clipboardData?.items ?? [])
-      .filter((item) => item.kind === "file" && (item.type.startsWith("image/") || item.type === "application/pdf"))
+      .filter(
+        (item) =>
+          item.kind === "file" &&
+          (item.type.startsWith("image/") || item.type === "application/pdf"),
+      )
       .map((item) => item.getAsFile())
       .filter((file): file is File => file !== null);
     const pastedFiles = files.length ? files : itemFiles;
@@ -288,14 +292,11 @@ export function ChatInput({
   const showSuggestions = !streaming && !value.trim() && attachments.length === 0 && !activeTool;
   const hasImage = attachments.some((attachment) => attachment.kind === "image");
   const hasPdf = attachments.some((attachment) => attachment.kind === "pdf");
-  const wantsOcr = /\b(ocr|extract(?:ing)? text|read(?:ing)? the text|transcrib(?:e|ing))\b/i.test(value);
-  const multimodalBadge = wantsOcr && (hasImage || hasPdf)
-    ? "OCR"
-    : hasPdf
-      ? "PDF"
-      : hasImage
-        ? "Vision"
-        : null;
+  const wantsOcr = /\b(ocr|extract(?:ing)? text|read(?:ing)? the text|transcrib(?:e|ing))\b/i.test(
+    value,
+  );
+  const multimodalBadge =
+    wantsOcr && (hasImage || hasPdf) ? "OCR" : hasPdf ? "PDF" : hasImage ? "Vision" : null;
 
   return (
     <div ref={rootRef} className="w-full">
@@ -327,9 +328,9 @@ export function ChatInput({
         }}
         onDrop={handleDrop}
         animate={{ scale: dragging ? 1.01 : 1 }}
-          transition={{ duration: 0.18, ease: "easeInOut" }}
-          className={cn(
-          "relative flex flex-col gap-2 rounded-3xl border bg-slate-950/75 px-3 py-2.5 shadow-[0_10px_30px_rgba(0,0,0,0.22)] backdrop-blur-xl transition-[border-color,box-shadow,background-color] duration-200 md:px-4 md:py-2",
+        transition={{ duration: 0.18, ease: "easeInOut" }}
+        className={cn(
+          "chat-composer relative flex flex-col gap-2 rounded-3xl border bg-slate-950/75 px-3 py-2.5 shadow-[0_10px_30px_rgba(0,0,0,0.22)] backdrop-blur-xl transition-[border-color,box-shadow,background-color] duration-200 md:px-4 md:py-2",
           attachments.length > 0 || activeTool ? "md:rounded-2xl" : "md:rounded-[26px]",
           dragging
             ? "border-primary/60 shadow-[0_0_0_2px_rgba(66,133,244,0.16),0_12px_32px_rgba(0,0,0,0.24)]"
@@ -359,7 +360,10 @@ export function ChatInput({
           <div className="flex min-h-5 items-center gap-2 px-1" aria-live="polite">
             {processingLabel && (
               <span className="inline-flex items-center gap-1.5 text-[11px] text-primary/90">
-                <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-primary" aria-hidden="true" />
+                <span
+                  className="h-1.5 w-1.5 animate-pulse rounded-full bg-primary"
+                  aria-hidden="true"
+                />
                 {processingLabel}
               </span>
             )}
@@ -437,7 +441,9 @@ export function ChatInput({
             className="max-h-40 min-h-[44px] min-w-0 flex-1 resize-none bg-transparent px-1 py-2.5 text-sm leading-6 text-foreground outline-none placeholder:text-muted-foreground/90 max-[480px]:order-first max-[480px]:basis-full"
           />
           <span id="chat-input-hint" className="sr-only">
-            Press Enter to send, Shift plus Enter for a new line, Ctrl or Command plus Enter to send, or Ctrl or Command plus Shift plus U to open attachments. Press slash to focus the message box.
+            Press Enter to send, Shift plus Enter for a new line, Ctrl or Command plus Enter to
+            send, or Ctrl or Command plus Shift plus U to open attachments. Press slash to focus the
+            message box.
           </span>
 
           <div className="flex items-center gap-1.5">

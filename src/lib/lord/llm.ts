@@ -149,7 +149,14 @@ export async function runLordVision(opts: {
     try {
       let text = "";
       for await (const chunk of client.streamChat(
-        [{ role: "user", content: prompt, ...(images.length ? { images } : {}), ...(files.length ? { files } : {}) }],
+        [
+          {
+            role: "user",
+            content: prompt,
+            ...(images.length ? { images } : {}),
+            ...(files.length ? { files } : {}),
+          },
+        ],
         model.id,
         opts.signal,
         Math.min(1200, model.limits.maxOutputTokens),

@@ -70,7 +70,7 @@ export function Metric({
           ? "text-destructive"
           : "text-primary";
   return (
-    <div className="rounded-md border border-border/60 bg-background/40 p-3">
+    <div className="metric-card rounded-2xl p-4">
       <div className={cn("font-display text-3xl text-glow", toneClass)}>{value}</div>
       <div className="text-[10px] uppercase tracking-wider text-muted-foreground">{label}</div>
     </div>
@@ -97,7 +97,7 @@ export function Stat({
           ? "text-destructive"
           : "text-foreground";
   return (
-    <div className="rounded-md border border-border/60 bg-background/40 p-2">
+    <div className="metric-card rounded-xl p-3">
       <div className="flex items-center justify-center text-primary">{icon}</div>
       <div className={cn("mt-1 font-display text-sm", toneClass)}>{value}</div>
       <div className="text-[10px] uppercase tracking-wider text-muted-foreground">{label}</div>
@@ -109,7 +109,7 @@ export function SkeletonRows({ rows = 3 }: { rows?: number }) {
   return (
     <div className="space-y-2">
       {Array.from({ length: rows }).map((_, i) => (
-        <div key={i} className="h-9 animate-pulse rounded-md bg-primary/10" />
+        <div key={i} className="skeleton-shimmer h-9 rounded-xl" />
       ))}
     </div>
   );

@@ -11,6 +11,7 @@ import {
   ChevronRight,
   BarChart3,
 } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 import { useState, useEffect, useCallback, useRef } from "react";
 import { cn } from "@/lib/utils";
 
@@ -76,7 +77,7 @@ function NavItem({
 }: {
   to: string;
   label: string;
-  icon: React.ElementType;
+  icon: LucideIcon;
   active: boolean;
   collapsed: boolean;
   index: number;
@@ -111,24 +112,28 @@ function NavItem({
       <Link
         to={to}
         aria-label={label}
+        data-active={active}
         className={cn(
-          "group relative flex h-10 w-10 items-center justify-center rounded-xl transition-colors duration-200",
+          "app-nav-link group relative flex h-10 w-10 items-center justify-center rounded-xl transition-colors duration-200",
           "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/70 focus-visible:ring-offset-1 focus-visible:ring-offset-transparent",
-          active ? "bg-primary/12 text-primary" : "text-muted-foreground hover:bg-white/5 hover:text-foreground",
-        )}
-        style={
           active
-            ? {
-                background: "rgba(66,133,244,0.12)",
-              }
-            : undefined
-        }
+            ? "bg-primary/12 text-primary"
+            : "text-muted-foreground hover:bg-white/5 hover:text-foreground",
+        )}
         onKeyDown={(e: React.KeyboardEvent) => {
           if (e.key === "Enter" || e.key === " ") {
             (e.currentTarget as HTMLButtonElement).click();
           }
         }}
       >
+        {active && (
+          <motion.span
+            layoutId="lord-active-nav-pill"
+            className="absolute inset-0 rounded-xl bg-primary/[0.12] shadow-[inset_0_0_18px_rgba(79,141,255,0.08),0_0_20px_rgba(79,141,255,0.08)]"
+            transition={{ type: "spring", stiffness: 420, damping: 34 }}
+            aria-hidden="true"
+          />
+        )}
         {/* Hover background */}
         <span
           className={cn(
@@ -210,7 +215,7 @@ export function NavigationDock() {
     >
       {/* Main dock panel */}
       <motion.div
-        className="relative flex flex-col items-center gap-1.5 rounded-2xl border border-border/80 bg-slate-950/80 py-2.5 shadow-[0_12px_32px_rgba(0,0,0,0.3)] transition-colors"
+        className="relative flex flex-col items-center gap-2 rounded-2xl border border-border/80 bg-slate-950/80 py-3 shadow-[0_12px_32px_rgba(0,0,0,0.24)] transition-colors"
         animate={{ width: collapsed ? 12 : 56 }}
         transition={{ duration: 0.2, ease: "easeInOut" }}
         style={{
@@ -238,7 +243,6 @@ export function NavigationDock() {
             );
           })}
         </ul>
-
       </motion.div>
 
       {/* Floating toggle button */}

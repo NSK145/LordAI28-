@@ -380,7 +380,9 @@ export function TutorView({ snapshot, userId, conceptId, onBack }: TutorViewProp
           ];
         });
       } catch {
-        setPersistenceError("Your tutor session could not be created. Check your connection and retry.");
+        setPersistenceError(
+          "Your tutor session could not be created. Check your connection and retry.",
+        );
         setIsThinking(false);
         return;
       }
@@ -486,7 +488,9 @@ export function TutorView({ snapshot, userId, conceptId, onBack }: TutorViewProp
         try {
           await saveTutorMessage(user.id, persistedSessionId, "assistant", answerWithSources);
         } catch {
-          setPersistenceError("The reply is visible here, but could not be saved to this tutor session.");
+          setPersistenceError(
+            "The reply is visible here, but could not be saved to this tutor session.",
+          );
         }
         setSessions((prev) =>
           prev.map((s) =>
@@ -851,7 +855,10 @@ export function TutorView({ snapshot, userId, conceptId, onBack }: TutorViewProp
 
             <div className="border-t border-border/40 pt-3">
               {persistenceError && (
-                <p role="alert" className="mb-2 rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-xs text-destructive">
+                <p
+                  role="alert"
+                  className="mb-2 rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-xs text-destructive"
+                >
                   {persistenceError}
                 </p>
               )}

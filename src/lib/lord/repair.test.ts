@@ -11,21 +11,26 @@ import {
 
 describe("repair analysis", () => {
   it("classifies common validation and tool failures with targeted strategies", () => {
-    expect(classifyFailure({ message: "TS2322: Type 'string' is not assignable to number in src/app.ts" }))
-      .toMatchObject({
-        category: "type-error",
-        confidence: expect.any(Number),
-        likelyFiles: ["src/app.ts"],
-        suggestedStrategy: expect.stringContaining("types"),
-      });
-    expect(classifyFailure({ message: "Vitest assertion failed in src/app.test.ts" }).category).toBe(
-      "test-failure",
-    );
-    expect(classifyFailure({ message: "Script exceeded timeout", errorCode: "VALIDATION_TIMEOUT" }).category)
-      .toBe("timeout");
-    expect(classifyFailure({ message: "Permission denied", errorCode: "PATH_DENIED" }).category).toBe(
-      "permission-failure",
-    );
+    expect(
+      classifyFailure({
+        message: "TS2322: Type 'string' is not assignable to number in src/app.ts",
+      }),
+    ).toMatchObject({
+      category: "type-error",
+      confidence: expect.any(Number),
+      likelyFiles: ["src/app.ts"],
+      suggestedStrategy: expect.stringContaining("types"),
+    });
+    expect(
+      classifyFailure({ message: "Vitest assertion failed in src/app.test.ts" }).category,
+    ).toBe("test-failure");
+    expect(
+      classifyFailure({ message: "Script exceeded timeout", errorCode: "VALIDATION_TIMEOUT" })
+        .category,
+    ).toBe("timeout");
+    expect(
+      classifyFailure({ message: "Permission denied", errorCode: "PATH_DENIED" }).category,
+    ).toBe("permission-failure");
     expect(classifyFailure({ message: "Unknown failure", errorCode: "UNEXPECTED" }).category).toBe(
       "tool-failure",
     );
@@ -57,8 +62,8 @@ describe("repair analysis", () => {
     expect(rankPatchCandidates([broad, focused], ["src/auth.ts"])[0].candidate).toEqual(focused);
     const sharedUtility = { ...focused, path: "src/shared.ts" };
     expect(
-      scorePatchCandidate(sharedUtility, ["src/shared.ts"], new Map([["src/shared.ts", 20]])).metrics
-        .blastRadius,
+      scorePatchCandidate(sharedUtility, ["src/shared.ts"], new Map([["src/shared.ts", 20]]))
+        .metrics.blastRadius,
     ).toBeLessThan(scorePatchCandidate(focused, ["src/auth.ts"]).metrics.blastRadius);
   });
 

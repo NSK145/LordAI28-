@@ -18,6 +18,7 @@ import {
   FolderOpen,
 } from "lucide-react";
 import { useEffect, useState, type ReactNode } from "react";
+import { AnimatePresence } from "framer-motion";
 import { useQueryClient } from "@tanstack/react-query";
 import type { User } from "@supabase/supabase-js";
 import { cn } from "@/lib/utils";
@@ -45,6 +46,16 @@ const PRIMARY_NAV = NAV.filter((item) =>
 );
 const SECONDARY_NAV = NAV.filter((item) => !PRIMARY_NAV.some((primary) => primary.to === item.to));
 
+const LIVE_STATUS = [
+  "Ready for your next task.",
+  "Memory synchronized.",
+  "Vision models online.",
+  "Agent initialized.",
+  "Repository indexed.",
+  "Reasoning engine active.",
+  "Typing engine ready.",
+];
+
 export function AppShell({ children }: { children: ReactNode }) {
   const location = useLocation();
   const navigate = useNavigate();
@@ -54,6 +65,14 @@ export function AppShell({ children }: { children: ReactNode }) {
 
   const [user, setUser] = useState<User | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const [statusIndex, setStatusIndex] = useState(0);
+
+  useEffect(() => {
+    const interval = window.setInterval(() => {
+      setStatusIndex((index) => (index + 1) % LIVE_STATUS.length);
+    }, 8_800);
+    return () => window.clearInterval(interval);
+  }, []);
 
   useEffect(() => {
     let mounted = true;
@@ -123,7 +142,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   return (
     <div className="relative min-h-screen w-full overflow-x-hidden">
       <ParticleField />
-      <div className="pointer-events-none fixed inset-0 -z-10 bg-grid opacity-[0.12]" />
+      <div className="pointer-events-none fixed inset-0 -z-10 bg-grid opacity-[0.07]" />
 
       {/* Top status bar */}
       <header className="mobile-safe-top sticky top-0 z-40 border-b border-border/60 bg-background/90 backdrop-blur-xl">
@@ -139,7 +158,7 @@ export function AppShell({ children }: { children: ReactNode }) {
             <motion.svg
               aria-hidden="true"
               viewBox="0 0 400 400"
-              className="h-9 w-9 shrink-0 text-[#1557D6]"
+              className="lord-brand-mark h-9 w-9 shrink-0 text-[#4f8dff]"
               fill="none"
               xmlns="http://www.w3.org/2000/svg"
               initial={reduceMotion ? false : { opacity: 0, scale: 0.94, rotate: -4 }}
@@ -149,7 +168,12 @@ export function AppShell({ children }: { children: ReactNode }) {
               transition={{ duration: 0.28, ease: "easeOut" }}
               style={{ transformOrigin: "center" }}
             >
-              <g stroke="currentColor" strokeWidth="12" strokeLinecap="round" strokeLinejoin="round">
+              <g
+                stroke="currentColor"
+                strokeWidth="12"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
                 <path d="M105 52C151 44 224 105 281 166C334 223 361 286 344 329C326 373 262 330 202 273C142 216 82 143 73 92C67 61 84 49 105 52Z" />
                 <path d="M295 52C249 44 176 105 119 166C66 223 39 286 56 329C74 373 138 330 198 273C258 216 318 143 327 92C333 61 316 49 295 52Z" />
                 <path d="M140 184L197 245L264 178" />
@@ -165,9 +189,26 @@ export function AppShell({ children }: { children: ReactNode }) {
             </div>
           </Link>
 
-          <div className="hidden items-center justify-center gap-2 text-xs text-muted-foreground lg:flex">
-            <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
-            <span>Ready when you are</span>
+          <div
+            className="hidden min-w-[190px] items-center justify-center gap-2 text-xs text-muted-foreground lg:flex"
+            aria-live="polite"
+          >
+            <span
+              className="status-pulse h-1.5 w-1.5 shrink-0 rounded-full bg-cyan-300"
+              aria-hidden="true"
+            />
+            <AnimatePresence mode="wait" initial={false}>
+              <motion.span
+                key={statusIndex}
+                initial={reduceMotion ? false : { opacity: 0, y: 5 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={reduceMotion ? undefined : { opacity: 0, y: -5 }}
+                transition={{ duration: reduceMotion ? 0 : 0.28, ease: "easeOut" }}
+                className="whitespace-nowrap"
+              >
+                {LIVE_STATUS[statusIndex]}
+              </motion.span>
+            </AnimatePresence>
           </div>
 
           {user ? <UserMenu user={user} onSignOut={signOut} /> : <SignInButton />}
@@ -179,9 +220,9 @@ export function AppShell({ children }: { children: ReactNode }) {
       <main className="mobile-app-main px-4 pb-28 pt-4 sm:px-6 md:px-8 md:pb-10 md:pl-24">
         <motion.div
           key={path}
-          initial={{ opacity: 0, y: 12 }}
+          initial={reduceMotion ? false : { opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.2, ease: "easeOut" }}
+          transition={{ duration: reduceMotion ? 0 : 0.3, ease: [0.22, 1, 0.36, 1] }}
         >
           {children}
         </motion.div>
@@ -248,7 +289,9 @@ export function AppShell({ children }: { children: ReactNode }) {
                   to={to}
                   className={cn(
                     "flex min-h-12 flex-col items-center justify-center gap-1 rounded-xl px-1 py-1.5 text-[10px] transition-colors duration-200",
-                    active ? "bg-primary/12 text-primary" : "text-muted-foreground hover:bg-white/5 hover:text-foreground",
+                    active
+                      ? "bg-primary/12 text-primary"
+                      : "text-muted-foreground hover:bg-white/5 hover:text-foreground",
                   )}
                 >
                   <Icon className="h-4 w-4" />

@@ -156,7 +156,9 @@ function redactCommandOutput(value: string): string {
     .replace(/\bBearer\s+[A-Za-z0-9._~-]{12,}\b/gi, "Bearer [REDACTED]");
 }
 
-function findPatchTarget(targetPath: string): { file: string; root: string; relativePath: string } | null {
+function findPatchTarget(
+  targetPath: string,
+): { file: string; root: string; relativePath: string } | null {
   const file = safeResolve(targetPath);
   if (!file || !fs.existsSync(file)) return null;
   const stat = fs.lstatSync(file);
@@ -207,9 +209,11 @@ function validatePatchSource(
     true,
     scriptKind,
   );
-  const parseDiagnostics = (sourceFile as ts.SourceFile & {
-    parseDiagnostics: readonly ts.Diagnostic[];
-  }).parseDiagnostics;
+  const parseDiagnostics = (
+    sourceFile as ts.SourceFile & {
+      parseDiagnostics: readonly ts.Diagnostic[];
+    }
+  ).parseDiagnostics;
   if (parseDiagnostics.length > 0) {
     return `Patch introduces a syntax error: ${ts.flattenDiagnosticMessageText(
       parseDiagnostics[0].messageText,
@@ -223,7 +227,12 @@ function validatePatchSource(
   const importedFiles = ts.preProcessFile(source, true, true).importedFiles;
   const candidateEdges: Array<{ from: string; to: string }> = [];
   for (const imported of importedFiles) {
-    const resolved = ts.resolveModuleName(imported.fileName, target.file, options, host).resolvedModule;
+    const resolved = ts.resolveModuleName(
+      imported.fileName,
+      target.file,
+      options,
+      host,
+    ).resolvedModule;
     if (!resolved) return `Patch introduces an unresolved import: ${imported.fileName}`;
     if (resolved.isExternalLibraryImport) continue;
     const resolvedPath = path.resolve(resolved.resolvedFileName);
@@ -324,7 +333,8 @@ function applyExactPatch(params: Record<string, unknown>): ToolResult {
   const expected = typeof params.expected === "string" ? params.expected : "";
   const replacement = typeof params.replacement === "string" ? params.replacement : "";
   const target = findPatchTarget(targetPath);
-  if (!target) return fail("Patch target changed after preflight.", { errorCode: "PATCH_TARGET_DENIED" });
+  if (!target)
+    return fail("Patch target changed after preflight.", { errorCode: "PATCH_TARGET_DENIED" });
   const content = fs.readFileSync(target.file, "utf8");
   const firstIndex = content.indexOf(expected);
   if (firstIndex < 0 || content.indexOf(expected, firstIndex + expected.length) >= 0) {
@@ -348,10 +358,13 @@ function applyExactPatch(params: Record<string, unknown>): ToolResult {
     } catch {
       // Best-effort temporary-file cleanup.
     }
-    return fail(`Patch could not be applied: ${error instanceof Error ? error.message : "write failed"}`, {
-      recoverable: false,
-      errorCode: "PATCH_WRITE_FAILED",
-    });
+    return fail(
+      `Patch could not be applied: ${error instanceof Error ? error.message : "write failed"}`,
+      {
+        recoverable: false,
+        errorCode: "PATCH_WRITE_FAILED",
+      },
+    );
   }
   return ok(`Applied a bounded patch to ${target.relativePath}.`, {
     path: target.file,
@@ -583,7 +596,12 @@ export function registerCodeTools(): void {
     requiresConfirmation: false,
     parameters: [
       { name: "path", type: "string", description: "Existing source file", required: true },
-      { name: "expected", type: "string", description: "Exact source block to replace", required: true },
+      {
+        name: "expected",
+        type: "string",
+        description: "Exact source block to replace",
+        required: true,
+      },
       { name: "replacement", type: "string", description: "Replacement block", required: true },
     ],
     async execute(params): Promise<ToolResult> {
@@ -600,7 +618,12 @@ export function registerCodeTools(): void {
     requiresConfirmation: true,
     parameters: [
       { name: "path", type: "string", description: "Existing source file", required: true },
-      { name: "expected", type: "string", description: "Exact source block to replace", required: true },
+      {
+        name: "expected",
+        type: "string",
+        description: "Exact source block to replace",
+        required: true,
+      },
       { name: "replacement", type: "string", description: "Replacement block", required: true },
     ],
     examples: ["Replace one function block in src/auth.ts."],

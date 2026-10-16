@@ -19,7 +19,11 @@ import { reflectToolResult } from "./reflection";
 import { TaskQueue } from "./task-queue";
 import { detachExecutionAbortListener, getState, pushActivity } from "./state";
 import { getLordConfig } from "./config";
-import { getRepositoryGraph, getRepositoryPromptContext, resolveRepositoryRoot } from "./tools/repository";
+import {
+  getRepositoryGraph,
+  getRepositoryPromptContext,
+  resolveRepositoryRoot,
+} from "./tools/repository";
 import { redactSourceSecrets } from "./tools/code";
 import {
   classifyFailure,

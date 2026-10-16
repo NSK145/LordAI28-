@@ -4,7 +4,11 @@
  */
 export function TypingDots() {
   return (
-    <div className="inline-flex items-center gap-1.5 px-1" role="status" aria-label="LORD is responding">
+    <div
+      className="inline-flex items-center gap-1.5 px-1"
+      role="status"
+      aria-label="LORD is responding"
+    >
       <span
         className="h-2 w-2 rounded-full animate-bounce motion-reduce:animate-none"
         style={{
