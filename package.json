@@ -31,11 +31,10 @@
     "@ai-sdk/openai": "^3.0.91",
     "@ai-sdk/openai-compatible": "^2.0.48",
     "@ai-sdk/react": "^3.0.198",
-    "@capacitor/android": "^8.4.0",
+    "@capacitor/android": "^8.5.3",
     "@capacitor/app": "^8.1.0",
     "@capacitor/camera": "^8.2.0",
-    "@capacitor/cli": "^8.4.0",
-    "@capacitor/core": "^8.4.0",
+    "@capacitor/core": "^8.5.3",
     "@capacitor/device": "^8.0.2",
     "@capacitor/filesystem": "^8.1.2",
     "@capacitor/haptics": "^8.0.2",
@@ -133,6 +132,7 @@
     "zod": "^4.4.3"
   },
   "devDependencies": {
+    "@capacitor/cli": "^8.5.3",
     "@eslint/js": "^9.32.0",
     "@lovable.dev/vite-tanstack-config": "^2.7.2",
     "@types/node": "^22.16.5",
