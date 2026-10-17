@@ -110,6 +110,8 @@ export function WakeWordProvider({
   const [messages, setMessages] = useState<VoiceMessage[]>([]);
   const [activeConversationId, setActiveConversationId] = useState<string | null>(null);
   const [voiceOutputEnabled, setVoiceOutputState] = useState(autoSpeak);
+  const [supported, setSupported] = useState(false);
+  const [voiceOutputSupported, setVoiceOutputSupported] = useState(false);
   const voiceOutputOverrideRef = useRef(false);
   const engineRef = useRef<WakeEngine | null>(null);
   const pipelineRef = useRef<VoicePipeline | null>(null);
@@ -119,11 +121,12 @@ export function WakeWordProvider({
   const enabledRef = useRef(false);
   const stateRef = useRef(state);
   stateRef.current = state;
-  const supported =
-    typeof navigator !== "undefined" &&
-    Boolean(navigator.mediaDevices?.getUserMedia) &&
-    Boolean(getSpeechRecognitionConstructor());
-  const voiceOutputSupported = typeof window !== "undefined" && "speechSynthesis" in window;
+  useEffect(() => {
+    setSupported(
+      Boolean(navigator.mediaDevices?.getUserMedia) && Boolean(getSpeechRecognitionConstructor()),
+    );
+    setVoiceOutputSupported("speechSynthesis" in window);
+  }, []);
 
   const updateState = useCallback((next: VoiceAssistantState) => {
     stateRef.current = next;
