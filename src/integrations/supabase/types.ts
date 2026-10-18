@@ -33,6 +33,83 @@ export type Database = {
   };
   public: {
     Tables: {
+      tasks: {
+        Row: {
+          id: string;
+          user_id: string;
+          title: string;
+          done: boolean;
+          priority: "low" | "med" | "high";
+          due_at: string | null;
+          reminder_id: number | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          title: string;
+          done?: boolean;
+          priority?: "low" | "med" | "high";
+          due_at?: string | null;
+          reminder_id?: number | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          user_id?: string;
+          title?: string;
+          done?: boolean;
+          priority?: "low" | "med" | "high";
+          due_at?: string | null;
+          reminder_id?: number | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      task_notifications: {
+        Row: {
+          id: string;
+          user_id: string;
+          task_id: string;
+          title: string;
+          body: string;
+          due_at: string;
+          read_at: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          task_id: string;
+          title: string;
+          body: string;
+          due_at: string;
+          read_at?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          user_id?: string;
+          task_id?: string;
+          title?: string;
+          body?: string;
+          due_at?: string;
+          read_at?: string | null;
+          created_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "task_notifications_owner_fkey";
+            columns: ["task_id", "user_id"];
+            isOneToOne: false;
+            referencedRelation: "tasks";
+            referencedColumns: ["id", "user_id"];
+          },
+        ];
+      };
       canvas_artifacts: {
         Row: {
           id: string;

@@ -165,6 +165,25 @@ export function TasksWidget({ data, state }: PanelProps<DashboardTasks>) {
             tone={data.dueToday > 0 ? "warning" : undefined}
           />
         </div>
+        {data.items.length > 0 ? (
+          <ul className="mt-3 space-y-1.5" aria-label="Upcoming tasks">
+            {data.items.map((task) => (
+              <li
+                key={task.id}
+                className="flex min-w-0 items-center justify-between gap-3 rounded-lg border border-border/50 bg-background/35 px-3 py-2"
+              >
+                <span className="min-w-0 truncate text-xs text-foreground/90">{task.title}</span>
+                <span className="shrink-0 text-[10px] text-muted-foreground">
+                  {task.due ? task.due.slice(0, 10) : "No due date"}
+                </span>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p className="mt-3 rounded-lg border border-dashed border-border/60 px-3 py-3 text-center text-xs text-muted-foreground">
+            You’re all clear. Add a task when you’re ready.
+          </p>
+        )}
       </PulseOnChange>
       <Link to="/productivity" className="mt-3 inline-block text-xs text-primary hover:underline">
         Open Productivity Center →
@@ -356,21 +375,31 @@ export function ConversationsWidget({ data, state }: PanelProps<DashboardConvers
         ) : (
           <ul className="space-y-2">
             {data.items.slice(0, 5).map((c) => (
-              <li
-                key={c.id}
-                className="flex items-center justify-between gap-3 rounded-md border border-border/40 bg-background/30 px-3 py-2"
-              >
-                <div className="min-w-0">
-                  <div className="flex items-center gap-1.5 truncate text-sm">
-                    {c.pinned && <Pin className="h-3 w-3 shrink-0 text-primary" />}
-                    {c.archived && <Archive className="h-3 w-3 shrink-0 text-muted-foreground" />}
-                    <span className="truncate">{c.title}</span>
+              <li key={c.id} className="rounded-md border border-border/40 bg-background/30">
+                <Link
+                  to="/chat"
+                  aria-label={`Open conversation: ${c.title}`}
+                  onClick={() => {
+                    window.setTimeout(() => {
+                      window.dispatchEvent(
+                        new CustomEvent("lord:chat-open-conversation", { detail: { id: c.id } }),
+                      );
+                    }, 100);
+                  }}
+                  className="flex min-w-0 items-center justify-between gap-3 rounded-md px-3 py-2 transition-colors hover:bg-primary/[0.06] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/70"
+                >
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-1.5 truncate text-sm">
+                      {c.pinned && <Pin className="h-3 w-3 shrink-0 text-primary" />}
+                      {c.archived && <Archive className="h-3 w-3 shrink-0 text-muted-foreground" />}
+                      <span className="truncate">{c.title}</span>
+                    </div>
+                    <div className="truncate text-[11px] text-muted-foreground">{c.preview}</div>
                   </div>
-                  <div className="truncate text-[11px] text-muted-foreground">{c.preview}</div>
-                </div>
-                <span className="shrink-0 text-xs text-muted-foreground">
-                  {relativeTime(c.lastActivity)}
-                </span>
+                  <span className="shrink-0 text-xs text-muted-foreground">
+                    {relativeTime(c.lastActivity)}
+                  </span>
+                </Link>
               </li>
             ))}
           </ul>

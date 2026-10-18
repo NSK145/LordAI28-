@@ -2,11 +2,12 @@ import { describe, expect, it } from "vitest";
 import { APP_NAVIGATION, PRIMARY_NAVIGATION, SECONDARY_NAVIGATION } from "./app-navigation";
 
 describe("app navigation", () => {
-  it("uses unique destinations and sends Tasks to the working productivity page", () => {
+  it("uses unique destinations and sends Tasks to the unified task center", () => {
     const destinations = APP_NAVIGATION.map(({ to }) => to);
     expect(new Set(destinations).size).toBe(destinations.length);
-    expect(APP_NAVIGATION.find(({ label }) => label === "Tasks")?.to).toBe("/productivity");
-    expect(destinations).not.toContain("/tasks");
+    expect(APP_NAVIGATION.find(({ label }) => label === "Tasks & Notifications")?.to).toBe(
+      "/tasks",
+    );
   });
 
   it("keeps four primary destinations and exposes every other destination as secondary", () => {

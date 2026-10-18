@@ -1,5 +1,5 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { lazy, Suspense, useState } from "react";
+import { lazy, Suspense, useEffect, useState } from "react";
 import { motion, useReducedMotion } from "framer-motion";
 import {
   Activity,
@@ -28,7 +28,6 @@ import {
   CalendarWidget,
   MemoryWidget,
   ConversationsWidget,
-  ResearchWidget,
   NotificationCenter,
 } from "@/components/lord/dashboard/panels";
 
@@ -56,7 +55,6 @@ const QUICK_ACTIONS = [
   { to: "/voice", label: "Voice Assistant", icon: Mic2, hint: "Say Hey, LORD" },
   { to: "/study", label: "Study", icon: GraduationCap, hint: "Learn faster" },
   { to: "/calendar", label: "Calendar", icon: Calendar, hint: "Your timeline" },
-  { to: "/documents", label: "Research", icon: undefined, hint: "Deep dive" },
   { to: "/productivity", label: "Tasks", icon: Target, hint: "Get it done" },
   { to: "/memory", label: "Memory", icon: Brain, hint: "Recall" },
 ] as const;
@@ -66,10 +64,26 @@ function Command() {
   const { user } = useCurrentUser();
   const navigate = useNavigate();
   const [prompt, setPrompt] = useState("");
+  const [now, setNow] = useState<Date | null>(null);
   const reduceMotion = useReducedMotion();
+  useEffect(() => {
+    const updateTime = () => setNow(new Date());
+    updateTime();
+    const interval = window.setInterval(updateTime, 60_000);
+    return () => window.clearInterval(interval);
+  }, []);
   const accountName =
     (user?.user_metadata?.name as string | undefined)?.trim() || user?.email?.split("@")[0] || "";
   const greetingName = accountName.split(/\s+/)[0];
+  const hour = now?.getHours() ?? -1;
+  const timeGreeting = hour < 12 ? "Good morning" : hour < 18 ? "Good afternoon" : "Good evening";
+  const todayLabel = now
+    ? new Intl.DateTimeFormat(undefined, {
+        weekday: "long",
+        month: "long",
+        day: "numeric",
+      }).format(now)
+    : "Your day, at a glance";
   const backendMessage = d.systemState.isLoading
     ? "Checking backend"
     : d.systemState.isError
@@ -142,9 +156,17 @@ function Command() {
                 )}
                 {providerMessage}
               </span>
+              <span aria-hidden="true" className="hidden text-border sm:inline">
+                /
+              </span>
+              <span>{todayLabel}</span>
             </p>
             <h1 className="mt-4 max-w-3xl font-display text-4xl font-semibold leading-[1.08] tracking-[-0.035em] sm:text-5xl md:text-[4.4rem]">
-              {greetingName ? `Good to see you, ${greetingName}.` : "Good to see you."}
+              {now && greetingName
+                ? `${timeGreeting}, ${greetingName}.`
+                : now
+                  ? `${timeGreeting}.`
+                  : "Welcome."}
             </h1>
             <p className="mt-5 max-w-lg text-base leading-7 text-muted-foreground md:text-lg md:leading-8">
               Your AI command center is ready. What would you like to work on?
@@ -228,7 +250,7 @@ function Command() {
 
       <div
         id="workspace-modules"
-        className="mb-8 grid scroll-mt-24 grid-cols-2 gap-3 sm:gap-4 md:grid-cols-3 lg:grid-cols-6 xl:grid-cols-7"
+        className="mb-8 grid scroll-mt-24 grid-cols-2 gap-3 sm:gap-4 md:grid-cols-3 lg:grid-cols-6"
       >
         {QUICK_ACTIONS.map(({ to, label, icon: Icon, hint }, i) => (
           <motion.div
@@ -280,9 +302,6 @@ function Command() {
         </MotionReveal>
         <MotionReveal delay={0.16}>
           <MemoryWidget data={d.memory} state={d.memoryState} />
-        </MotionReveal>
-        <MotionReveal delay={0.2}>
-          <ResearchWidget data={d.research} state={d.researchState} />
         </MotionReveal>
         <MotionReveal delay={0.24}>
           <LORDStatusPanel

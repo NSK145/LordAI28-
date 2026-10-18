@@ -18,6 +18,7 @@ import {
   RefreshCw,
   Download,
   FolderSearch,
+  ListTodo,
 } from "lucide-react";
 import { GlassCard, SectionTitle, RiskBadge, ResultView, Spinner, ORBITRON } from "./ui";
 import { useAgent, useToolCall, useStatus, type AgentResult } from "./api";
@@ -61,6 +62,13 @@ const inputCls =
 // ---------------------------------------------------------------------------
 
 const CARDS = [
+  {
+    to: "/tasks",
+    icon: ListTodo,
+    title: "TASKS & NOTIFICATIONS",
+    desc: "Manage priorities, due dates, reminders, and unread alerts.",
+    status: "Ready",
+  },
   {
     to: "/command-center/pc",
     icon: Monitor,

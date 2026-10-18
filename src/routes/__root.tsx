@@ -21,6 +21,7 @@ import { useQuery } from "@tanstack/react-query";
 import { DEFAULT_MODE, type LordMode } from "../lib/modes";
 import { supabase } from "../integrations/supabase/client";
 import { X } from "lucide-react";
+import { GlobalFooter } from "../components/lord/GlobalFooter";
 import {
   decideConnectivity,
   probeBackendReachability,
@@ -187,6 +188,7 @@ function RootShell({ children }: { children: ReactNode }) {
       </head>
       <body>
         {children}
+        <GlobalFooter />
         <Scripts />
       </body>
     </html>

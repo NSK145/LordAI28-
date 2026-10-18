@@ -56,6 +56,7 @@ export interface DashboardTasks {
   overdue: number;
   dueToday: number;
   total: number;
+  items: Array<Pick<Task, "id" | "title" | "priority" | "due">>;
 }
 
 export interface DashboardCalendar {
@@ -285,11 +286,21 @@ export async function fetchConversations(userId: string | null): Promise<Dashboa
   };
 }
 
-export async function fetchTasks(): Promise<DashboardTasks> {
-  const tasks = store.get<Task[]>("tasks", []);
+export async function fetchTasks(userId: string | null): Promise<DashboardTasks> {
+  if (!userId) return { pending: 0, completed: 0, overdue: 0, dueToday: 0, total: 0, items: [] };
+  const { data, error } = await supabase
+    .from("tasks")
+    .select("id, title, done, priority, due_at, created_at")
+    .eq("user_id", userId)
+    .order("created_at", { ascending: false });
+  if (error) throw error;
+  const tasks = data ?? [];
   const now = new Date();
-  const todayStart = startOfDay(now);
-  const todayKey = `${now.getFullYear()}-${now.getMonth() + 1}-${now.getDate()}`;
+  const todayKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+  const dueDayKey = (value: string) => {
+    const date = new Date(value);
+    return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+  };
   let pending = 0;
   let completed = 0;
   let overdue = 0;
@@ -300,13 +311,22 @@ export async function fetchTasks(): Promise<DashboardTasks> {
       continue;
     }
     pending++;
-    if (t.due) {
-      const dueKey = String(t.due).slice(0, 10);
+    if (t.due_at) {
+      const dueKey = dueDayKey(t.due_at);
       if (dueKey < todayKey) overdue++;
       else if (dueKey === todayKey) dueToday++;
     }
   }
-  return { pending, completed, overdue, dueToday, total: tasks.length };
+  const items = tasks
+    .filter((task) => !task.done)
+    .sort((a, b) => {
+      if (!a.due_at) return b.due_at ? 1 : a.created_at.localeCompare(b.created_at);
+      if (!b.due_at) return -1;
+      return a.due_at.localeCompare(b.due_at);
+    })
+    .slice(0, 4)
+    .map(({ id, title, priority, due_at }) => ({ id, title, priority, due: due_at ?? undefined }));
+  return { pending, completed, overdue, dueToday, total: tasks.length, items };
 }
 
 export async function fetchCalendar(): Promise<DashboardCalendar> {
@@ -503,7 +523,7 @@ export async function fetchDashboard(userId: string | null): Promise<DashboardDa
   const [system, tasks, calendar, memory, conversations, research, ai, notifications] =
     await Promise.all([
       fetchSystem(),
-      fetchTasks(),
+      fetchTasks(userId),
       fetchCalendar(),
       fetchMemory(userId),
       fetchConversations(userId),

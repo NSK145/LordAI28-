@@ -153,7 +153,11 @@ function VoicePage() {
         </header>
 
         <section className="flex w-full flex-1 flex-col items-center justify-center py-3 text-center">
-          <div className="voice-orb-state" data-state={state}>
+          <div
+            className="voice-orb-state"
+            data-state={state === "disabled" ? "idle" : state}
+            aria-hidden="true"
+          >
             <EnergyOrb />
           </div>
           <p

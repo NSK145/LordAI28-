@@ -26,7 +26,8 @@ import type { ConversationWithFolder } from "@/lib/folders";
 import { RichMessage } from "@/components/lord/RichMessage";
 import { TypingDots } from "@/components/lord/TypingDots";
 import { ChatInput } from "@/components/lord/chat/input/ChatInput";
-import { ModelSelector } from "@/components/lord/chat/input/ModelSelector";
+import { ModeSelector, ModelSelector } from "@/components/lord/chat/input/ModelSelector";
+import { FREE_CHAT_MODELS } from "@/lib/ai/chat-model-catalog";
 import {
   ChatAttachmentPreview,
   type ChatAttachmentReference,
@@ -266,8 +267,19 @@ function ChatPage() {
   const calendar = useCalendar();
 
   const [mode, setMode] = usePersistedState<LordMode>("chat-mode", DEFAULT_MODE);
+  const [modelId, setModelId] = usePersistedState("chat-model-id", FREE_CHAT_MODELS[0]?.id ?? "");
+  const selectedModelId =
+    FREE_CHAT_MODELS.find((model) => model.id === modelId)?.id ?? FREE_CHAT_MODELS[0]?.id ?? "";
   const [responseStyle] = usePersistedState<ResponseStyle>("chat-response-style", "balanced");
   const [webSearch, setWebSearch] = usePersistedState("chat-web-search", false);
+  const [webSearchDepth, setWebSearchDepth] = usePersistedState<"basic" | "advanced">(
+    "chat-web-search-depth",
+    "basic",
+  );
+  const [webSearchResults, setWebSearchResults] = usePersistedState<number>(
+    "chat-web-search-results",
+    5,
+  );
   const [messageSearch, setMessageSearch] = useState("");
   const [searchOpen, setSearchOpen] = useState(false);
   const [pinnedMessages, setPinnedMessages] = usePersistedState<string[]>(
@@ -433,6 +445,7 @@ function ChatPage() {
   const modeRef = useRef<LordMode>(mode);
   const requestBodyRef = useRef({
     mode,
+    modelId: selectedModelId,
     context: {
       page: currentRoute,
       workflow: activeWorkflow,
@@ -440,11 +453,14 @@ function ChatPage() {
       history,
       responseStyle,
       webSearch,
+      webSearchDepth,
+      webSearchResults,
     },
   });
 
   requestBodyRef.current = {
     mode,
+    modelId: selectedModelId,
     context: {
       page: currentRoute,
       workflow: activeWorkflow,
@@ -452,6 +468,8 @@ function ChatPage() {
       history,
       responseStyle,
       webSearch,
+      webSearchDepth,
+      webSearchResults,
     },
   };
   modeRef.current = mode;
@@ -597,6 +615,7 @@ function ChatPage() {
     messages: initialMessages,
     transport,
     onFinish: async ({ message, messages: completed, isError }) => {
+      setProcessingLabel(null);
       const meta = (message?.metadata ?? null) as { tokenUsage?: TokenUsageEvent } | null;
       if (meta?.tokenUsage) {
         tokenUsageStore.record(meta.tokenUsage);
@@ -1289,9 +1308,20 @@ function ChatPage() {
     setMessages([]); // will be replaced by initialMessages once query loads
   };
 
+  useEffect(() => {
+    const openRequestedConversation = (event: Event) => {
+      const id = (event as CustomEvent<{ id?: unknown }>).detail?.id;
+      if (typeof id === "string" && id) loadConversation(id);
+    };
+    window.addEventListener("lord:chat-open-conversation", openRequestedConversation);
+    return () =>
+      window.removeEventListener("lord:chat-open-conversation", openRequestedConversation);
+  }, [loadConversation]);
+
   // Send a user message to the AI, choosing the right path for new vs. existing
   // conversations. The user message is already persisted in Supabase at this point.
   const sendToAI = (message: UIMessage, conversationId: string, isNew: boolean) => {
+    if (webSearch) setProcessingLabel("Searching live web sources…");
     if (isNew) {
       setPendingInitialSend({ conversationId, message });
     } else {
@@ -2489,10 +2519,17 @@ function ChatPage() {
                   {conversations.find((c) => c.id === conversationId)?.title || "New conversation"}
                 </h1>
                 <div className="ml-auto flex shrink-0 items-center gap-2">
-                  <ModelSelector
+                  <ModeSelector
                     value={mode}
                     onChange={(nextMode) => {
                       setMode(nextMode);
+                      emitDashboardEvent("ai");
+                    }}
+                  />
+                  <ModelSelector
+                    value={selectedModelId}
+                    onChange={(nextModelId) => {
+                      setModelId(nextModelId);
                       emitDashboardEvent("ai");
                     }}
                   />
@@ -2625,6 +2662,10 @@ function ChatPage() {
                   resetAttachmentIds={composerResetAttachmentIds}
                   webSearch={webSearch}
                   onWebSearchChange={setWebSearch}
+                  webSearchDepth={webSearchDepth}
+                  onWebSearchDepthChange={setWebSearchDepth}
+                  webSearchResults={webSearchResults}
+                  onWebSearchResultsChange={setWebSearchResults}
                 />
               </div>
             </div>

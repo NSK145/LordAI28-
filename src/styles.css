@@ -659,6 +659,87 @@ body::after {
   pointer-events: none;
 }
 
+/* The voice route lets the core breathe without adding a card around it. */
+.voice-orb-state {
+  position: relative;
+  display: grid;
+  width: min(78vw, 25rem);
+  aspect-ratio: 1;
+  place-items: center;
+  isolation: isolate;
+}
+
+.voice-orb-state::before,
+.voice-orb-state::after {
+  position: absolute;
+  inset: 13%;
+  z-index: -1;
+  border: 1px solid rgba(108, 218, 255, 0.09);
+  border-radius: 50%;
+  content: "";
+  pointer-events: none;
+  transform: scale(0.92);
+  opacity: 0;
+}
+
+.voice-orb-state::before {
+  box-shadow:
+    0 0 35px rgba(51, 181, 255, 0.1),
+    inset 0 0 32px rgba(51, 181, 255, 0.06);
+}
+
+.voice-orb-state::after {
+  inset: 7%;
+  border-color: rgba(120, 229, 255, 0.12);
+}
+
+.voice-orb-state > .lord-orb-host {
+  width: 100%;
+  height: 100%;
+}
+
+.voice-orb-state[data-state="requesting_permission"]::before,
+.voice-orb-state[data-state="activated"]::before,
+.voice-orb-state[data-state="command_listening"]::before,
+.voice-orb-state[data-state="wake_listening"]::before {
+  animation: voice-orb-ripple 2.8s ease-out infinite;
+}
+
+.voice-orb-state[data-state="requesting_permission"]::after,
+.voice-orb-state[data-state="activated"]::after,
+.voice-orb-state[data-state="command_listening"]::after,
+.voice-orb-state[data-state="wake_listening"]::after {
+  animation: voice-orb-ripple 2.8s ease-out 1.25s infinite;
+}
+
+.voice-orb-state[data-state="processing"]::before,
+.voice-orb-state[data-state="speaking"]::before {
+  border-color: rgba(136, 181, 255, 0.2);
+  opacity: 0.75;
+  transform: scale(1);
+}
+
+.voice-orb-state[data-state="error"]::before {
+  border-color: rgba(255, 194, 119, 0.22);
+  box-shadow: 0 0 28px rgba(255, 164, 84, 0.08);
+  opacity: 0.8;
+  transform: scale(1);
+}
+
+@keyframes voice-orb-ripple {
+  0% {
+    transform: scale(0.88);
+    opacity: 0;
+  }
+  20% {
+    opacity: 0.6;
+  }
+  100% {
+    transform: scale(1.08);
+    opacity: 0;
+  }
+}
+
 .lord-orb-svg {
   background: transparent;
   overflow: visible;
@@ -742,6 +823,29 @@ body::after {
 .lord-orb-host[data-state="wake_listening"] .lord-orb-svg,
 .lord-orb-host[data-state="command_listening"] .lord-orb-svg {
   filter: brightness(1.08);
+}
+
+.lord-orb-host[data-state="idle"] .orb-core-pulse {
+  animation-duration: 6.8s;
+}
+
+.lord-orb-host[data-state="requesting_permission"] .lord-orb-svg,
+.lord-orb-host[data-state="activated"] .lord-orb-svg {
+  filter: brightness(1.28) saturate(1.08);
+}
+
+.lord-orb-host[data-state="requesting_permission"] .orbital-spin,
+.lord-orb-host[data-state="activated"] .orbital-spin {
+  animation-duration: 16s;
+}
+
+.lord-orb-host[data-state="requesting_permission"] .orb-core-pulse,
+.lord-orb-host[data-state="activated"] .orb-core-pulse {
+  animation-duration: 1.8s;
+}
+
+.lord-orb-host[data-state="speaking"] .orbital-spin-mid {
+  animation-duration: 32s;
 }
 
 .lord-orb-host[data-state="listening"] .orb-core-pulse,
@@ -858,6 +962,26 @@ body::after {
   .lord-orb-stage,
   .lord-orb-stage::before {
     animation: none;
+  }
+
+  .voice-orb-state::before,
+  .voice-orb-state::after {
+    animation: none !important;
+  }
+}
+
+@media (max-width: 640px) {
+  .voice-orb-state {
+    width: min(76vw, 19rem);
+  }
+
+  /* Keep animated SVG compositing modest in embedded mobile browsers. */
+  .voice-orb-state .lord-orb-host::before {
+    filter: blur(20px);
+  }
+
+  .voice-orb-state .orbital-spin-wide {
+    display: none;
   }
 }
 

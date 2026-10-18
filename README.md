@@ -298,24 +298,28 @@ Copy the example environment file and fill in your values. **Never commit `.env`
 cp .env.example .env
 ```
 
-| Variable                                  | Required | Where  | Purpose                                |
-| ----------------------------------------- | -------- | ------ | -------------------------------------- |
-| `VITE_SUPABASE_URL`                       | ✅       | Client | Supabase project URL (public)          |
-| `VITE_SUPABASE_PUBLISHABLE_KEY`           | ✅       | Client | Supabase anon/publishable key (public) |
-| `SUPABASE_URL`                            | ✅       | Server | Supabase project URL (server)          |
-| `SUPABASE_PUBLISHABLE_KEY`                | ✅       | Server | Supabase anon/publishable key (server) |
-| `OPENROUTER_API_KEY`                      | ✅       | Server | OpenRouter API key for AI (secret)     |
+| Variable                                  | Required | Where  | Purpose                                            |
+| ----------------------------------------- | -------- | ------ | -------------------------------------------------- |
+| `VITE_SUPABASE_URL`                       | ✅       | Client | Supabase project URL (public)                      |
+| `VITE_SUPABASE_PUBLISHABLE_KEY`           | ✅       | Client | Supabase anon/publishable key (public)             |
+| `SUPABASE_URL`                            | ✅       | Server | Supabase project URL (server)                      |
+| `SUPABASE_PUBLISHABLE_KEY`                | ✅       | Server | Supabase anon/publishable key (server)             |
+| `OPENROUTER_API_KEY`                      | ✅       | Server | OpenRouter API key for AI (secret)                 |
 | `TAVILY_API_KEY`                          | ⬜       | Server | Optional cited web search (secret; Sources toggle) |
-| `SUPABASE_SERVICE_ROLE_KEY`               | ⬜       | Server | Admin client (bypasses RLS)            |
-| `SUPABASE_PROJECT_ID`                     | ⬜       | Both   | Supabase CLI / tooling                 |
-| `OPENROUTER_REFERER` / `OPENROUTER_TITLE` | ⬜       | Server | OpenRouter attribution headers         |
+| `SUPABASE_SERVICE_ROLE_KEY`               | ⬜       | Server | Admin client (bypasses RLS)                        |
+| `SUPABASE_PROJECT_ID`                     | ⬜       | Both   | Supabase CLI / tooling                             |
+| `OPENROUTER_REFERER` / `OPENROUTER_TITLE` | ⬜       | Server | OpenRouter attribution headers                     |
 
 > Only `VITE_`-prefixed variables reach the browser. Keep `OPENROUTER_API_KEY` and
 > service-role keys server-side only.
 
-The chat **Sources** toggle requires `TAVILY_API_KEY`. Tavily currently lists a free plan
-with 1,000 monthly API credits and no credit card; web search stops when its quota is
-exhausted. Chat models continue to use LORD's free-only model routing.
+The chat **Sources** toggle requires a server-side `TAVILY_API_KEY`. Get a key at
+[Tavily](https://app.tavily.com/), then add it to your local `.env` file using the
+placeholder above. In Vercel, add `TAVILY_API_KEY` under **Project → Settings → Environment
+Variables** for each environment that should support web search, then redeploy. Do not use
+a `VITE_` prefix. Search requests support Tavily's `basic` and `advanced` depths and 1–20
+results; the chat defaults to basic depth and five results. The API account's quotas and
+limits apply, and quota exhaustion is surfaced so LORD never implies a failed search worked.
 
 ---
 

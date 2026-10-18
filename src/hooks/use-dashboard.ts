@@ -35,7 +35,14 @@ const EMPTY_SYSTEM: DashboardSystem = {
   healthScore: 100,
   healthStatus: "healthy",
 };
-const EMPTY_TASKS: DashboardTasks = { pending: 0, completed: 0, overdue: 0, dueToday: 0, total: 0 };
+const EMPTY_TASKS: DashboardTasks = {
+  pending: 0,
+  completed: 0,
+  overdue: 0,
+  dueToday: 0,
+  total: 0,
+  items: [],
+};
 const EMPTY_CALENDAR: DashboardCalendar = {
   todays: [],
   tomorrow: [],
@@ -142,8 +149,8 @@ export function useDashboard(): UseDashboardResult {
   });
 
   const tasks = useQuery({
-    queryKey: ["dashboard", "tasks"],
-    queryFn: fetchTasks,
+    queryKey: ["dashboard", "tasks", userId],
+    queryFn: () => fetchTasks(userId),
     enabled: mounted,
     refetchInterval: POLL_MS,
     staleTime: 10_000,

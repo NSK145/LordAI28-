@@ -19,7 +19,7 @@ export const APP_NAVIGATION = [
   { to: "/voice", label: "Voice Assistant", icon: Mic2 },
   { to: "/study", label: "Study", icon: GraduationCap },
   { to: "/calendar", label: "Calendar", icon: Calendar },
-  { to: "/productivity", label: "Tasks", icon: Target },
+  { to: "/tasks", label: "Tasks & Notifications", icon: Target },
   { to: "/documents", label: "Documents", icon: FileText },
   { to: "/statistics", label: "Statistics", icon: BarChart3 },
   { to: "/settings", label: "Settings", icon: Settings },

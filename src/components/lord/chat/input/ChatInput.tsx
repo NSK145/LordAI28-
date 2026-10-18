@@ -54,6 +54,10 @@ export function ChatInput({
   disabled,
   webSearch,
   onWebSearchChange,
+  webSearchDepth,
+  onWebSearchDepthChange,
+  webSearchResults,
+  onWebSearchResultsChange,
   processingLabel,
   resetKey = 0,
   resetAttachmentIds = [],
@@ -66,6 +70,10 @@ export function ChatInput({
   disabled?: boolean;
   webSearch: boolean;
   onWebSearchChange: (enabled: boolean) => void;
+  webSearchDepth: "basic" | "advanced";
+  onWebSearchDepthChange: (depth: "basic" | "advanced") => void;
+  webSearchResults: number;
+  onWebSearchResultsChange: (count: number) => void;
   processingLabel?: string | null;
   resetKey?: number;
   resetAttachmentIds?: readonly string[];
@@ -448,6 +456,33 @@ export function ChatInput({
           </span>
 
           <div className="flex items-center gap-1.5">
+            {webSearch && (
+              <>
+                <select
+                  aria-label="Web search depth"
+                  value={webSearchDepth}
+                  onChange={(event) =>
+                    onWebSearchDepthChange(event.target.value as "basic" | "advanced")
+                  }
+                  className="h-8 max-w-24 rounded-full border border-white/10 bg-background px-2 text-xs text-white/75 outline-none focus-visible:ring-2 focus-visible:ring-cyan-400"
+                >
+                  <option value="basic">Basic</option>
+                  <option value="advanced">Advanced</option>
+                </select>
+                <select
+                  aria-label="Web search result count"
+                  value={webSearchResults}
+                  onChange={(event) => onWebSearchResultsChange(Number(event.target.value))}
+                  className="h-8 max-w-20 rounded-full border border-white/10 bg-background px-2 text-xs text-white/75 outline-none focus-visible:ring-2 focus-visible:ring-cyan-400"
+                >
+                  {[5, 10, 20].map((count) => (
+                    <option key={count} value={count}>
+                      {count} results
+                    </option>
+                  ))}
+                </select>
+              </>
+            )}
             <button
               type="button"
               aria-pressed={webSearch}
