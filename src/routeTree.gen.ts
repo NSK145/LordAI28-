@@ -18,6 +18,7 @@ import { Route as AuthenticatedBoardsRouteImport } from './routes/_authenticated
 import { Route as AuthenticatedCalendarRouteImport } from './routes/_authenticated/calendar'
 import { Route as AuthenticatedChatRouteImport } from './routes/_authenticated/chat'
 import { Route as AuthenticatedCommandCenterRouteRouteImport } from './routes/_authenticated/command-center/route'
+import { Route as AuthenticatedCreateApkaJalwaRouteImport } from './routes/_authenticated/create-apka-jalwa'
 import { Route as AuthenticatedDocumentsRouteImport } from './routes/_authenticated/documents'
 import { Route as AuthenticatedFeedRouteImport } from './routes/_authenticated/feed'
 import { Route as AuthenticatedImagesRouteImport } from './routes/_authenticated/images'
@@ -34,6 +35,7 @@ import { Route as AuthenticatedStudyRouteImport } from './routes/_authenticated/
 import { Route as AuthenticatedTasksRouteImport } from './routes/_authenticated/tasks'
 import { Route as AuthenticatedVoiceRouteImport } from './routes/_authenticated/voice'
 import { Route as ApiChatRouteImport } from './routes/api/chat'
+import { Route as ApiGamesRouteImport } from './routes/api/games'
 import { Route as ApiHealthRouteImport } from './routes/api/health'
 import { Route as ApiImagesRouteImport } from './routes/api/images'
 import { Route as ApiOpenrouterTestRouteImport } from './routes/api/openrouter-test'
@@ -164,6 +166,12 @@ const AuthenticatedCommandCenterRouteRoute =
     path: '/command-center',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
+const AuthenticatedCreateApkaJalwaRoute =
+  AuthenticatedCreateApkaJalwaRouteImport.update({
+    id: '/create-apka-jalwa',
+    path: '/create-apka-jalwa',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const AuthenticatedDocumentsRoute = AuthenticatedDocumentsRouteImport.update({
   id: '/documents',
   path: '/documents',
@@ -243,6 +251,11 @@ const AuthenticatedVoiceRoute = AuthenticatedVoiceRouteImport.update({
 const ApiChatRoute = ApiChatRouteImport.update({
   id: '/api/chat',
   path: '/api/chat',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiGamesRoute = ApiGamesRouteImport.update({
+  id: '/api/games',
+  path: '/api/games',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiHealthRoute = ApiHealthRouteImport.update({
@@ -697,6 +710,7 @@ export interface FileRoutesByFullPath {
   '/boards': typeof AuthenticatedBoardsRoute
   '/calendar': typeof AuthenticatedCalendarRoute
   '/chat': typeof AuthenticatedChatRoute
+  '/create-apka-jalwa': typeof AuthenticatedCreateApkaJalwaRoute
   '/documents': typeof AuthenticatedDocumentsRoute
   '/feed': typeof AuthenticatedFeedRoute
   '/images': typeof AuthenticatedImagesRoute
@@ -713,6 +727,7 @@ export interface FileRoutesByFullPath {
   '/tasks': typeof AuthenticatedTasksRoute
   '/voice': typeof AuthenticatedVoiceRoute
   '/api/chat': typeof ApiChatRouteWithChildren
+  '/api/games': typeof ApiGamesRoute
   '/api/health': typeof ApiHealthRoute
   '/api/images': typeof ApiImagesRouteWithChildren
   '/api/openrouter-test': typeof ApiOpenrouterTestRoute
@@ -806,6 +821,7 @@ export interface FileRoutesByTo {
   '/boards': typeof AuthenticatedBoardsRoute
   '/calendar': typeof AuthenticatedCalendarRoute
   '/chat': typeof AuthenticatedChatRoute
+  '/create-apka-jalwa': typeof AuthenticatedCreateApkaJalwaRoute
   '/documents': typeof AuthenticatedDocumentsRoute
   '/feed': typeof AuthenticatedFeedRoute
   '/images': typeof AuthenticatedImagesRoute
@@ -822,6 +838,7 @@ export interface FileRoutesByTo {
   '/tasks': typeof AuthenticatedTasksRoute
   '/voice': typeof AuthenticatedVoiceRoute
   '/api/chat': typeof ApiChatRouteWithChildren
+  '/api/games': typeof ApiGamesRoute
   '/api/health': typeof ApiHealthRoute
   '/api/images': typeof ApiImagesRouteWithChildren
   '/api/openrouter-test': typeof ApiOpenrouterTestRoute
@@ -918,6 +935,7 @@ export interface FileRoutesById {
   '/_authenticated/boards': typeof AuthenticatedBoardsRoute
   '/_authenticated/calendar': typeof AuthenticatedCalendarRoute
   '/_authenticated/chat': typeof AuthenticatedChatRoute
+  '/_authenticated/create-apka-jalwa': typeof AuthenticatedCreateApkaJalwaRoute
   '/_authenticated/documents': typeof AuthenticatedDocumentsRoute
   '/_authenticated/feed': typeof AuthenticatedFeedRoute
   '/_authenticated/images': typeof AuthenticatedImagesRoute
@@ -934,6 +952,7 @@ export interface FileRoutesById {
   '/_authenticated/tasks': typeof AuthenticatedTasksRoute
   '/_authenticated/voice': typeof AuthenticatedVoiceRoute
   '/api/chat': typeof ApiChatRouteWithChildren
+  '/api/games': typeof ApiGamesRoute
   '/api/health': typeof ApiHealthRoute
   '/api/images': typeof ApiImagesRouteWithChildren
   '/api/openrouter-test': typeof ApiOpenrouterTestRoute
@@ -1030,6 +1049,7 @@ export interface FileRouteTypes {
     | '/boards'
     | '/calendar'
     | '/chat'
+    | '/create-apka-jalwa'
     | '/documents'
     | '/feed'
     | '/images'
@@ -1046,6 +1066,7 @@ export interface FileRouteTypes {
     | '/tasks'
     | '/voice'
     | '/api/chat'
+    | '/api/games'
     | '/api/health'
     | '/api/images'
     | '/api/openrouter-test'
@@ -1139,6 +1160,7 @@ export interface FileRouteTypes {
     | '/boards'
     | '/calendar'
     | '/chat'
+    | '/create-apka-jalwa'
     | '/documents'
     | '/feed'
     | '/images'
@@ -1155,6 +1177,7 @@ export interface FileRouteTypes {
     | '/tasks'
     | '/voice'
     | '/api/chat'
+    | '/api/games'
     | '/api/health'
     | '/api/images'
     | '/api/openrouter-test'
@@ -1250,6 +1273,7 @@ export interface FileRouteTypes {
     | '/_authenticated/boards'
     | '/_authenticated/calendar'
     | '/_authenticated/chat'
+    | '/_authenticated/create-apka-jalwa'
     | '/_authenticated/documents'
     | '/_authenticated/feed'
     | '/_authenticated/images'
@@ -1266,6 +1290,7 @@ export interface FileRouteTypes {
     | '/_authenticated/tasks'
     | '/_authenticated/voice'
     | '/api/chat'
+    | '/api/games'
     | '/api/health'
     | '/api/images'
     | '/api/openrouter-test'
@@ -1359,6 +1384,7 @@ export interface RootRouteChildren {
   ResetPasswordRoute: typeof ResetPasswordRoute
   SitemapDotxmlRoute: typeof SitemapDotxmlRoute
   ApiChatRoute: typeof ApiChatRouteWithChildren
+  ApiGamesRoute: typeof ApiGamesRoute
   ApiHealthRoute: typeof ApiHealthRoute
   ApiImagesRoute: typeof ApiImagesRouteWithChildren
   ApiOpenrouterTestRoute: typeof ApiOpenrouterTestRoute
@@ -1483,6 +1509,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedCommandCenterRouteRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/create-apka-jalwa': {
+      id: '/_authenticated/create-apka-jalwa'
+      path: '/create-apka-jalwa'
+      fullPath: '/create-apka-jalwa'
+      preLoaderRoute: typeof AuthenticatedCreateApkaJalwaRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/documents': {
       id: '/_authenticated/documents'
       path: '/documents'
@@ -1593,6 +1626,13 @@ declare module '@tanstack/react-router' {
       path: '/api/chat'
       fullPath: '/api/chat'
       preLoaderRoute: typeof ApiChatRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/games': {
+      id: '/api/games'
+      path: '/api/games'
+      fullPath: '/api/games'
+      preLoaderRoute: typeof ApiGamesRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/health': {
@@ -2230,6 +2270,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedBoardsRoute: typeof AuthenticatedBoardsRoute
   AuthenticatedCalendarRoute: typeof AuthenticatedCalendarRoute
   AuthenticatedChatRoute: typeof AuthenticatedChatRoute
+  AuthenticatedCreateApkaJalwaRoute: typeof AuthenticatedCreateApkaJalwaRoute
   AuthenticatedDocumentsRoute: typeof AuthenticatedDocumentsRoute
   AuthenticatedFeedRoute: typeof AuthenticatedFeedRoute
   AuthenticatedImagesRoute: typeof AuthenticatedImagesRoute
@@ -2260,6 +2301,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedBoardsRoute: AuthenticatedBoardsRoute,
   AuthenticatedCalendarRoute: AuthenticatedCalendarRoute,
   AuthenticatedChatRoute: AuthenticatedChatRoute,
+  AuthenticatedCreateApkaJalwaRoute: AuthenticatedCreateApkaJalwaRoute,
   AuthenticatedDocumentsRoute: AuthenticatedDocumentsRoute,
   AuthenticatedFeedRoute: AuthenticatedFeedRoute,
   AuthenticatedImagesRoute: AuthenticatedImagesRoute,
@@ -2353,6 +2395,7 @@ const rootRouteChildren: RootRouteChildren = {
   ResetPasswordRoute: ResetPasswordRoute,
   SitemapDotxmlRoute: SitemapDotxmlRoute,
   ApiChatRoute: ApiChatRouteWithChildren,
+  ApiGamesRoute: ApiGamesRoute,
   ApiHealthRoute: ApiHealthRoute,
   ApiImagesRoute: ApiImagesRouteWithChildren,
   ApiOpenrouterTestRoute: ApiOpenrouterTestRoute,
