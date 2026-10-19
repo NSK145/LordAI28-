@@ -12,3 +12,4 @@ export * from "./image-service";
 export { enhanceImagePrompt, inferImagePromptProfile } from "./image-prompt";
 export type { ImagePromptProfile } from "./image-prompt";
 export { detectImageIntent } from "./image-intent";
+export { isInternalImageToolPayload } from "./image-intent";

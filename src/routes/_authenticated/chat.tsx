@@ -34,7 +34,11 @@ import {
 } from "@/components/lord/chat/ChatAttachmentPreview";
 import { ChatErrorBoundary } from "@/components/lord/ChatErrorBoundary";
 import ImageGenModal from "@/components/lord/ImageGenModal";
-import { detectImageIntent } from "@/lib/ai/image";
+import { detectImageIntent, isInternalImageToolPayload } from "@/lib/ai/image";
+import {
+  GeneratedImageMessage,
+  type ImageGenerationMessageData,
+} from "@/components/lord/chat/GeneratedImageMessage";
 import type { ChatSubmitPayload } from "@/components/lord/chat/input/types";
 import { getToolDef } from "@/components/lord/chat/input/tools";
 import {
@@ -319,6 +323,7 @@ function ChatPage() {
   const [editingMessageId, setEditingMessageId] = useState<string | null>(null);
   const [imageModalOpen, setImageModalOpen] = useState(false);
   const [imagePrompt, setImagePrompt] = useState("");
+  const imageRequestsInFlightRef = useRef(new Set<string>());
   const [conversationId, setConversationId] = useState<string | null>(null);
 
   const [sidebarOpen, setSidebarOpen] = useState(true);
@@ -1318,9 +1323,135 @@ function ChatPage() {
       window.removeEventListener("lord:chat-open-conversation", openRequestedConversation);
   }, [loadConversation]);
 
-  // Send a user message to the AI, choosing the right path for new vs. existing
-  // conversations. The user message is already persisted in Supabase at this point.
+  const runImageGeneration = useCallback(
+    async (message: UIMessage, targetConversationId: string) => {
+      if (imageRequestsInFlightRef.current.has(message.id)) return;
+      imageRequestsInFlightRef.current.add(message.id);
+      const assistantId = crypto.randomUUID();
+      const prompt = getMessageText(message).trim();
+      const runningMessage: UIMessage = {
+        id: assistantId,
+        role: "assistant",
+        parts: [{ type: "text", text: "" }],
+        metadata: { imageGeneration: { status: "running" } },
+      };
+      setMessages((previous) => [
+        ...previous.filter((item) => item.id !== message.id),
+        message,
+        runningMessage,
+      ]);
+      setSavingMessage(true);
+      setProcessingLabel("Generating your image…");
+      setPersistenceError(null);
+
+      try {
+        const response = await authenticatedFetch(`${getApiBaseUrl()}/api/images`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ prompt, conversationId: targetConversationId }),
+        });
+        const body = (await response.json().catch(() => null)) as {
+          success?: boolean;
+          images?: unknown;
+          imageUrl?: unknown;
+          messageIds?: unknown;
+          persisted?: unknown;
+          error?: unknown;
+          code?: unknown;
+        } | null;
+        if (!response.ok || !body?.success) {
+          const messageText =
+            typeof body?.error === "string"
+              ? body.error
+              : "Image generation is unavailable. Please try again later.";
+          throw new Error(
+            body?.code === "MISSING_CREDENTIALS"
+              ? "Image generation has no configured provider. The server needs CLOUDFLARE_ACCOUNT_ID and CLOUDFLARE_API_TOKEN, or its existing OpenRouter image fallback must be configured. Please contact the site administrator."
+              : messageText,
+          );
+        }
+        const urls = Array.isArray(body.images)
+          ? body.images.filter((url): url is string => typeof url === "string" && url.length > 0)
+          : typeof body.imageUrl === "string"
+            ? [body.imageUrl]
+            : [];
+        if (!urls.length) throw new Error("The image service returned no displayable image.");
+        const data: ImageGenerationMessageData = {
+          status: "success",
+          ...(body.persisted === false
+            ? {
+                message:
+                  "Image created, but it could not be saved. It may not remain available after this chat reloads.",
+              }
+            : {}),
+          images: urls.map((url) => ({
+            url,
+            alt: prompt,
+            mimeType: url.match(/^data:(image\/[^;]+)/)?.[1],
+          })),
+        };
+        const persistedMessageId =
+          Array.isArray(body.messageIds) && typeof body.messageIds[0] === "string"
+            ? body.messageIds[0]
+            : assistantId;
+        setMessages((previous) => {
+          const withoutRealtimeDuplicate = previous.filter(
+            (item) => item.id !== persistedMessageId || item.id === assistantId,
+          );
+          return withoutRealtimeDuplicate.map((item) =>
+            item.id === assistantId
+              ? { ...item, id: persistedMessageId, metadata: { imageGeneration: data } }
+              : item,
+          );
+        });
+      } catch (error) {
+        const safeMessage =
+          error instanceof Error ? error.message : "Image generation failed. Please try again.";
+        const data: ImageGenerationMessageData = { status: "error", message: safeMessage };
+        setMessages((previous) =>
+          previous.map((item) =>
+            item.id === assistantId ? { ...item, metadata: { imageGeneration: data } } : item,
+          ),
+        );
+        const tag = createClientTag();
+        markClientTagSent(tag);
+        await supabase
+          .from("messages")
+          .insert({
+            id: assistantId,
+            conversation_id: targetConversationId,
+            user_id: user.id,
+            role: "assistant",
+            message_type: "image",
+            content: "",
+            metadata: {
+              imageGeneration: data,
+            } as unknown as import("@/integrations/supabase/types").Json,
+            model: "image-generation",
+            client_tag: tag,
+          })
+          .then(({ error: insertError }) => {
+            if (insertError) console.warn("Could not persist image generation failure message.");
+          });
+      } finally {
+        imageRequestsInFlightRef.current.delete(message.id);
+        setProcessingLabel(null);
+        setSavingMessage(false);
+        requestInFlightRef.current = false;
+        qc.invalidateQueries({ queryKey: ["messages", targetConversationId], exact: true });
+      }
+    },
+    [qc, setMessages, user.id],
+  );
+
+  // Send a user message to the AI, choosing chat or image generation. The user
+  // message is already persisted in Supabase at this point.
   const sendToAI = (message: UIMessage, conversationId: string, isNew: boolean) => {
+    if (detectImageIntent(getMessageText(message))) {
+      if (isNew) setPendingInitialSend({ conversationId, message });
+      else void runImageGeneration(message, conversationId);
+      return;
+    }
     if (webSearch) setProcessingLabel("Searching live web sources…");
     if (isNew) {
       setPendingInitialSend({ conversationId, message });
@@ -1578,6 +1709,10 @@ function ChatPage() {
         messageId: pendingInitialSend.message.id,
       }),
     );
+    if (detectImageIntent(getMessageText(pendingInitialSend.message))) {
+      void runImageGeneration(pendingInitialSend.message, pendingInitialSend.conversationId);
+      return;
+    }
     void sendMessage()
       .catch((err: unknown) => {
         setPersistenceError(err instanceof Error ? err.message : "The AI request failed.");
@@ -1586,7 +1721,7 @@ function ChatPage() {
         requestInFlightRef.current = false;
         setSavingMessage(false);
       });
-  }, [conversationId, pendingInitialSend, sendMessage, setMessages, status]);
+  }, [conversationId, pendingInitialSend, runImageGeneration, sendMessage, setMessages, status]);
 
   const buildMessageText = async (payload: ChatSubmitPayload): Promise<string> => {
     let text = payload.text;
@@ -1693,7 +1828,7 @@ function ChatPage() {
       setFailedPayload(payload);
       return false;
     }
-    if (payload.tool === "create-image" || detectImageIntent(payload.text)) {
+    if (payload.tool === "create-image") {
       setImagePrompt(
         payload.text.replace(/^(generate|create) an? image(?: of|:)?\s*/i, "").trim() ||
           payload.text,
@@ -2180,6 +2315,11 @@ function ChatPage() {
             .filter((p) => (p as { type: string }).type === "text")
             .map((p) => (p as { text?: string }).text ?? "")
             .join("");
+          const leakedToolPayload = m.role === "assistant" && isInternalImageToolPayload(text);
+          const visibleText = leakedToolPayload ? "" : text;
+          const imageGeneration = (
+            m.metadata as { imageGeneration?: ImageGenerationMessageData } | undefined
+          )?.imageGeneration;
           const fileParts = m.parts
             .filter((part) => (part as { type?: string }).type === "file")
             .map((part) => part as { filename?: string; mediaType?: string; url?: string });
@@ -2204,7 +2344,8 @@ function ChatPage() {
           const isStreaming = isLast && m.role === "assistant" && busy;
           const isPinned = pinnedMessages.includes(m.id);
           const searchMatch = Boolean(
-            messageSearch.trim() && text.toLowerCase().includes(messageSearch.trim().toLowerCase()),
+            messageSearch.trim() &&
+            visibleText.toLowerCase().includes(messageSearch.trim().toLowerCase()),
           );
           // AI-SDK embeds backend failures as `error` parts (text is a JSON
           // `LordError`). Render them with the real, request-correlated message
@@ -2295,7 +2436,16 @@ function ChatPage() {
                   </div>
                 ) : (
                   <div className="text-sm text-foreground">
-                    <RichMessage text={text} streaming={isStreaming} />
+                    <RichMessage text={visibleText} streaming={isStreaming} />
+                    {imageGeneration && <GeneratedImageMessage data={imageGeneration} />}
+                    {leakedToolPayload && (
+                      <GeneratedImageMessage
+                        data={{
+                          status: "error",
+                          message: "I couldn't complete that image request. Please try again.",
+                        }}
+                      />
+                    )}
                     {(sourceParts.length > 0 || reasoningText) && (
                       <details className="mt-3 rounded-xl border border-white/10 bg-white/[0.03] text-xs">
                         <summary className="cursor-pointer select-none px-3 py-2 text-muted-foreground transition hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400">
@@ -2353,8 +2503,8 @@ function ChatPage() {
                     )}
                     {!isStreaming && (
                       <MessageActions
-                        text={text}
-                        canRegenerate={isLast && !busy}
+                        text={visibleText}
+                        canRegenerate={isLast && !busy && !imageGeneration && !leakedToolPayload}
                         onRegenerate={regenerateLast}
                         pinned={isPinned}
                         feedback={messageFeedback[m.id]}

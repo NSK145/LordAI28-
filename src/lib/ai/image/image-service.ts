@@ -32,6 +32,8 @@ export interface PersistImageOptions {
 export interface PersistResult {
   persisted: boolean;
   savedIds: string[];
+  imageUrls: string[];
+  messageIds: string[];
   error?: string;
 }
 
@@ -84,6 +86,8 @@ export async function persistImages(
 ): Promise<PersistResult> {
   const { supabase, userId, conversationId, projectId } = options;
   const savedIds: string[] = [];
+  const imageUrls: string[] = [];
+  const messageIds: string[] = [];
 
   try {
     if (projectId) {
@@ -93,7 +97,8 @@ export async function persistImages(
         .eq("id", projectId)
         .eq("user_id", userId)
         .maybeSingle();
-      if (!project) return { persisted: false, savedIds, error: "Project unavailable." };
+      if (!project)
+        return { persisted: false, savedIds, imageUrls, messageIds, error: "Project unavailable." };
     }
     if (conversationId) {
       const { data: conversation } = await supabase
@@ -102,7 +107,14 @@ export async function persistImages(
         .eq("id", conversationId)
         .eq("user_id", userId)
         .maybeSingle();
-      if (!conversation) return { persisted: false, savedIds, error: "Conversation unavailable." };
+      if (!conversation)
+        return {
+          persisted: false,
+          savedIds,
+          imageUrls,
+          messageIds,
+          error: "Conversation unavailable.",
+        };
     }
 
     for (let i = 0; i < result.images.length; i += 1) {
@@ -122,7 +134,23 @@ export async function persistImages(
             user_id: userId,
             role: "assistant",
             message_type: "image",
-            content: uploaded.publicUrl,
+            content: "",
+            metadata: {
+              imageGeneration: {
+                status: "success",
+                images: [
+                  {
+                    url: uploaded.publicUrl,
+                    mimeType: dataUrlToUpload(result.images[i]).contentType,
+                    width: result.width,
+                    height: result.height,
+                    alt: result.prompt,
+                  },
+                ],
+                prompt: result.prompt,
+                model: result.model,
+              },
+            },
             model: result.model,
             project_id: projectId ?? null,
           })
@@ -130,7 +158,13 @@ export async function persistImages(
           .single();
         if (messageError) {
           await supabase.storage.from(IMAGE_BUCKET).remove([uploaded.path]);
-          return { persisted: false, savedIds, error: "Could not attach image." };
+          return {
+            persisted: false,
+            savedIds,
+            imageUrls,
+            messageIds,
+            error: "Could not attach image.",
+          };
         }
         messageId = message.id;
       }
@@ -163,14 +197,22 @@ export async function persistImages(
       if (recordError) {
         await supabase.storage.from(IMAGE_BUCKET).remove([uploaded.path]);
         if (messageId) await supabase.from("messages").delete().eq("id", messageId);
-        return { persisted: false, savedIds, error: "Could not save image." };
+        return {
+          persisted: false,
+          savedIds,
+          imageUrls,
+          messageIds,
+          error: "Could not save image.",
+        };
       }
       savedIds.push(row.id);
+      imageUrls.push(uploaded.publicUrl);
+      if (messageId) messageIds.push(messageId);
     }
 
-    return { persisted: true, savedIds };
+    return { persisted: true, savedIds, imageUrls, messageIds };
   } catch (error) {
     log.error("persist_failed", { requestId: result.requestId, error: (error as Error)?.message });
-    return { persisted: false, savedIds, error: "Could not save image." };
+    return { persisted: false, savedIds, imageUrls, messageIds, error: "Could not save image." };
   }
 }

@@ -164,7 +164,12 @@ export const Route = createFileRoute("/api/images")({
           };
 
           const result = await generateImage(imageRequest);
-          const { persisted, error: persistError } = await persistImages(result, {
+          const {
+            persisted,
+            imageUrls,
+            messageIds,
+            error: persistError,
+          } = await persistImages(result, {
             supabase: db,
             userId: context.userId,
             conversationId: parsed.conversationId ?? null,
@@ -184,8 +189,9 @@ export const Route = createFileRoute("/api/images")({
               fallbackUsed: result.fallbackUsed,
               fallbackCount: result.fallbackCount,
               retryCount: result.retryCount,
-              imageUrl: result.images[0],
-              images: result.images,
+              imageUrl: imageUrls[0] ?? result.images[0],
+              images: imageUrls.length ? imageUrls : result.images,
+              messageIds,
               width: result.width,
               height: result.height,
               aspectRatio: result.aspectRatio,
