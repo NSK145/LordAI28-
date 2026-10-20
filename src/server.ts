@@ -8,6 +8,42 @@ type ServerEntry = {
   fetch: (request: Request, env: unknown, ctx: unknown) => Promise<Response> | Response;
 };
 
+// Capacitor serves the bundled UI from a local HTTPS origin. Permit only the
+// known Capacitor origins to call this server's API from the WebView.
+const nativeOrigins = new Set([
+  "https://localhost",
+  "http://localhost",
+  "capacitor://localhost",
+  "ionic://localhost",
+]);
+const nativeCorsHeaders = {
+  "access-control-allow-methods": "GET, POST, PUT, PATCH, DELETE, OPTIONS",
+  "access-control-allow-headers":
+    "Accept, Authorization, Content-Type, apikey, x-client-info, x-supabase-api-version",
+  "access-control-max-age": "86400",
+};
+
+function addNativeCors(request: Request, response: Response): Response {
+  const url = new URL(request.url);
+  const origin = request.headers.get("origin");
+  if (!url.pathname.startsWith("/api/") || !origin || !nativeOrigins.has(origin)) {
+    return response;
+  }
+
+  const headers = new Headers(response.headers);
+  headers.set("access-control-allow-origin", origin);
+  headers.set("access-control-allow-credentials", "true");
+  headers.set("vary", [headers.get("vary"), "Origin"].filter(Boolean).join(", "));
+  if (request.method === "OPTIONS") {
+    for (const [name, value] of Object.entries(nativeCorsHeaders)) headers.set(name, value);
+  }
+  return new Response(response.body, {
+    status: response.status,
+    statusText: response.statusText,
+    headers,
+  });
+}
+
 let serverEntryPromise: Promise<ServerEntry> | undefined;
 
 // Re-read the env files on every server start. The dev server otherwise keeps
@@ -110,7 +146,11 @@ async function normalizeCatastrophicSsrResponse(response: Response): Promise<Res
 
 export default {
   async fetch(request: Request, env: unknown, ctx: unknown) {
-    if (new URL(request.url).pathname.startsWith("/api/")) {
+    const requestUrl = new URL(request.url);
+    if (requestUrl.pathname.startsWith("/api/") && request.method === "OPTIONS") {
+      return addNativeCors(request, new Response(null, { status: 204 }));
+    }
+    if (requestUrl.pathname.startsWith("/api/")) {
       console.info(
         JSON.stringify({
           event: "request_received",
@@ -123,14 +163,14 @@ export default {
     try {
       const handler = await getServerEntry();
       const response = await handler.fetch(request, env, ctx);
-      return await normalizeCatastrophicSsrResponse(response);
+      return addNativeCors(request, await normalizeCatastrophicSsrResponse(response));
     } catch (error) {
       console.error("ERROR", error);
       console.error("STACK TRACE", error instanceof Error ? error.stack : undefined);
-      return new Response(renderErrorPage(), {
+      return addNativeCors(request, new Response(renderErrorPage(), {
         status: 500,
         headers: { "content-type": "text/html; charset=utf-8" },
-      });
+      }));
     }
   },
 };

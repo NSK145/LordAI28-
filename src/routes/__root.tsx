@@ -80,11 +80,26 @@ function NotFoundComponent() {
 
 function ErrorComponent({ error, reset }: ErrorComponentProps) {
   const displayError = error instanceof Error ? error : new Error(String(error));
-  console.error(displayError);
+  const rawMessage = displayError.message;
+  const missingApiBase = rawMessage.includes("VITE_API_BASE_URL");
+  const networkFailure = /network|fetch|load failed|cors/i.test(rawMessage);
+  const userMessage = missingApiBase
+    ? "This Android build is missing its secure server address. Reinstall an updated app build."
+    : networkFailure
+      ? "LORD AI could not connect to its server. Check your connection and try again."
+      : "LORD AI hit an unexpected startup error. Try again, or contact support with the diagnostic code below.";
+  const diagnosticCode = `STARTUP-${displayError.name.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 12) || "ERROR"}`;
+  console.error("[startup] root error boundary", {
+    diagnosticCode,
+    errorName: displayError.name.slice(0, 80),
+    failureType: missingApiBase ? "api_base_missing" : networkFailure ? "network" : "unexpected",
+  });
   const router = useRouter();
   useEffect(() => {
-    reportLovableError(displayError, { boundary: "tanstack_root_error_component" });
-  }, [displayError]);
+    reportLovableError(new Error(diagnosticCode), {
+      boundary: "tanstack_root_error_component",
+    });
+  }, [diagnosticCode]);
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-background px-4">
@@ -92,8 +107,9 @@ function ErrorComponent({ error, reset }: ErrorComponentProps) {
         <h1 className="text-xl font-semibold tracking-tight text-foreground">
           This page didn't load
         </h1>
-        <p className="mt-2 text-sm text-muted-foreground">
-          Something went wrong on our end. You can try refreshing or head back home.
+        <p className="mt-2 text-sm text-muted-foreground">{userMessage}</p>
+        <p className="mt-2 text-xs text-muted-foreground" role="note">
+          Diagnostic code: {diagnosticCode}
         </p>
         <div className="mt-6 flex flex-wrap justify-center gap-2">
           <button
