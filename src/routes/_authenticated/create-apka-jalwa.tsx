@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   Download,
   Gamepad2,
@@ -19,6 +19,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { createGameHtml, type GameSpec } from "@/lib/games/game-runtime";
 import { createGameZip } from "@/lib/games/game-export";
+import { requestGamesApi, SingleFlightGate } from "@/lib/games/game-api-client";
 
 type SavedGame = {
   id: string;
@@ -33,17 +34,6 @@ const examples = [
   "A desert rally dodging rocks and collecting fuel",
   "A jungle explorer who jumps over fallen trees",
 ];
-async function api(body: object) {
-  const response = await fetch("/api/games", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body),
-  });
-  const result = await response.json();
-  if (!response.ok) throw new Error(result.error ?? "Request failed");
-  return result;
-}
-
 export const Route = createFileRoute("/_authenticated/create-apka-jalwa")({
   head: () => ({
     meta: [
@@ -60,27 +50,38 @@ function GameStudio() {
   const [game, setGame] = useState<SavedGame | null>(null);
   const [games, setGames] = useState<SavedGame[]>([]);
   const [busy, setBusy] = useState("");
+  const [studioError, setStudioError] = useState("");
   const [refreshKey, setRefreshKey] = useState(0);
   const [instruction, setInstruction] = useState("");
+  const generationGate = useRef(new SingleFlightGate());
   const preview = useMemo(() => (game ? createGameHtml(game.spec) : ""), [game]);
   useEffect(() => {
-    api({ action: "list" })
-      .then((r) => setGames(r.games))
-      .catch(() => {});
+    requestGamesApi<{ games: SavedGame[] }>({ action: "list" })
+      .then(({ games: savedGames }) => {
+        setGames(savedGames);
+        setStudioError("");
+      })
+      .catch((error: unknown) => {
+        setStudioError(error instanceof Error ? error.message : "Could not load your saved games.");
+      });
   }, []);
   const generate = async () => {
     if (prompt.trim().length < 8) return;
+    const operation = generationGate.current.run(async () => {
+      return requestGamesApi<{ game: SavedGame }>({
+        action: "generate",
+        prompt: prompt.trim(),
+        difficulty,
+      });
+    });
+    if (!operation) return;
     setBusy("Generating your playable game…");
     try {
-      const { spec } = await api({ action: "generate", prompt: prompt.trim(), difficulty });
-      setGame({
-        id: "",
-        spec,
-        prompt: prompt.trim(),
-        versions: [],
-        updated_at: new Date().toISOString(),
-      });
-      toast.success("Your game is ready to play");
+      const { game: created } = await operation;
+      setGame(created);
+      setGames((prev) => [created, ...prev.filter((saved) => saved.id !== created.id)]);
+      setStudioError("");
+      toast.success("Your game was created, saved, and is ready to play");
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Generation failed");
     } finally {
@@ -91,7 +92,7 @@ function GameStudio() {
     if (!game) return;
     setBusy("Saving game…");
     try {
-      const { game: saved } = await api({
+      const { game: saved } = await requestGamesApi<{ game: SavedGame }>({
         action: "save",
         id: game.id || undefined,
         spec: game.spec,
@@ -111,7 +112,11 @@ function GameStudio() {
     if (!game || !instruction.trim()) return;
     setBusy("Updating your game…");
     try {
-      const { spec } = await api({ action: "modify", spec: game.spec, instruction });
+      const { spec } = await requestGamesApi<{ spec: GameSpec }>({
+        action: "modify",
+        spec: game.spec,
+        instruction,
+      });
       setGame({ ...game, spec, versions: [...game.versions, game.spec] });
       setInstruction("");
       setRefreshKey((k) => k + 1);
@@ -125,7 +130,7 @@ function GameStudio() {
   const openGame = async (id: string) => {
     setBusy("Opening game…");
     try {
-      const { game: loaded } = await api({ action: "get", id });
+      const { game: loaded } = await requestGamesApi<{ game: SavedGame }>({ action: "get", id });
       setGame(loaded);
       setPrompt(loaded.prompt);
       setRefreshKey((k) => k + 1);
@@ -147,7 +152,7 @@ function GameStudio() {
   };
   const remove = async (id: string) => {
     try {
-      await api({ action: "delete", id });
+      await requestGamesApi({ action: "delete", id });
       setGames((prev) => prev.filter((g) => g.id !== id));
       if (game?.id === id) setGame(null);
       toast.success("Game deleted");
@@ -175,6 +180,14 @@ function GameStudio() {
               2D · Instant playable preview
             </span>
           </div>
+          {studioError && (
+            <p
+              role="alert"
+              className="mb-5 rounded-lg border border-amber-300/25 bg-amber-300/5 px-4 py-3 text-sm text-amber-100"
+            >
+              {studioError}
+            </p>
+          )}
           <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(360px,.9fr)]">
             <Card className="border-white/10 bg-[#0b1424]/90 p-5 shadow-[0_20px_80px_#02081780] sm:p-7">
               <div className="mb-5 flex items-center gap-3">
