@@ -9,6 +9,7 @@ export function upstreamStatus(error: unknown, depth = 0): number | undefined {
 }
 
 export function generationFailure(error: unknown): GameServiceError {
+  if (error instanceof GameServiceError) return error;
   if (error instanceof Error && error.message.includes("OPENROUTER_API_KEY")) {
     return new GameServiceError("not_configured", "Game generation is not configured on the server.");
   }

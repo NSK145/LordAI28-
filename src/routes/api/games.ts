@@ -1,9 +1,9 @@
 /* eslint-disable @typescript-eslint/no-explicit-any -- Supabase schema is added by this migration and generated database types are maintained separately. */
 import { createFileRoute } from "@tanstack/react-router";
-import { generateText } from "ai";
+import { generateObject } from "ai";
 import { createOpenAICompatible } from "@ai-sdk/openai-compatible";
 import { requireSupabaseRequestAuth } from "@/integrations/supabase/auth-middleware";
-import { validateGameSpec, type GameSpec } from "@/lib/games/game-runtime";
+import { upgradeLegacyGameSpec, validateGameSpec, type GeneratedGameSpec, type GameSpec, type StoredGameSpec } from "@/lib/games/game-runtime";
 import {
   createGameRecord,
   GameServiceError,
@@ -13,6 +13,7 @@ import {
 } from "@/lib/games/game-service";
 import { GameRequestSchema } from "@/lib/games/game-request-schema";
 import { generationFailure, upstreamStatus } from "@/lib/games/game-errors";
+import { GamePlannerResponseSchema, planGameSpec } from "@/lib/games/game-generation";
 
 const DEFAULT_GAME_MODEL = "minimax/minimax-m3.1-flash:free";
 
@@ -28,28 +29,24 @@ function provider() {
 async function generateSpec(
   prompt: string,
   difficulty: GameSpec["difficulty"],
-  existing?: GameSpec,
+  existing?: GeneratedGameSpec,
   instruction?: string,
-): Promise<GameSpec> {
-  const { text } = await generateText({
-    model: provider()(process.env.LORD_GAME_MODEL ?? DEFAULT_GAME_MODEL),
-    system: `Design a playable 2D game for a fixed endless runner engine. Return ONLY valid JSON with keys schemaVersion (1), title (<=60 chars), description, genre (runner|dodge), theme, difficulty (easy|normal|hard), objective (<=140 chars), controls (array of strings), seed (integer). The engine implements a jumping runner with obstacle collision and collectibles. Use genre dodge if the prompt asks for dodging or racing; otherwise runner. Never claim unsupported features such as multiplayer, 3D, levels, puzzles, shooter mechanics, or audio. Use safe plain text.`,
-    prompt: existing
-      ? `Current game specification: ${JSON.stringify(existing)}\nChange requested: ${instruction}\nPreserve other fields and return a complete updated spec.`
-      : `Create a game from this idea: ${prompt}\nRequested difficulty: ${difficulty}`,
-    maxOutputTokens: 500,
-    maxRetries: 0,
-    abortSignal: AbortSignal.timeout(25_000),
-  });
-  let parsed: unknown;
-  try {
-    parsed = JSON.parse(text.replace(/^```(?:json)?\s*|\s*```$/g, ""));
-  } catch {
-    throw new Error("The game model returned an invalid specification. Please retry.");
-  }
-  if (!validateGameSpec(parsed))
-    throw new Error("The generated game specification failed validation. Please retry.");
-  return parsed;
+  dimension: "2d" | "3d" = "2d",
+): Promise<GeneratedGameSpec> {
+  return planGameSpec({ prompt, difficulty, existing, instruction, dimension, generate: async (system, userPrompt) => {
+    const response = await generateObject({
+      model: provider()(process.env.LORD_GAME_MODEL ?? DEFAULT_GAME_MODEL),
+      system,
+      prompt: userPrompt,
+      schema: GamePlannerResponseSchema,
+      schemaName: "lord_game_spec",
+      maxOutputTokens: 3000,
+      maxRetries: 0,
+      providerOptions: { openrouter: { reasoningEffort: "low" } },
+      abortSignal: AbortSignal.timeout(25_000),
+    });
+    return response.object;
+  } });
 }
 
 export const Route = createFileRoute("/api/games")({
@@ -87,9 +84,9 @@ export const Route = createFileRoute("/api/games")({
             });
             gameId = game.id;
             await updateGameGeneration(db, userId, game.id, { status: "generating" });
-            let spec: GameSpec;
+            let spec: GeneratedGameSpec;
             try {
-              spec = await generateSpec(op.prompt, op.difficulty);
+              spec = await generateSpec(op.prompt, op.difficulty, undefined, undefined, op.dimension);
             } catch (error) {
               const failure = generationFailure(error);
               console.error("[games] upstream generation failed", {
@@ -116,8 +113,11 @@ export const Route = createFileRoute("/api/games")({
           if (op.action === "modify") {
             if (!validateGameSpec(op.spec))
               return Response.json({ error: "Invalid game specification." }, { status: 400 });
+            const existing = op.spec.schemaVersion === 1
+              ? upgradeLegacyGameSpec(op.spec)
+              : op.spec as GeneratedGameSpec;
             return Response.json({
-              spec: await generateSpec("", op.spec.difficulty, op.spec, op.instruction),
+              spec: await generateSpec("", existing.difficulty, existing, op.instruction),
             });
           }
           if (op.action === "list") {
@@ -149,9 +149,11 @@ export const Route = createFileRoute("/api/games")({
           }
           if (!validateGameSpec(op.spec))
             return Response.json({ error: "Invalid game specification." }, { status: 400 });
+          if (op.versions?.some((version) => !validateGameSpec(version)))
+            return Response.json({ error: "Invalid game version history." }, { status: 400 });
           const payload = {
             user_id: userId,
-            spec: op.spec,
+            spec: op.spec as StoredGameSpec,
             prompt: op.prompt,
             versions: op.versions ?? [],
             status: "ready",
@@ -179,6 +181,7 @@ export const Route = createFileRoute("/api/games")({
               rate_limited: 429,
               model_unavailable: 503,
               timeout: 504,
+              unsupported: 422,
             } as const;
             const codeByKind = {
               auth: "AI_AUTH_ERROR",
@@ -188,6 +191,7 @@ export const Route = createFileRoute("/api/games")({
               rate_limited: "AI_RATE_LIMITED",
               model_unavailable: "AI_MODEL_UNAVAILABLE",
               timeout: "AI_TIMEOUT",
+              unsupported: "GAME_TYPE_UNSUPPORTED",
             } as const;
             return Response.json(
               { error: { code: codeByKind[error.kind], message: error.message, requestId, gameId } },

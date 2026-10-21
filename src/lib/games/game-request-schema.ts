@@ -5,6 +5,7 @@ export const GameRequestSchema = z.discriminatedUnion("action", [
     action: z.literal("generate"),
     prompt: z.string().trim().min(8).max(1200),
     difficulty: z.enum(["easy", "normal", "hard"]).default("normal"),
+    dimension: z.enum(["2d", "3d"]).default("2d"),
   }),
   z.object({
     action: z.literal("modify"),

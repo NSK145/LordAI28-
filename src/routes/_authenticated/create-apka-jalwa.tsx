@@ -17,22 +17,25 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { createGameHtml, type GameSpec } from "@/lib/games/game-runtime";
+import { createGameHtml, gameTypeOf, type GameSpec, type StoredGameSpec } from "@/lib/games/game-runtime";
+import type { GeneratedGameSpec } from "@/lib/games/game-runtime";
+import { ThreeGamePreview } from "@/lib/games/engines/3d/ThreeGamePreview";
 import { createGameZip } from "@/lib/games/game-export";
 import { requestGamesApi, SingleFlightGate } from "@/lib/games/game-api-client";
 
 type SavedGame = {
   id: string;
-  spec: GameSpec;
+  spec: StoredGameSpec;
   prompt: string;
-  versions: GameSpec[];
+  versions: StoredGameSpec[];
   updated_at: string;
 };
 const examples = [
-  "A neon endless runner through Mumbai at night",
-  "A space pilot dodging asteroids and collecting stars",
-  "A desert rally dodging rocks and collecting fuel",
-  "A jungle explorer who jumps over fallen trees",
+  "Make a third-person 3D endless runner in neon Mumbai with three lanes and jumping",
+  "Create a realistic-feeling 3D car racing game through a desert with fuel pickups",
+  "Build a 3D spaceship shooter with enemy waves and laser weapons",
+  "Create a 3D jungle temple adventure with jumping, traps, and treasure",
+  "Make a 2D puzzle game matching colored tiles",
 ];
 export const Route = createFileRoute("/_authenticated/create-apka-jalwa")({
   head: () => ({
@@ -47,6 +50,7 @@ export const Route = createFileRoute("/_authenticated/create-apka-jalwa")({
 function GameStudio() {
   const [prompt, setPrompt] = useState("");
   const [difficulty, setDifficulty] = useState<GameSpec["difficulty"]>("normal");
+  const [dimension, setDimension] = useState<"2d" | "3d">("2d");
   const [game, setGame] = useState<SavedGame | null>(null);
   const [games, setGames] = useState<SavedGame[]>([]);
   const [busy, setBusy] = useState("");
@@ -54,7 +58,7 @@ function GameStudio() {
   const [refreshKey, setRefreshKey] = useState(0);
   const [instruction, setInstruction] = useState("");
   const generationGate = useRef(new SingleFlightGate());
-  const preview = useMemo(() => (game ? createGameHtml(game.spec) : ""), [game]);
+  const preview = useMemo(() => (game && game.spec.schemaVersion !== 3 ? createGameHtml(game.spec) : ""), [game]);
   useEffect(() => {
     requestGamesApi<{ games: SavedGame[] }>({ action: "list" })
       .then(({ games: savedGames }) => {
@@ -72,6 +76,7 @@ function GameStudio() {
         action: "generate",
         prompt: prompt.trim(),
         difficulty,
+        dimension,
       });
     });
     if (!operation) return;
@@ -79,10 +84,12 @@ function GameStudio() {
     try {
       const { game: created } = await operation;
       setGame(created);
+      setDimension(created.spec.schemaVersion === 3 ? "3d" : "2d");
       setGames((prev) => [created, ...prev.filter((saved) => saved.id !== created.id)]);
       setStudioError("");
       toast.success("Your game was created, saved, and is ready to play");
     } catch (e) {
+      setGame(null);
       toast.error(e instanceof Error ? e.message : "Generation failed");
     } finally {
       setBusy("");
@@ -112,7 +119,7 @@ function GameStudio() {
     if (!game || !instruction.trim()) return;
     setBusy("Updating your game…");
     try {
-      const { spec } = await requestGamesApi<{ spec: GameSpec }>({
+      const { spec } = await requestGamesApi<{ spec: GeneratedGameSpec }>({
         action: "modify",
         spec: game.spec,
         instruction,
@@ -132,6 +139,7 @@ function GameStudio() {
     try {
       const { game: loaded } = await requestGamesApi<{ game: SavedGame }>({ action: "get", id });
       setGame(loaded);
+      setDimension(loaded.spec.schemaVersion === 3 ? "3d" : "2d");
       setPrompt(loaded.prompt);
       setRefreshKey((k) => k + 1);
     } catch (e) {
@@ -142,13 +150,17 @@ function GameStudio() {
   };
   const exportZip = async () => {
     if (!game) return;
-    const blob = await createGameZip(game.spec, game.prompt);
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `${slug(game.spec.title)}.zip`;
-    a.click();
-    URL.revokeObjectURL(url);
+    try {
+      const blob = await createGameZip(game.spec, game.prompt);
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `${slug(game.spec.title)}.zip`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Could not export this game.");
+    }
   };
   const remove = async (id: string) => {
     try {
@@ -177,7 +189,7 @@ function GameStudio() {
               </p>
             </div>
             <span className="rounded-full border border-cyan-400/25 bg-cyan-400/5 px-3 py-1.5 text-xs text-cyan-200">
-              2D · Instant playable preview
+              2D + 3D · AI playable games
             </span>
           </div>
           {studioError && (
@@ -197,7 +209,7 @@ function GameStudio() {
                 <div>
                   <h2 className="font-bold text-white">What do you want to make?</h2>
                   <p className="text-sm text-slate-400">
-                    Describe a game. Jalwa turns it into a playable runner.
+                  Describe the gameplay and dimension. Jalwa selects a reviewed playable engine.
                   </p>
                 </div>
               </div>
@@ -209,11 +221,21 @@ function GameStudio() {
                 value={prompt}
                 onChange={(e) => setPrompt(e.target.value)}
                 maxLength={1200}
-                placeholder="A neon runner through a futuristic Indian city, jumping over traffic and collecting glowing coins…"
+                placeholder="A 3D desert rally managing fuel, a 3D space shooter, or a 2D tile puzzle…"
                 className="min-h-36 w-full resize-y rounded-xl border border-white/10 bg-[#060d19] p-4 text-sm leading-6 text-white placeholder:text-slate-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300"
               />
               <div className="mt-4 grid gap-3 sm:grid-cols-[1fr_auto] sm:items-end">
                 <div>
+                  <Label htmlFor="dimension" className="mb-2 block text-xs text-slate-400">Game dimension</Label>
+                  <select
+                    id="dimension"
+                    value={dimension}
+                    onChange={(e) => setDimension(e.target.value as "2d" | "3d")}
+                    className="mb-3 h-10 w-full rounded-lg border border-white/10 bg-[#101c2d] px-3 text-sm text-white"
+                  >
+                    <option value="2d">2D · Canvas games</option>
+                    <option value="3d">3D · WebGL / Three.js</option>
+                  </select>
                   <Label htmlFor="difficulty" className="mb-2 block text-xs text-slate-400">
                     Difficulty
                   </Label>
@@ -272,7 +294,7 @@ function GameStudio() {
                   </h2>
                   <p className="text-xs text-slate-400">
                     {game
-                      ? `${game.spec.genre} · ${game.spec.difficulty} · ${game.spec.theme}`
+                      ? `${gameTypeOf(game.spec)} · ${game.spec.difficulty} · ${game.spec.theme}`
                       : "Create a game to start playing"}
                   </p>
                 </div>
@@ -287,7 +309,9 @@ function GameStudio() {
                   </Button>
                 )}
               </div>
-              {game ? (
+              {game?.spec.schemaVersion === 3 ? (
+                <ThreeGamePreview key={`${game.id}-${refreshKey}`} spec={game.spec} />
+              ) : game ? (
                 <iframe
                   key={refreshKey}
                   title={`${game.spec.title} playable game`}
@@ -405,7 +429,7 @@ function GameStudio() {
                       <button onClick={() => void openGame(g.id)} className="min-w-0 text-left">
                         <b className="block truncate text-sm text-white">{g.spec.title}</b>
                         <span className="text-xs text-slate-400">
-                          {g.spec.genre} · Updated {new Date(g.updated_at).toLocaleDateString()}
+                          {gameTypeOf(g.spec)} · Updated {new Date(g.updated_at).toLocaleDateString()}
                         </span>
                       </button>
                       <Button

@@ -7,6 +7,7 @@ describe("game creation request validation", () => {
       action: "generate",
       prompt: "A neon runner",
       difficulty: "normal",
+      dimension: "2d",
     });
   });
 

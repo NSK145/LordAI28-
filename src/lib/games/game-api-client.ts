@@ -45,6 +45,9 @@ export async function requestGamesApi<T = Record<string, unknown>>(body: object)
   if (details?.code === "AI_MODEL_UNAVAILABLE") {
     throw new Error("Game generation is temporarily unavailable. Please try again later.");
   }
+  if (details?.code === "GAME_TYPE_UNSUPPORTED") {
+    throw new Error(serverMessage || "That game mode is not supported yet. Try runner, rally, platformer, shooter, or puzzle.");
+  }
   throw new Error(serverMessage || `Game request failed (${response.status}). Please try again.`);
 }
 

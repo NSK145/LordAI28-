@@ -1,12 +1,12 @@
-import type { GameSpec } from "./game-runtime";
+import type { StoredGameSpec } from "./game-runtime";
 
 const GAME_COLUMNS = "id,spec,prompt,versions,status,created_at,updated_at";
 
 export type PersistedGame = {
   id: string;
-  spec: GameSpec | null;
+  spec: StoredGameSpec | null;
   prompt: string;
-  versions: GameSpec[];
+  versions: StoredGameSpec[];
   status: "pending" | "generating" | "ready" | "failed";
   created_at: string;
   updated_at: string;
@@ -33,7 +33,8 @@ export class GameServiceError extends Error {
       | "database"
       | "rate_limited"
       | "model_unavailable"
-      | "timeout",
+      | "timeout"
+      | "unsupported",
     message: string,
   ) {
     super(message);
@@ -89,7 +90,7 @@ export async function updateGameGeneration(
   db: GameDatabase,
   userId: string,
   gameId: string,
-  values: { status: PersistedGame["status"]; spec?: GameSpec | null },
+  values: { status: PersistedGame["status"]; spec?: StoredGameSpec | null },
 ) {
   const { data, error } = await db
     .from("ai_games")
