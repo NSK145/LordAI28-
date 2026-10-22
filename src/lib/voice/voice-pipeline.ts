@@ -259,7 +259,7 @@ export class VoicePipeline {
       this.abortController = abortController;
       const response = await authenticatedFetch(`${getApiBaseUrl()}/api/chat`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", "X-Lord-Voice-Mode": "true" },
         body: JSON.stringify(body),
         signal: abortController.signal,
       });

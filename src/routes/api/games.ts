@@ -14,6 +14,7 @@ import {
 import { GameRequestSchema } from "@/lib/games/game-request-schema";
 import { generationFailure, upstreamStatus } from "@/lib/games/game-errors";
 import { GamePlannerResponseSchema, planGameSpec } from "@/lib/games/game-generation";
+import { hasProEntitlement } from "@/lib/billing/entitlements.server";
 
 const DEFAULT_GAME_MODEL = "minimax/minimax-m3.1-flash:free";
 
@@ -54,7 +55,7 @@ export const Route = createFileRoute("/api/games")({
     middleware: [requireSupabaseRequestAuth],
     handlers: {
       POST: async ({ request, context }) => {
-        const { userId, supabase } = context as { userId: string; supabase: unknown };
+        const { userId, supabase, claims } = context as { userId: string; supabase: unknown; claims: { email?: string; email_confirmed_at?: string | null } };
         const db = supabase as any;
         let action = "unknown";
         let gameId: string | undefined;
@@ -77,6 +78,13 @@ export const Route = createFileRoute("/api/games")({
             );
           const op = input.data;
           action = op.action;
+          const gameSpec = "spec" in op && op.spec && typeof op.spec === "object"
+            ? op.spec as { dimension?: string }
+            : null;
+          const requests3d = (op.action === "generate" && op.dimension === "3d") || gameSpec?.dimension === "3d" || (gameSpec?.schemaVersion === 3);
+          if (requests3d && !(await hasProEntitlement({ id: userId, ...claims }))) {
+            return Response.json({ error: { code: "PRO_REQUIRED", message: "LORD Pro is required for 3D games." } }, { status: 403 });
+          }
           if (op.action === "generate") {
             const game = await createGameRecord(db, {
               userId,
@@ -87,6 +95,12 @@ export const Route = createFileRoute("/api/games")({
             let spec: GeneratedGameSpec;
             try {
               spec = await generateSpec(op.prompt, op.difficulty, undefined, undefined, op.dimension);
+              if ((spec as { dimension?: string; schemaVersion?: number }).dimension === "3d" || spec.schemaVersion === 3) {
+                if (!(await hasProEntitlement({ id: userId, ...claims }))) {
+                  await updateGameGeneration(db, userId, game.id, { status: "failed" });
+                  return Response.json({ error: { code: "PRO_REQUIRED", message: "LORD Pro is required for 3D games." } }, { status: 403 });
+                }
+              }
             } catch (error) {
               const failure = generationFailure(error);
               console.error("[games] upstream generation failed", {
@@ -126,7 +140,8 @@ export const Route = createFileRoute("/api/games")({
               .order("updated_at", { ascending: false })
               .limit(50);
             if (error) throw error;
-            return Response.json({ games: data ?? [] });
+            const pro = await hasProEntitlement({ id: userId, ...claims });
+            return Response.json({ games: pro ? data ?? [] : (data ?? []).filter((game: { spec?: { dimension?: string; schemaVersion?: number } }) => game.spec?.dimension !== "3d" && game.spec?.schemaVersion !== 3) });
           }
           if (op.action === "get") {
             const { data, error } = await ownedGamesQuery(db, userId)
@@ -135,6 +150,9 @@ export const Route = createFileRoute("/api/games")({
               .maybeSingle();
             if (error) throw error;
             if (!data) return Response.json({ error: "Game not found." }, { status: 404 });
+            if ((data.spec as { dimension?: string; schemaVersion?: number })?.dimension === "3d" || (data.spec as { schemaVersion?: number })?.schemaVersion === 3) {
+              if (!(await hasProEntitlement({ id: userId, ...claims }))) return Response.json({ error: { code: "PRO_REQUIRED", message: "LORD Pro is required to access 3D games." } }, { status: 403 });
+            }
             return Response.json({ game: data });
           }
           if (op.action === "delete") {

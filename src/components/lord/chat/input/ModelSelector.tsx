@@ -1,9 +1,20 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Check, ChevronDown, Cpu, Eye, Sparkles, Zap } from "lucide-react";
+import {
+  Check,
+  ChevronDown,
+  Cpu,
+  Crown,
+  Eye,
+  Lock,
+  RefreshCw,
+  Sparkles,
+  Zap,
+} from "lucide-react";
 import { cn } from "@/lib/utils";
 import { LORD_MODES, type LordMode } from "@/lib/modes";
-import { FREE_CHAT_MODELS } from "@/lib/ai/chat-model-catalog";
+import { CHAT_MODEL_CATALOG } from "@/lib/ai/chat-model-catalog";
+import { useChatModelCatalog } from "@/lib/ai/use-chat-model-catalog";
 
 interface ModeSelectorProps {
   value: LordMode;
@@ -94,7 +105,19 @@ interface ModelSelectorProps {
 export function ModelSelector({ value, onChange }: ModelSelectorProps) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
-  const selected = FREE_CHAT_MODELS.find((model) => model.id === value) ?? FREE_CHAT_MODELS[0];
+  const catalogQuery = useChatModelCatalog();
+  const models =
+    catalogQuery.data?.models ??
+    CHAT_MODEL_CATALOG.map((model) => ({
+      ...model,
+      available: false,
+      providerStatus: catalogQuery.isPending ? ("checking" as const) : ("unavailable" as const),
+      unavailableReason: catalogQuery.isPending
+        ? "Checking provider availability…"
+        : "Availability could not be loaded. Retry the check.",
+    }));
+  const isPro = catalogQuery.data?.isPro ?? false;
+  const selected = models.find((model) => model.id === value) ?? models[0] ?? CHAT_MODEL_CATALOG[0];
 
   useEffect(() => {
     const onDown = (event: MouseEvent) => {
@@ -132,23 +155,60 @@ export function ModelSelector({ value, onChange }: ModelSelectorProps) {
             <div className="border-b border-white/10 px-2 pb-2">
               <div className="flex items-center justify-between text-xs font-semibold text-white">
                 <span>Choose a model</span>
-                <span className="rounded-full bg-emerald-400/10 px-2 py-0.5 text-[10px] text-emerald-300">
-                  Free tier
+                <span
+                  className={cn(
+                    "rounded-full px-2 py-0.5 text-[10px]",
+                    isPro ? "bg-cyan-300/10 text-cyan-200" : "bg-emerald-400/10 text-emerald-300",
+                  )}
+                >
+                  {isPro ? "LORD Pro" : "Free tier · 2 models"}
                 </span>
               </div>
               <p className="mt-1 text-[10px] leading-relaxed text-white/45">
-                Free access is quota-limited. Models may be busy or temporarily unavailable; limits
-                vary by provider.
+                North Mini Code and Gemma 3 27B IT are included free. Provider availability is
+                checked live.
               </p>
+              {catalogQuery.isError && (
+                <button
+                  type="button"
+                  onClick={() => void catalogQuery.retryAvailability().catch(() => {})}
+                  className="mt-2 inline-flex items-center gap-1.5 rounded-md text-[10px] font-medium text-cyan-200 hover:text-cyan-100"
+                >
+                  <RefreshCw className="h-3 w-3" /> Retry model availability
+                </button>
+              )}
+              {catalogQuery.isPending && (
+                <p className="mt-2 text-[10px] text-white/45">Checking provider access…</p>
+              )}
             </div>
             <div className="mt-1 max-h-[min(55vh,25rem)] overflow-y-auto">
-              {FREE_CHAT_MODELS.map((model) => {
+              {models.map((model) => {
                 const active = model.id === selected.id;
+                const locked = model.proOnly && !isPro;
+                const canSelect = model.available && !locked;
+                const providerState = model.providerStatus;
                 return (
                   <button
                     key={model.id}
                     type="button"
+                    disabled={catalogQuery.isFetching}
+                    title={
+                      model.available
+                        ? locked
+                          ? "Available from OpenRouter; upgrade to select it"
+                          : "Available"
+                        : `${model.unavailableReason ?? "Unavailable"} Click to retry.`
+                    }
                     onClick={() => {
+                      if (!model.available) {
+                        void catalogQuery.retryAvailability().catch(() => {});
+                        return;
+                      }
+                      if (locked) {
+                        window.location.assign("/upgrade");
+                        return;
+                      }
+                      if (!model.available) return;
                       onChange(model.id);
                       setOpen(false);
                     }}
@@ -156,13 +216,44 @@ export function ModelSelector({ value, onChange }: ModelSelectorProps) {
                       "flex w-full items-start gap-2 rounded-xl px-2.5 py-2 text-left transition",
                       active
                         ? "bg-cyan-400/10 text-cyan-100"
-                        : "text-white/75 hover:bg-white/5 hover:text-white",
+                        : model.available
+                          ? "text-white/75 hover:bg-white/5 hover:text-white"
+                          : "cursor-not-allowed text-white/35",
                     )}
                   >
-                    <Cpu className="mt-0.5 h-3.5 w-3.5 shrink-0 text-cyan-300" />
+                    {locked ? (
+                      <Lock className="mt-0.5 h-3.5 w-3.5 shrink-0 text-amber-200" />
+                    ) : (
+                      <Cpu className="mt-0.5 h-3.5 w-3.5 shrink-0 text-cyan-300" />
+                    )}
                     <span className="min-w-0 flex-1">
                       <span className="flex items-center gap-1.5">
                         <span className="truncate text-xs font-medium">{model.label}</span>
+                        {locked && (
+                          <span className="inline-flex items-center gap-1 rounded-full bg-amber-300/10 px-1.5 py-0.5 text-[9px] font-semibold text-amber-200">
+                            <Crown className="h-2.5 w-2.5" />
+                            PRO
+                          </span>
+                        )}
+                        {!model.available && providerState !== "checking" && (
+                          <span className="rounded-full bg-white/5 px-1.5 py-0.5 text-[9px] text-white/45">
+                            {providerState === "missing_credentials"
+                              ? "Not configured"
+                              : providerState === "invalid_credentials"
+                                ? "Auth error"
+                                : providerState === "insufficient_credits"
+                                  ? "No credits"
+                                  : providerState === "unsupported_model"
+                                    ? "Unsupported"
+                                    : providerState === "rate_limited"
+                                      ? "Rate limited"
+                                      : providerState === "timeout"
+                                        ? "Timed out"
+                                        : providerState === "malformed_response"
+                                          ? "Invalid response"
+                                          : "Unavailable"}
+                          </span>
+                        )}
                         {model.vision && (
                           <Eye className="h-3 w-3 shrink-0 text-violet-300" aria-label="Vision" />
                         )}
@@ -179,17 +270,35 @@ export function ModelSelector({ value, onChange }: ModelSelectorProps) {
                       <span className="mt-0.5 block truncate text-[10px] text-white/40">
                         {model.providerLabel} · {model.capabilities}
                       </span>
-                      <span className="mt-0.5 block text-[10px] text-amber-200/70">
-                        Free tier · may be busy
+                      <span className="mt-0.5 block text-[10px] text-white/40">
+                        {!model.available
+                          ? `${model.unavailableReason ?? "Unavailable"} · click to retry`
+                          : locked
+                            ? "Available from provider · upgrade to select"
+                            : "Available on your plan"}
                       </span>
                     </span>
-                    {active && <Check className="mt-0.5 h-3.5 w-3.5 shrink-0 text-cyan-300" />}
+                    {!model.available && (
+                      <RefreshCw
+                        className={cn(
+                          "mt-0.5 h-3.5 w-3.5 shrink-0",
+                          catalogQuery.isFetching
+                            ? "animate-spin text-cyan-200"
+                            : "text-white/45",
+                        )}
+                        aria-label={`Retry availability check for ${model.label}`}
+                      />
+                    )}
+                    {active && canSelect && (
+                      <Check className="mt-0.5 h-3.5 w-3.5 shrink-0 text-cyan-300" />
+                    )}
                   </button>
                 );
               })}
             </div>
-            <div className="border-t border-white/10 px-2 pt-2 text-[10px] leading-relaxed text-white/40">
-              Paid models are not included. Availability and quotas are controlled by the provider.
+            <div className="border-t border-white/10 px-2 pt-2 text-[10px] leading-relaxed text-white/55">
+              Provider availability is independent of your plan. LORD Pro unlocks the other
+              configured models, voice, 3D games, and Fast Reply Mode.
             </div>
           </motion.div>
         )}

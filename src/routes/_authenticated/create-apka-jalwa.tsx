@@ -22,6 +22,9 @@ import type { GeneratedGameSpec } from "@/lib/games/game-runtime";
 import { ThreeGamePreview } from "@/lib/games/engines/3d/ThreeGamePreview";
 import { createGameZip } from "@/lib/games/game-export";
 import { requestGamesApi, SingleFlightGate } from "@/lib/games/game-api-client";
+import { useQuery } from "@tanstack/react-query";
+import { Link } from "@tanstack/react-router";
+import { authenticatedFetch } from "@/lib/authenticated-fetch";
 
 type SavedGame = {
   id: string;
@@ -48,6 +51,11 @@ export const Route = createFileRoute("/_authenticated/create-apka-jalwa")({
 });
 
 function GameStudio() {
+  const proQuery = useQuery({ queryKey: ["pro-entitlement"], queryFn: async () => {
+    const response = await authenticatedFetch("/api/billing/status");
+    if (!response.ok) throw new Error("Could not verify your plan.");
+    return response.json() as Promise<{ pro: boolean }>;
+  } });
   const [prompt, setPrompt] = useState("");
   const [difficulty, setDifficulty] = useState<GameSpec["difficulty"]>("normal");
   const [dimension, setDimension] = useState<"2d" | "3d">("2d");
@@ -234,8 +242,9 @@ function GameStudio() {
                     className="mb-3 h-10 w-full rounded-lg border border-white/10 bg-[#101c2d] px-3 text-sm text-white"
                   >
                     <option value="2d">2D · Canvas games</option>
-                    <option value="3d">3D · WebGL / Three.js</option>
+                    <option value="3d" disabled={!proQuery.data?.pro}>3D · WebGL / Three.js{!proQuery.data?.pro ? " · Pro" : ""}</option>
                   </select>
+                  {!proQuery.data?.pro && <Link to="/upgrade" className="mb-3 inline-flex rounded-lg border border-cyan-300/20 bg-cyan-300/5 px-3 py-2 text-xs font-medium text-cyan-100">Unlock 3D games with LORD Pro →</Link>}
                   <Label htmlFor="difficulty" className="mb-2 block text-xs text-slate-400">
                     Difficulty
                   </Label>

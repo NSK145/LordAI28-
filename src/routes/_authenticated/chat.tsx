@@ -27,7 +27,10 @@ import { RichMessage } from "@/components/lord/RichMessage";
 import { TypingDots } from "@/components/lord/TypingDots";
 import { ChatInput } from "@/components/lord/chat/input/ChatInput";
 import { ModeSelector, ModelSelector } from "@/components/lord/chat/input/ModelSelector";
-import { FREE_CHAT_MODELS } from "@/lib/ai/chat-model-catalog";
+import { FREE_CHAT_MODEL_IDS } from "@/lib/ai/chat-model-catalog";
+import { isUnsafeAssistantError, safeChatErrorMessage } from "@/lib/ai/safe-chat-error";
+import { useChatModelCatalog } from "@/lib/ai/use-chat-model-catalog";
+import { claimRequestOnce } from "@/lib/ai/request-dedup";
 import {
   ChatAttachmentPreview,
   type ChatAttachmentReference,
@@ -266,15 +269,21 @@ function isDefaultTitle(title: string | undefined | null): boolean {
 
 function ChatPage() {
   const qc = useQueryClient();
+  const modelCatalogQuery = useChatModelCatalog();
   const { user } = Route.useRouteContext();
   const { metrics, currentRoute, activeWorkflow, history } = useAppContext();
   const calendar = useCalendar();
 
   const [mode, setMode] = usePersistedState<LordMode>("chat-mode", DEFAULT_MODE);
-  const [modelId, setModelId] = usePersistedState("chat-model-id", FREE_CHAT_MODELS[0]?.id ?? "");
-  const selectedModelId =
-    FREE_CHAT_MODELS.find((model) => model.id === modelId)?.id ?? FREE_CHAT_MODELS[0]?.id ?? "";
+  const [modelId, setModelId] = usePersistedState("chat-model-id", FREE_CHAT_MODEL_IDS[0]);
+  const accessibleModels = (modelCatalogQuery.data?.models ?? []).filter(
+    (model) => model.available && (!model.proOnly || modelCatalogQuery.data?.isPro),
+  );
+  const selectedModelId = accessibleModels.some((model) => model.id === modelId)
+    ? modelId
+    : (accessibleModels[0]?.id ?? FREE_CHAT_MODEL_IDS[0]);
   const [responseStyle] = usePersistedState<ResponseStyle>("chat-response-style", "balanced");
+  const [fastReply, setFastReply] = usePersistedState("chat-fast-reply", false);
   const [webSearch, setWebSearch] = usePersistedState("chat-web-search", false);
   const [webSearchDepth, setWebSearchDepth] = usePersistedState<"basic" | "advanced">(
     "chat-web-search-depth",
@@ -416,6 +425,7 @@ function ChatPage() {
   // window where two rapid clicks can both observe `busy === false` (notably
   // while attachments are being read) and create duplicate user turns.
   const requestInFlightRef = useRef(false);
+  const startedChatRequestsRef = useRef(new Set<string>());
   const cleanupEmptyConversationRef = useRef<(id: string | null) => Promise<string | null>>(
     async () => null,
   );
@@ -457,6 +467,7 @@ function ChatPage() {
       metrics,
       history,
       responseStyle,
+      fastReply,
       webSearch,
       webSearchDepth,
       webSearchResults,
@@ -472,6 +483,7 @@ function ChatPage() {
       metrics,
       history,
       responseStyle,
+      fastReply,
       webSearch,
       webSearchDepth,
       webSearchResults,
@@ -620,6 +632,11 @@ function ChatPage() {
     messages: initialMessages,
     transport,
     onFinish: async ({ message, messages: completed, isError }) => {
+      const unsafeCompletedText = (message?.parts ?? [])
+        .filter((part) => part.type === "text")
+        .map((part) => (part as { text?: string }).text ?? "")
+        .join("");
+      const shouldTreatAsError = isError || isUnsafeAssistantError(unsafeCompletedText);
       setProcessingLabel(null);
       const meta = (message?.metadata ?? null) as { tokenUsage?: TokenUsageEvent } | null;
       if (meta?.tokenUsage) {
@@ -631,7 +648,7 @@ function ChatPage() {
       const activeConversationId = streamingConvIdRef.current ?? activeConversationIdRef.current;
       const requestMode = modeRef.current;
       const dbActiveConversationId = activeConversationId ?? "";
-      if (isError) {
+      if (shouldTreatAsError) {
         const partialMessageId = streamingMsgIdRef.current;
         if (partialMessageId) {
           await streamingWriteRef.current;
@@ -639,7 +656,7 @@ function ChatPage() {
           markClientTagSent(tag);
           const { error: finalizeError } = await supabase
             .from("messages")
-            .update({ streaming: false, client_tag: tag })
+            .update({ content: "", streaming: false, client_tag: tag })
             .eq("id", partialMessageId);
           if (finalizeError) setPersistenceError(finalizeError.message);
         }
@@ -656,7 +673,7 @@ function ChatPage() {
         setPersistenceError(
           lordErr
             ? formatUserFacingError(lordErr)
-            : "The response was interrupted. You can regenerate it.",
+            : safeChatErrorMessage(unsafeCompletedText || undefined),
         );
         return;
       }
@@ -666,7 +683,7 @@ function ChatPage() {
             event: "chat_stream_finish_skipped",
             conversationId: activeConversationId,
             mode: requestMode,
-            isError,
+            isError: shouldTreatAsError,
           }),
         );
         return;
@@ -1088,13 +1105,18 @@ function ChatPage() {
       // A sidebar action can race the initial insert. A temporary row has no
       // database representation, so removing it must remain a UI-only action.
       if (isOptimisticId(id)) return;
-      const { error: messagesError } = await supabase
-        .from("messages")
+      // RLS enforces ownership as the final boundary; the explicit user filter
+      // also makes the intent clear and lets us detect a denied/missing row.
+      // The FK cascades messages only after the owned conversation is deleted.
+      const { data, error } = await supabase
+        .from("conversations")
         .delete()
-        .eq("conversation_id", id);
-      if (messagesError) throw messagesError;
-      const { error } = await supabase.from("conversations").delete().eq("id", id);
+        .eq("id", id)
+        .eq("user_id", user.id)
+        .select("id")
+        .maybeSingle();
       if (error) throw error;
+      if (!data) throw new Error("This conversation was not found or you don't have access to it.");
     },
     onMutate: async (id) => {
       await qc.cancelQueries({ queryKey: conversationsQueryKey });
@@ -1456,11 +1478,13 @@ function ChatPage() {
     if (isNew) {
       setPendingInitialSend({ conversationId, message });
     } else {
+      if (!claimRequestOnce(startedChatRequestsRef.current, message.id)) return;
       void sendMessage(message)
         .catch((err: unknown) => {
           setPersistenceError(err instanceof Error ? err.message : "The AI request failed.");
         })
         .finally(() => {
+          startedChatRequestsRef.current.delete(message.id);
           requestInFlightRef.current = false;
           setSavingMessage(false);
         });
@@ -1713,11 +1737,14 @@ function ChatPage() {
       void runImageGeneration(pendingInitialSend.message, pendingInitialSend.conversationId);
       return;
     }
+    const pendingMessageId = pendingInitialSend.message.id;
+    if (!claimRequestOnce(startedChatRequestsRef.current, pendingMessageId)) return;
     void sendMessage()
       .catch((err: unknown) => {
         setPersistenceError(err instanceof Error ? err.message : "The AI request failed.");
       })
       .finally(() => {
+        startedChatRequestsRef.current.delete(pendingMessageId);
         requestInFlightRef.current = false;
         setSavingMessage(false);
       });
@@ -2316,7 +2343,8 @@ function ChatPage() {
             .map((p) => (p as { text?: string }).text ?? "")
             .join("");
           const leakedToolPayload = m.role === "assistant" && isInternalImageToolPayload(text);
-          const visibleText = leakedToolPayload ? "" : text;
+          const unsafeResponse = m.role === "assistant" && isUnsafeAssistantError(text);
+          const visibleText = leakedToolPayload || unsafeResponse ? "" : text;
           const imageGeneration = (
             m.metadata as { imageGeneration?: ImageGenerationMessageData } | undefined
           )?.imageGeneration;
@@ -2355,11 +2383,11 @@ function ChatPage() {
             .filter((p) => (p as { type: string }).type === "error")
             .map((p) => {
               const partText = (p as { errorText?: string }).errorText ?? "";
-              const lordErr = parseLordError(partText);
-              return lordErr
-                ? formatUserFacingError(lordErr)
-                : partText || "The AI request failed.";
+              return safeChatErrorMessage(partText);
             });
+          if (unsafeResponse) {
+            errorParts.push("LORD AI couldn’t complete that response. Retry to continue.");
+          }
           const storedSources =
             (
               m.metadata as
@@ -2552,7 +2580,7 @@ function ChatPage() {
                 <div>
                   {lordErr
                     ? formatUserFacingError(lordErr)
-                    : error.message || "The AI request failed. Please retry."}
+                    : safeChatErrorMessage(error.message)}
                 </div>
                 {requestId && (
                   <div className="mt-1 font-mono text-destructive/80">
@@ -2816,6 +2844,9 @@ function ChatPage() {
                   onWebSearchDepthChange={setWebSearchDepth}
                   webSearchResults={webSearchResults}
                   onWebSearchResultsChange={setWebSearchResults}
+                  fastReply={fastReply}
+                  onFastReplyChange={setFastReply}
+                  isPro={modelCatalogQuery.data?.isPro ?? false}
                 />
               </div>
             </div>

@@ -1,9 +1,16 @@
 import { memo, useState } from "react";
-import { MessageSquare, Pencil, Trash2, Pin, Check, X } from "lucide-react";
+import { MessageSquare, Pencil, Trash2, Pin, Check, X, MoreHorizontal, Star } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { ConversationWithFolder } from "@/lib/folders";
 import { setActiveDrag, getActiveDrag } from "./dnd";
 import { FavoriteStar } from "../FavoriteStar";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 interface FolderConversationItemProps {
   conv: ConversationWithFolder;
@@ -116,8 +123,9 @@ export const FolderConversationItem = memo(function FolderConversationItem({
           >
             <MessageSquare className="h-3.5 w-3.5 flex-shrink-0 text-muted-foreground" />
             <span className="truncate font-medium">{conv.title || "Untitled"}</span>
+            {pinned && <Pin className="h-3 w-3 shrink-0 fill-current text-primary" aria-label="Pinned" />}
           </button>
-          <div className="flex shrink-0 gap-0.5 opacity-0 transition-opacity duration-150 group-hover:opacity-100 group-focus-within:opacity-100">
+          <div className="hidden shrink-0 gap-0.5 opacity-0 transition-opacity duration-150 group-hover:opacity-100 group-focus-within:opacity-100 sm:flex">
             <button
               onClick={() => onPin(conv.id, !pinned)}
               aria-label={pinned ? `Unpin ${conv.title}` : `Pin ${conv.title}`}
@@ -148,6 +156,34 @@ export const FolderConversationItem = memo(function FolderConversationItem({
               <Trash2 className="h-3.5 w-3.5" />
             </button>
           </div>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button
+                type="button"
+                aria-label={`Actions for ${conv.title || "Untitled"}`}
+                onPointerDown={(event) => event.stopPropagation()}
+                onClick={(event) => event.stopPropagation()}
+                className="grid h-11 w-11 shrink-0 place-items-center rounded-xl text-muted-foreground transition hover:bg-white/10 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/70 sm:hidden"
+              >
+                <MoreHorizontal className="h-5 w-5" />
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="min-w-48 border-white/10 bg-[#11151d] text-foreground shadow-xl">
+              <DropdownMenuItem onSelect={() => onPin(conv.id, !pinned)} className="min-h-11">
+                <Pin className="h-4 w-4" />{pinned ? "Unpin Chat" : "Pin Chat"}
+              </DropdownMenuItem>
+              <DropdownMenuItem onSelect={() => onFavorite(conv.id, !favorite)} className="min-h-11">
+                <Star className="h-4 w-4" />{favorite ? "Remove Favorite" : "Add Favorite"}
+              </DropdownMenuItem>
+              <DropdownMenuItem onSelect={() => onStartEdit(conv)} className="min-h-11">
+                <Pencil className="h-4 w-4" />Rename Chat
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onSelect={() => onDelete(conv.id)} className="min-h-11 text-destructive focus:text-destructive">
+                <Trash2 className="h-4 w-4" />Delete Chat
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       )}
     </div>

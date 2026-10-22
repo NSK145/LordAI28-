@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { checkOpenRouterHealth } from "./openrouter-health.server";
+import { checkOpenRouterHealth, probeOpenRouterModel } from "./openrouter-health.server";
 
 describe("checkOpenRouterHealth", () => {
   it("reports missing credentials without contacting the provider", async () => {
@@ -51,5 +51,27 @@ describe("checkOpenRouterHealth", () => {
 
     expect(result).toMatchObject({ ok: false, status: "timeout", modelIds: [] });
     expect(JSON.stringify(result)).not.toContain("secret-test-key");
+  });
+
+  it("distinguishes provider model errors and validates completion response shape", async () => {
+    const cases = [
+      [404, "unsupported_model"],
+      [402, "insufficient_credits"],
+      [401, "invalid_credentials"],
+      [429, "rate_limited"],
+    ] as const;
+    for (const [status, expected] of cases) {
+      const fetcher = vi.fn<typeof fetch>().mockResolvedValue(new Response(null, { status }));
+      await expect(probeOpenRouterModel("secret-test-key", "vendor/model", fetcher)).resolves.toMatchObject({ status: expected });
+    }
+    const malformed = vi.fn<typeof fetch>().mockResolvedValue(Response.json({ choices: [] }));
+    await expect(probeOpenRouterModel("secret-test-key", "vendor/model", malformed)).resolves.toMatchObject({ status: "malformed_response" });
+    const success = vi.fn<typeof fetch>().mockResolvedValue(Response.json({ choices: [{ message: { content: [{ type: "text", text: "OK" }] } }] }));
+    await expect(probeOpenRouterModel("secret-test-key", "vendor/model", success)).resolves.toMatchObject({ status: "available" });
+  });
+
+  it("reports malformed provider catalog JSON", async () => {
+    const fetcher = vi.fn<typeof fetch>().mockResolvedValue(new Response("<html>error</html>", { status: 200 }));
+    await expect(checkOpenRouterHealth("secret-test-key", fetcher)).resolves.toMatchObject({ status: "malformed_response" });
   });
 });

@@ -3,6 +3,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { z } from "zod";
 import { requireSupabaseRequestAuth } from "@/integrations/supabase/auth-middleware";
 import { apiErrorResponse } from "@/lib/api-error";
+import { hasProEntitlement } from "@/lib/billing/entitlements.server";
 
 const VoiceRequestSchema = z.discriminatedUnion("action", [
   z.object({
@@ -44,7 +45,11 @@ export const Route = createFileRoute("/api/learning/voice")({
         if (!parsed.success)
           return apiErrorResponse(400, "INVALID_REQUEST", "Invalid voice request.", requestId);
 
-        const auth = context as { userId?: string; supabase?: { from: (table: string) => any } };
+        const auth = context as {
+          userId?: string;
+          supabase?: { from: (table: string) => any };
+          claims?: { email?: string; email_confirmed_at?: string | null };
+        };
         if (!auth.userId || !auth.supabase)
           return apiErrorResponse(
             401,
@@ -55,6 +60,13 @@ export const Route = createFileRoute("/api/learning/voice")({
 
         const db = auth.supabase;
         const userId = auth.userId;
+        if (!(await hasProEntitlement({ id: userId, ...(auth.claims ?? {}) })))
+          return apiErrorResponse(
+            403,
+            "PRO_REQUIRED",
+            "LORD Pro is required for voice features.",
+            requestId,
+          );
 
         try {
           if (parsed.data.action === "stt") {

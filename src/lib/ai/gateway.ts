@@ -14,6 +14,7 @@ export function streamChat(
   candidateModelIds: readonly string[] = [MODELS.DEFAULT],
   requestId = crypto.randomUUID(),
   sources: readonly WebSource[] = [],
+  maxTokens = 1400,
 ): Response {
   const startedAt = Date.now();
   const models = candidateModelIds.length > 0 ? candidateModelIds : [MODELS.DEFAULT];
@@ -68,7 +69,12 @@ export function streamChat(
           const attemptStartedAt = Date.now();
           console.info("Model attempt started", { requestId, model: modelId, attempt: index + 1 });
           try {
-            for await (const event of client.streamChatEvents(messages, modelId, attempt.signal)) {
+            for await (const event of client.streamChatEvents(
+              messages,
+              modelId,
+              attempt.signal,
+              maxTokens,
+            )) {
               if (event.type === "reasoning") {
                 attemptReasoning += event.delta;
                 continue;

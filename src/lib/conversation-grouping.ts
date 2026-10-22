@@ -191,14 +191,23 @@ export function searchConversations(
  */
 export function sortRootConversations<T extends ConversationRow>(conversations: T[]): T[] {
   const hasManualOrder = conversations.some((c) => c.sort_order != null);
+  const pinnedFirst = (a: T, b: T): number => {
+    if (Boolean(a.pinned) !== Boolean(b.pinned)) return a.pinned ? -1 : 1;
+    if (a.pinned && b.pinned) {
+      const byPinDate = pinnedAtOf(b) - pinnedAtOf(a);
+      if (byPinDate) return byPinDate;
+    }
+    return 0;
+  };
   if (!hasManualOrder) {
     // Legacy / not-yet-ordered: newest-first, stable by id.
-    return conversations.slice().sort((a, b) => timeOf(b) - timeOf(a) || (a.id < b.id ? -1 : 1));
+    return conversations.slice().sort((a, b) => pinnedFirst(a, b) || timeOf(b) - timeOf(a) || (a.id < b.id ? -1 : 1));
   }
   return conversations
     .slice()
     .sort(
       (a, b) =>
+        pinnedFirst(a, b) ||
         (a.sort_order ?? Number.MAX_SAFE_INTEGER) - (b.sort_order ?? Number.MAX_SAFE_INTEGER) ||
         timeOf(b) - timeOf(a) ||
         (a.id < b.id ? -1 : 1),

@@ -25,6 +25,7 @@ import {
 import { supabase } from "@/integrations/supabase/client";
 import { usePersistedState } from "@/lib/use-persisted-state";
 import { cn } from "@/lib/utils";
+import { authenticatedFetch } from "@/lib/authenticated-fetch";
 
 export const Route = createFileRoute("/_authenticated/voice")({
   head: () => ({ meta: [{ title: "LORD AI — Voice Assistant" }] }),
@@ -58,6 +59,11 @@ function VoicePage() {
   const [subtitlesEnabled, setSubtitlesEnabled] = usePersistedState("voice-subtitles", true);
   const [historyOpen, setHistoryOpen] = useState(false);
   const [typedCommand, setTypedCommand] = useState("");
+  const proQuery = useQuery({ queryKey: ["pro-entitlement"], queryFn: async () => {
+    const response = await authenticatedFetch("/api/billing/status");
+    if (!response.ok) throw new Error("Could not verify your plan.");
+    return response.json() as Promise<{ pro: boolean; lifetime: boolean }>;
+  } });
   const transcriptRef = useRef<HTMLDivElement>(null);
   const stayAtBottomRef = useRef(true);
   const { data: userId } = useQuery({
@@ -114,6 +120,13 @@ function VoicePage() {
     setTypedCommand("");
     void submitText(command);
   };
+
+  if (!proQuery.data?.pro) return <AppShell><main className="mx-auto flex min-h-[60vh] max-w-3xl flex-col items-center justify-center px-4 text-center">
+    <div className="mb-5 grid h-16 w-16 place-items-center rounded-2xl border border-cyan-300/25 bg-cyan-300/10 text-cyan-200"><Mic className="h-8 w-8"/></div>
+    <p className="text-xs font-semibold uppercase tracking-[0.25em] text-cyan-300">LORD Pro feature</p><h1 className="mt-3 font-display text-3xl font-semibold">Your voice, connected to LORD.</h1>
+    <p className="mt-3 max-w-lg text-muted-foreground">Upgrade to use hands-free voice conversations, spoken responses, and premium voice controls.</p>
+    {proQuery.isLoading ? <p className="mt-6 text-sm text-muted-foreground">Checking your plan…</p> : <Link to="/upgrade" className="mt-7 rounded-xl bg-primary px-6 py-3 font-semibold text-primary-foreground shadow-lg shadow-primary/20">Explore LORD Pro</Link>}
+  </main></AppShell>;
 
   return (
     <AppShell>

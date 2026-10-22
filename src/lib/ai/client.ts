@@ -110,6 +110,7 @@ export class OpenRouterClient {
     const reader = body.getReader();
     const decoder = new TextDecoder();
     let buffer = "";
+    let receivedDone = false;
 
     try {
       while (true) {
@@ -119,10 +120,21 @@ export class OpenRouterClient {
         buffer = lines.pop() ?? "";
         for (const line of lines) {
           const event = parseSseLine(line);
-          if (event === null) return;
+          if (event === null) {
+            receivedDone = true;
+            return;
+          }
           if (event) yield event;
         }
-        if (done) return;
+        if (done) {
+          if (buffer.trim()) {
+            const event = parseSseLine(buffer);
+            if (event === null) receivedDone = true;
+            else if (event) yield event;
+          }
+          if (!receivedDone) throw new OpenRouterError("malformed_response");
+          return;
+        }
       }
     } finally {
       reader.releaseLock();
@@ -149,7 +161,7 @@ function parseSseLine(line: string): OpenRouterStreamEvent | null | undefined {
 
   try {
     const parsed = JSON.parse(payload) as {
-      choices?: Array<{ delta?: { content?: string; reasoning?: string } }>;
+      choices?: Array<{ delta?: { content?: unknown; reasoning?: unknown } }>;
       error?: { code?: number; message?: string };
     };
     if (parsed.error) {
@@ -159,11 +171,25 @@ function parseSseLine(line: string): OpenRouterStreamEvent | null | undefined {
       );
     }
     const delta = parsed.choices?.[0]?.delta;
-    if (delta?.reasoning) return { type: "reasoning", delta: delta.reasoning };
-    if (delta?.content) return { type: "text", delta: delta.content };
+    const reasoning = extractText(delta?.reasoning);
+    const content = extractText(delta?.content);
+    if (reasoning) return { type: "reasoning", delta: reasoning };
+    if (content) return { type: "text", delta: content };
     return undefined;
   } catch (error) {
     if (error instanceof OpenRouterError) throw error;
-    throw new OpenRouterError("unavailable", undefined, error);
+    throw new OpenRouterError("malformed_response", undefined, error);
   }
+}
+
+function extractText(value: unknown): string | undefined {
+  if (typeof value === "string") return value;
+  if (Array.isArray(value)) {
+    const text = value.map(extractText).filter(Boolean).join("");
+    return text || undefined;
+  }
+  if (value && typeof value === "object" && "text" in value) {
+    return extractText((value as { text?: unknown }).text);
+  }
+  return undefined;
 }

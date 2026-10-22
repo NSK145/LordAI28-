@@ -19,6 +19,10 @@ import { buildMemoryPrompt } from "./chat/-memory";
 import { ChatRequestSchema } from "./chat/-schema";
 import { RESPONSE_STYLE_INSTRUCTIONS, type ResponseStyle } from "@/lib/ai/response-style";
 import { buildSourceContext, type WebSource } from "@/lib/ai/web-sources";
+import { hasProEntitlement } from "@/lib/billing/entitlements.server";
+import { FREE_CHAT_MODEL_IDS, isFreeChatModel } from "@/lib/ai/chat-model-catalog";
+import { readEnvApiKey } from "@/lib/env.server";
+import { canUseFastReply } from "@/lib/ai/fast-reply-access";
 
 export const Route = createFileRoute("/api/chat")({
   server: {
@@ -26,6 +30,23 @@ export const Route = createFileRoute("/api/chat")({
     handlers: {
       POST: async ({ request, context }) => {
         const requestId = crypto.randomUUID();
+        if (request.headers.get("x-lord-voice-mode") === "true") {
+          const auth = context as {
+            userId?: string;
+            claims?: { email?: string; email_confirmed_at?: string | null };
+          };
+          if (
+            !auth.userId ||
+            !(await safelyCheckProEntitlement({ id: auth.userId, ...(auth.claims ?? {}) }))
+          ) {
+            return apiErrorResponse(
+              403,
+              "PRO_REQUIRED",
+              "LORD Pro is required for voice interactions.",
+              requestId,
+            );
+          }
+        }
         let rawBody: unknown;
         try {
           rawBody = await request.json();
@@ -60,6 +81,26 @@ export const Route = createFileRoute("/api/chat")({
             400,
             "INVALID_REQUEST",
             "Please send a valid conversation with 1-100 messages.",
+            requestId,
+          );
+        }
+
+        const entitlementContext = context as {
+          userId?: string;
+          claims?: { email?: string; email_confirmed_at?: string | null };
+        };
+        const isPro = Boolean(
+          entitlementContext.userId &&
+          (await safelyCheckProEntitlement({
+            id: entitlementContext.userId,
+            ...(entitlementContext.claims ?? {}),
+          })),
+        );
+        if (parsed.data.context?.fastReply === true && !canUseFastReply(isPro)) {
+          return apiErrorResponse(
+            403,
+            "PRO_REQUIRED",
+            "Fast Reply Mode is available to LORD Pro subscribers.",
             requestId,
           );
         }
@@ -136,65 +177,34 @@ export const Route = createFileRoute("/api/chat")({
               requestId,
             );
           }
-          const freeRoute = hasMultimodal
-            ? null
-            : buildRouteDecision(lastUserText || "general", mode);
-          const rankedModelCandidates = hasMultimodal
-            ? [...CHAT_MODEL_MAP.values()]
-                .filter(
-                  (model) =>
-                    model.enabled &&
-                    model.provider === "openrouter" &&
-                    model.pricing.inputPer1MTokens === 0 &&
-                    model.pricing.outputPer1MTokens === 0 &&
-                    model.capabilities.supportsVision &&
-                    model.limits.maxImagesPerRequest >= imageCount,
-                )
-                .sort((a, b) => a.metadata.priority - b.metadata.priority)
-                .map((model) => model.id)
-            : freeRoute?.candidates.length
-              ? freeRoute.candidates
-                  .map((modelId) => ({
-                    modelId,
-                    provider: CHAT_MODEL_MAP.get(modelId)?.provider,
-                    definition: CHAT_MODEL_MAP.get(modelId),
-                  }))
-                  .filter((candidate) => {
-                    return (
-                      candidate.provider === "openrouter" &&
-                      candidate.definition !== undefined &&
-                      candidate.definition.pricing.inputPer1MTokens === 0 &&
-                      candidate.definition.pricing.outputPer1MTokens === 0
-                    );
-                  })
-                  .map((candidate) => candidate.modelId)
-              : getModeCandidates(mode, parsed.data.modelId)
-                  .filter((candidate) => {
-                    const definition = CHAT_MODEL_MAP.get(candidate.modelId);
-                    return (
-                      candidate.provider === "openrouter" &&
-                      definition !== undefined &&
-                      definition.pricing.inputPer1MTokens === 0 &&
-                      definition.pricing.outputPer1MTokens === 0
-                    );
-                  })
-                  .map((candidate) => candidate.modelId);
           const requestedModelId = parsed.data.modelId;
           const requestedModel = requestedModelId
             ? CHAT_MODEL_MAP.get(requestedModelId)
             : undefined;
           if (
             requestedModelId &&
-            (!requestedModel ||
-              !requestedModel.enabled ||
-              requestedModel.provider !== "openrouter" ||
-              requestedModel.pricing.inputPer1MTokens !== 0 ||
-              requestedModel.pricing.outputPer1MTokens !== 0)
+            (!requestedModel || !requestedModel.enabled || requestedModel.provider !== "openrouter")
           ) {
             return apiErrorResponse(
               400,
               "INVALID_REQUEST",
-              "That model is not available in the free model selector. Choose another model.",
+              "That model is not in the configured chat model registry.",
+              requestId,
+            );
+          }
+          if (requestedModelId && !isPro && !isFreeChatModel(requestedModelId)) {
+            return apiErrorResponse(
+              403,
+              "PRO_REQUIRED",
+              "LORD Pro is required to use this AI model.",
+              requestId,
+            );
+          }
+          if (!readEnvApiKey("OPENROUTER_API_KEY")) {
+            return apiErrorResponse(
+              503,
+              "AI_NOT_CONFIGURED",
+              "OpenRouter is not configured on this deployment.",
               requestId,
             );
           }
@@ -207,16 +217,58 @@ export const Route = createFileRoute("/api/chat")({
             );
           }
 
+          const allowedModelIds = new Set(
+            [...CHAT_MODEL_MAP.values()]
+              .filter(
+                (model) =>
+                  model.enabled &&
+                  model.provider === "openrouter" &&
+                  (isPro || isFreeChatModel(model.id)) &&
+                  (!hasMultimodal ||
+                    (model.capabilities.supportsVision &&
+                      model.limits.maxImagesPerRequest >= imageCount)),
+              )
+              .map((model) => model.id),
+          );
+          const freeRoute =
+            isPro || hasMultimodal ? null : buildRouteDecision(lastUserText || "general", mode);
+          const rankedModelCandidates = requestedModelId
+            ? getModeCandidates(mode, requestedModelId)
+                .filter((candidate) => allowedModelIds.has(candidate.modelId))
+                .map((candidate) => candidate.modelId)
+            : isPro
+              ? getModeCandidates(mode)
+                  .filter((candidate) => allowedModelIds.has(candidate.modelId))
+                  .map((candidate) => candidate.modelId)
+              : hasMultimodal
+                ? [...allowedModelIds]
+                : (() => {
+                    const routedFreeCandidates = (freeRoute?.candidates ?? []).filter((modelId) =>
+                      allowedModelIds.has(modelId),
+                    );
+                    return routedFreeCandidates.length > 0
+                      ? routedFreeCandidates
+                      : [...FREE_CHAT_MODEL_IDS].filter((modelId) => allowedModelIds.has(modelId));
+                  })();
+
+          if (parsed.data.context?.fastReply) {
+            rankedModelCandidates.sort((left, right) => {
+              if (left === requestedModelId) return -1;
+              if (right === requestedModelId) return 1;
+              return (
+                (CHAT_MODEL_MAP.get(left)?.latency.expectedMs ?? Number.MAX_SAFE_INTEGER) -
+                (CHAT_MODEL_MAP.get(right)?.latency.expectedMs ?? Number.MAX_SAFE_INTEGER)
+              );
+            });
+          }
+
           const fallbackRankedModelCandidates = requestedModelId
             ? [
                 ...rankedModelCandidates,
                 ...[...CHAT_MODEL_MAP.values()]
                   .filter(
                     (model) =>
-                      model.enabled &&
-                      model.provider === "openrouter" &&
-                      model.pricing.inputPer1MTokens === 0 &&
-                      model.pricing.outputPer1MTokens === 0 &&
+                      allowedModelIds.has(model.id) &&
                       (!hasMultimodal || model.capabilities.supportsVision),
                   )
                   .sort((a, b) => a.metadata.priority - b.metadata.priority)
@@ -247,8 +299,8 @@ export const Route = createFileRoute("/api/chat")({
               503,
               hasMultimodal ? "AI_UPSTREAM_ERROR" : "AI_NOT_CONFIGURED",
               hasMultimodal
-                ? "No configured free model supports the attached image or PDF combination."
-                : "No free model is currently healthy.",
+                ? "No model on your plan supports the attached image or PDF combination."
+                : "No configured model is currently available.",
               requestId,
             );
           }
@@ -323,7 +375,7 @@ export const Route = createFileRoute("/api/chat")({
               ? "\n\nWEB SOURCE STATUS\nWeb search was enabled, but no usable search results were returned. State that you could not verify the requested facts from web sources. Do not fabricate citations or imply that you searched successfully."
               : "";
           const chatMessages = buildChatContextMessages(contextMessages, {
-            systemPrompt: `${LORD_SYSTEM_PROMPT}\n\nRESPONSE STYLE\n${RESPONSE_STYLE_INSTRUCTIONS[(context?.responseStyle as ResponseStyle | undefined) ?? "balanced"]}${webSourceContext}`,
+            systemPrompt: `${LORD_SYSTEM_PROMPT}\n\nRESPONSE STYLE\n${parsed.data.context?.fastReply ? "Fast Reply Mode: answer immediately and concisely, prioritize the direct result, and avoid optional elaboration." : RESPONSE_STYLE_INSTRUCTIONS[(context?.responseStyle as ResponseStyle | undefined) ?? "balanced"]}${webSourceContext}`,
             memoryPrompt,
             contextBudgetTokens: Math.floor(contextLimit * 0.7),
             application: {
@@ -343,6 +395,7 @@ export const Route = createFileRoute("/api/chat")({
             selectedCandidates,
             requestId,
             webSources,
+            parsed.data.context?.fastReply ? 700 : 1400,
           );
         } catch (error) {
           console.error(
@@ -523,4 +576,17 @@ function keepRecentMultimodalFiles(messages: UIMessage[], maxFiles: number): UIM
     kept[messageIndex] = { ...message, parts };
   }
   return kept;
+}
+
+async function safelyCheckProEntitlement(user: {
+  id: string;
+  email?: string;
+  email_confirmed_at?: string | null;
+}): Promise<boolean> {
+  try {
+    return await hasProEntitlement(user);
+  } catch (error) {
+    console.error("Chat entitlement verification failed; applying Free access.", error);
+    return false;
+  }
 }

@@ -33,11 +33,13 @@ import { Route as AuthenticatedSettingsRouteImport } from './routes/_authenticat
 import { Route as AuthenticatedStatisticsRouteImport } from './routes/_authenticated/statistics'
 import { Route as AuthenticatedStudyRouteImport } from './routes/_authenticated/study'
 import { Route as AuthenticatedTasksRouteImport } from './routes/_authenticated/tasks'
+import { Route as AuthenticatedUpgradeRouteImport } from './routes/_authenticated/upgrade'
 import { Route as AuthenticatedVoiceRouteImport } from './routes/_authenticated/voice'
 import { Route as ApiChatRouteImport } from './routes/api/chat'
 import { Route as ApiGamesRouteImport } from './routes/api/games'
 import { Route as ApiHealthRouteImport } from './routes/api/health'
 import { Route as ApiImagesRouteImport } from './routes/api/images'
+import { Route as ApiModelsRouteImport } from './routes/api/models'
 import { Route as ApiOpenrouterTestRouteImport } from './routes/api/openrouter-test'
 import { Route as ApiSearchRouteImport } from './routes/api/search'
 import { Route as ApiSharesRouteImport } from './routes/api/shares'
@@ -61,6 +63,10 @@ import { Route as AuthenticatedObservabilityIndexRouteImport } from './routes/_a
 import { Route as AuthenticatedProjectsIndexRouteImport } from './routes/_authenticated/projects/index'
 import { Route as AuthenticatedProjectsIdRouteImport } from './routes/_authenticated/projects/$id'
 import { Route as ApiAdminGatewayRouteImport } from './routes/api/admin/gateway'
+import { Route as ApiBillingStatusRouteImport } from './routes/api/billing/status'
+import { Route as ApiBillingSubscriptionRouteImport } from './routes/api/billing/subscription'
+import { Route as ApiBillingVerifyRouteImport } from './routes/api/billing/verify'
+import { Route as ApiBillingWebhookRouteImport } from './routes/api/billing/webhook'
 import { Route as ApiBrainContextRouteImport } from './routes/api/brain/context'
 import { Route as ApiCanvasIndexRouteImport } from './routes/api/canvas/index'
 import { Route as ApiCanvasStreamRouteImport } from './routes/api/canvas/stream'
@@ -243,6 +249,11 @@ const AuthenticatedTasksRoute = AuthenticatedTasksRouteImport.update({
   path: '/tasks',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedUpgradeRoute = AuthenticatedUpgradeRouteImport.update({
+  id: '/upgrade',
+  path: '/upgrade',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
 const AuthenticatedVoiceRoute = AuthenticatedVoiceRouteImport.update({
   id: '/voice',
   path: '/voice',
@@ -266,6 +277,11 @@ const ApiHealthRoute = ApiHealthRouteImport.update({
 const ApiImagesRoute = ApiImagesRouteImport.update({
   id: '/api/images',
   path: '/api/images',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiModelsRoute = ApiModelsRouteImport.update({
+  id: '/api/models',
+  path: '/api/models',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiOpenrouterTestRoute = ApiOpenrouterTestRouteImport.update({
@@ -396,6 +412,26 @@ const AuthenticatedProjectsIdRoute = AuthenticatedProjectsIdRouteImport.update({
 const ApiAdminGatewayRoute = ApiAdminGatewayRouteImport.update({
   id: '/api/admin/gateway',
   path: '/api/admin/gateway',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiBillingStatusRoute = ApiBillingStatusRouteImport.update({
+  id: '/api/billing/status',
+  path: '/api/billing/status',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiBillingSubscriptionRoute = ApiBillingSubscriptionRouteImport.update({
+  id: '/api/billing/subscription',
+  path: '/api/billing/subscription',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiBillingVerifyRoute = ApiBillingVerifyRouteImport.update({
+  id: '/api/billing/verify',
+  path: '/api/billing/verify',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiBillingWebhookRoute = ApiBillingWebhookRouteImport.update({
+  id: '/api/billing/webhook',
+  path: '/api/billing/webhook',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiBrainContextRoute = ApiBrainContextRouteImport.update({
@@ -725,11 +761,13 @@ export interface FileRoutesByFullPath {
   '/statistics': typeof AuthenticatedStatisticsRoute
   '/study': typeof AuthenticatedStudyRoute
   '/tasks': typeof AuthenticatedTasksRoute
+  '/upgrade': typeof AuthenticatedUpgradeRoute
   '/voice': typeof AuthenticatedVoiceRoute
   '/api/chat': typeof ApiChatRouteWithChildren
   '/api/games': typeof ApiGamesRoute
   '/api/health': typeof ApiHealthRoute
   '/api/images': typeof ApiImagesRouteWithChildren
+  '/api/models': typeof ApiModelsRoute
   '/api/openrouter-test': typeof ApiOpenrouterTestRoute
   '/api/search': typeof ApiSearchRoute
   '/api/shares': typeof ApiSharesRouteWithChildren
@@ -747,6 +785,10 @@ export interface FileRoutesByFullPath {
   '/command-center/vision': typeof AuthenticatedCommandCenterVisionRoute
   '/projects/$id': typeof AuthenticatedProjectsIdRoute
   '/api/admin/gateway': typeof ApiAdminGatewayRoute
+  '/api/billing/status': typeof ApiBillingStatusRoute
+  '/api/billing/subscription': typeof ApiBillingSubscriptionRoute
+  '/api/billing/verify': typeof ApiBillingVerifyRoute
+  '/api/billing/webhook': typeof ApiBillingWebhookRoute
   '/api/brain/context': typeof ApiBrainContextRoute
   '/api/canvas/stream': typeof ApiCanvasStreamRoute
   '/api/canvas/versions': typeof ApiCanvasVersionsRoute
@@ -836,11 +878,13 @@ export interface FileRoutesByTo {
   '/statistics': typeof AuthenticatedStatisticsRoute
   '/study': typeof AuthenticatedStudyRoute
   '/tasks': typeof AuthenticatedTasksRoute
+  '/upgrade': typeof AuthenticatedUpgradeRoute
   '/voice': typeof AuthenticatedVoiceRoute
   '/api/chat': typeof ApiChatRouteWithChildren
   '/api/games': typeof ApiGamesRoute
   '/api/health': typeof ApiHealthRoute
   '/api/images': typeof ApiImagesRouteWithChildren
+  '/api/models': typeof ApiModelsRoute
   '/api/openrouter-test': typeof ApiOpenrouterTestRoute
   '/api/search': typeof ApiSearchRoute
   '/api/shares': typeof ApiSharesRouteWithChildren
@@ -858,6 +902,10 @@ export interface FileRoutesByTo {
   '/command-center/vision': typeof AuthenticatedCommandCenterVisionRoute
   '/projects/$id': typeof AuthenticatedProjectsIdRoute
   '/api/admin/gateway': typeof ApiAdminGatewayRoute
+  '/api/billing/status': typeof ApiBillingStatusRoute
+  '/api/billing/subscription': typeof ApiBillingSubscriptionRoute
+  '/api/billing/verify': typeof ApiBillingVerifyRoute
+  '/api/billing/webhook': typeof ApiBillingWebhookRoute
   '/api/brain/context': typeof ApiBrainContextRoute
   '/api/canvas/stream': typeof ApiCanvasStreamRoute
   '/api/canvas/versions': typeof ApiCanvasVersionsRoute
@@ -950,11 +998,13 @@ export interface FileRoutesById {
   '/_authenticated/statistics': typeof AuthenticatedStatisticsRoute
   '/_authenticated/study': typeof AuthenticatedStudyRoute
   '/_authenticated/tasks': typeof AuthenticatedTasksRoute
+  '/_authenticated/upgrade': typeof AuthenticatedUpgradeRoute
   '/_authenticated/voice': typeof AuthenticatedVoiceRoute
   '/api/chat': typeof ApiChatRouteWithChildren
   '/api/games': typeof ApiGamesRoute
   '/api/health': typeof ApiHealthRoute
   '/api/images': typeof ApiImagesRouteWithChildren
+  '/api/models': typeof ApiModelsRoute
   '/api/openrouter-test': typeof ApiOpenrouterTestRoute
   '/api/search': typeof ApiSearchRoute
   '/api/shares': typeof ApiSharesRouteWithChildren
@@ -972,6 +1022,10 @@ export interface FileRoutesById {
   '/_authenticated/command-center/vision': typeof AuthenticatedCommandCenterVisionRoute
   '/_authenticated/projects/$id': typeof AuthenticatedProjectsIdRoute
   '/api/admin/gateway': typeof ApiAdminGatewayRoute
+  '/api/billing/status': typeof ApiBillingStatusRoute
+  '/api/billing/subscription': typeof ApiBillingSubscriptionRoute
+  '/api/billing/verify': typeof ApiBillingVerifyRoute
+  '/api/billing/webhook': typeof ApiBillingWebhookRoute
   '/api/brain/context': typeof ApiBrainContextRoute
   '/api/canvas/stream': typeof ApiCanvasStreamRoute
   '/api/canvas/versions': typeof ApiCanvasVersionsRoute
@@ -1064,11 +1118,13 @@ export interface FileRouteTypes {
     | '/statistics'
     | '/study'
     | '/tasks'
+    | '/upgrade'
     | '/voice'
     | '/api/chat'
     | '/api/games'
     | '/api/health'
     | '/api/images'
+    | '/api/models'
     | '/api/openrouter-test'
     | '/api/search'
     | '/api/shares'
@@ -1086,6 +1142,10 @@ export interface FileRouteTypes {
     | '/command-center/vision'
     | '/projects/$id'
     | '/api/admin/gateway'
+    | '/api/billing/status'
+    | '/api/billing/subscription'
+    | '/api/billing/verify'
+    | '/api/billing/webhook'
     | '/api/brain/context'
     | '/api/canvas/stream'
     | '/api/canvas/versions'
@@ -1175,11 +1235,13 @@ export interface FileRouteTypes {
     | '/statistics'
     | '/study'
     | '/tasks'
+    | '/upgrade'
     | '/voice'
     | '/api/chat'
     | '/api/games'
     | '/api/health'
     | '/api/images'
+    | '/api/models'
     | '/api/openrouter-test'
     | '/api/search'
     | '/api/shares'
@@ -1197,6 +1259,10 @@ export interface FileRouteTypes {
     | '/command-center/vision'
     | '/projects/$id'
     | '/api/admin/gateway'
+    | '/api/billing/status'
+    | '/api/billing/subscription'
+    | '/api/billing/verify'
+    | '/api/billing/webhook'
     | '/api/brain/context'
     | '/api/canvas/stream'
     | '/api/canvas/versions'
@@ -1288,11 +1354,13 @@ export interface FileRouteTypes {
     | '/_authenticated/statistics'
     | '/_authenticated/study'
     | '/_authenticated/tasks'
+    | '/_authenticated/upgrade'
     | '/_authenticated/voice'
     | '/api/chat'
     | '/api/games'
     | '/api/health'
     | '/api/images'
+    | '/api/models'
     | '/api/openrouter-test'
     | '/api/search'
     | '/api/shares'
@@ -1310,6 +1378,10 @@ export interface FileRouteTypes {
     | '/_authenticated/command-center/vision'
     | '/_authenticated/projects/$id'
     | '/api/admin/gateway'
+    | '/api/billing/status'
+    | '/api/billing/subscription'
+    | '/api/billing/verify'
+    | '/api/billing/webhook'
     | '/api/brain/context'
     | '/api/canvas/stream'
     | '/api/canvas/versions'
@@ -1387,12 +1459,17 @@ export interface RootRouteChildren {
   ApiGamesRoute: typeof ApiGamesRoute
   ApiHealthRoute: typeof ApiHealthRoute
   ApiImagesRoute: typeof ApiImagesRouteWithChildren
+  ApiModelsRoute: typeof ApiModelsRoute
   ApiOpenrouterTestRoute: typeof ApiOpenrouterTestRoute
   ApiSearchRoute: typeof ApiSearchRoute
   ApiSharesRoute: typeof ApiSharesRouteWithChildren
   ApiTitleRoute: typeof ApiTitleRoute
   ShareTokenRoute: typeof ShareTokenRoute
   ApiAdminGatewayRoute: typeof ApiAdminGatewayRoute
+  ApiBillingStatusRoute: typeof ApiBillingStatusRoute
+  ApiBillingSubscriptionRoute: typeof ApiBillingSubscriptionRoute
+  ApiBillingVerifyRoute: typeof ApiBillingVerifyRoute
+  ApiBillingWebhookRoute: typeof ApiBillingWebhookRoute
   ApiBrainContextRoute: typeof ApiBrainContextRoute
   ApiCanvasStreamRoute: typeof ApiCanvasStreamRoute
   ApiCanvasVersionsRoute: typeof ApiCanvasVersionsRoute
@@ -1614,6 +1691,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedTasksRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/upgrade': {
+      id: '/_authenticated/upgrade'
+      path: '/upgrade'
+      fullPath: '/upgrade'
+      preLoaderRoute: typeof AuthenticatedUpgradeRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/voice': {
       id: '/_authenticated/voice'
       path: '/voice'
@@ -1647,6 +1731,13 @@ declare module '@tanstack/react-router' {
       path: '/api/images'
       fullPath: '/api/images'
       preLoaderRoute: typeof ApiImagesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/models': {
+      id: '/api/models'
+      path: '/api/models'
+      fullPath: '/api/models'
+      preLoaderRoute: typeof ApiModelsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/openrouter-test': {
@@ -1808,6 +1899,34 @@ declare module '@tanstack/react-router' {
       path: '/api/admin/gateway'
       fullPath: '/api/admin/gateway'
       preLoaderRoute: typeof ApiAdminGatewayRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/billing/status': {
+      id: '/api/billing/status'
+      path: '/api/billing/status'
+      fullPath: '/api/billing/status'
+      preLoaderRoute: typeof ApiBillingStatusRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/billing/subscription': {
+      id: '/api/billing/subscription'
+      path: '/api/billing/subscription'
+      fullPath: '/api/billing/subscription'
+      preLoaderRoute: typeof ApiBillingSubscriptionRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/billing/verify': {
+      id: '/api/billing/verify'
+      path: '/api/billing/verify'
+      fullPath: '/api/billing/verify'
+      preLoaderRoute: typeof ApiBillingVerifyRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/billing/webhook': {
+      id: '/api/billing/webhook'
+      path: '/api/billing/webhook'
+      fullPath: '/api/billing/webhook'
+      preLoaderRoute: typeof ApiBillingWebhookRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/brain/context': {
@@ -2285,6 +2404,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedStatisticsRoute: typeof AuthenticatedStatisticsRoute
   AuthenticatedStudyRoute: typeof AuthenticatedStudyRoute
   AuthenticatedTasksRoute: typeof AuthenticatedTasksRoute
+  AuthenticatedUpgradeRoute: typeof AuthenticatedUpgradeRoute
   AuthenticatedVoiceRoute: typeof AuthenticatedVoiceRoute
   AuthenticatedCanvasIdRoute: typeof AuthenticatedCanvasIdRoute
   AuthenticatedProjectsIdRoute: typeof AuthenticatedProjectsIdRoute
@@ -2316,6 +2436,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedStatisticsRoute: AuthenticatedStatisticsRoute,
   AuthenticatedStudyRoute: AuthenticatedStudyRoute,
   AuthenticatedTasksRoute: AuthenticatedTasksRoute,
+  AuthenticatedUpgradeRoute: AuthenticatedUpgradeRoute,
   AuthenticatedVoiceRoute: AuthenticatedVoiceRoute,
   AuthenticatedCanvasIdRoute: AuthenticatedCanvasIdRoute,
   AuthenticatedProjectsIdRoute: AuthenticatedProjectsIdRoute,
@@ -2398,12 +2519,17 @@ const rootRouteChildren: RootRouteChildren = {
   ApiGamesRoute: ApiGamesRoute,
   ApiHealthRoute: ApiHealthRoute,
   ApiImagesRoute: ApiImagesRouteWithChildren,
+  ApiModelsRoute: ApiModelsRoute,
   ApiOpenrouterTestRoute: ApiOpenrouterTestRoute,
   ApiSearchRoute: ApiSearchRoute,
   ApiSharesRoute: ApiSharesRouteWithChildren,
   ApiTitleRoute: ApiTitleRoute,
   ShareTokenRoute: ShareTokenRoute,
   ApiAdminGatewayRoute: ApiAdminGatewayRoute,
+  ApiBillingStatusRoute: ApiBillingStatusRoute,
+  ApiBillingSubscriptionRoute: ApiBillingSubscriptionRoute,
+  ApiBillingVerifyRoute: ApiBillingVerifyRoute,
+  ApiBillingWebhookRoute: ApiBillingWebhookRoute,
   ApiBrainContextRoute: ApiBrainContextRoute,
   ApiCanvasStreamRoute: ApiCanvasStreamRoute,
   ApiCanvasVersionsRoute: ApiCanvasVersionsRoute,

@@ -8,6 +8,7 @@ import {
   type ReactNode,
 } from "react";
 import { useLocation, useNavigate } from "@tanstack/react-router";
+import { authenticatedFetch } from "@/lib/authenticated-fetch";
 import { useQueryClient } from "@tanstack/react-query";
 import { createWakeEngine, type WakeEngine } from "@/lib/voice";
 import { getSpeechRecognitionConstructor } from "@/lib/voice/webspeech-wake-engine";
@@ -118,6 +119,7 @@ export function WakeWordProvider({
   const returnToWakeRef = useRef(false);
   const permissionRequestRef = useRef(0);
   const permissionInFlightRef = useRef(false);
+  const proStatusRef = useRef<boolean | null>(null);
   const enabledRef = useRef(false);
   const stateRef = useRef(state);
   stateRef.current = state;
@@ -126,6 +128,21 @@ export function WakeWordProvider({
       Boolean(navigator.mediaDevices?.getUserMedia) && Boolean(getSpeechRecognitionConstructor()),
     );
     setVoiceOutputSupported("speechSynthesis" in window);
+  }, []);
+
+  const checkProAccess = useCallback(async () => {
+    try {
+      const response = await authenticatedFetch("/api/billing/status");
+      if (!response.ok) throw new Error("Plan status unavailable");
+      const result = (await response.json()) as { pro: boolean };
+      proStatusRef.current = result.pro;
+      if (!result.pro && typeof window !== "undefined") window.location.assign("/upgrade");
+      return result.pro;
+    } catch {
+      proStatusRef.current = false;
+      if (typeof window !== "undefined") window.location.assign("/upgrade");
+      return false;
+    }
   }, []);
 
   const updateState = useCallback((next: VoiceAssistantState) => {
@@ -240,6 +257,7 @@ export function WakeWordProvider({
   beginWakeListeningRef.current = beginWakeListening;
 
   const enable = useCallback(async () => {
+    if (!(await checkProAccess())) return;
     if (enabledRef.current || permissionInFlightRef.current) return;
     if (!supported) {
       setErrorMessage(
@@ -272,9 +290,10 @@ export function WakeWordProvider({
     } finally {
       if (requestId === permissionRequestRef.current) permissionInFlightRef.current = false;
     }
-  }, [beginWakeListening, supported, updateState]);
+  }, [beginWakeListening, checkProAccess, supported, updateState]);
 
   const startTapToTalk = useCallback(async () => {
+    if (!(await checkProAccess())) return;
     if (!supported) {
       setErrorMessage("Speech recognition is not supported. Use the text command box instead.");
       updateState("error");
@@ -305,10 +324,14 @@ export function WakeWordProvider({
     engineRef.current = null;
     await wakeEngine?.stop();
     wirePipeline().startListening();
-  }, [supported, updateState, wirePipeline]);
+  }, [checkProAccess, supported, updateState, wirePipeline]);
 
   const submitText = useCallback(
     (text: string) => {
+      if (!proStatusRef.current) {
+        void checkProAccess();
+        return Promise.resolve();
+      }
       if (enabledRef.current && stateRef.current === "wake_listening") {
         returnToWakeRef.current = true;
         void engineRef.current?.stop();
@@ -316,7 +339,7 @@ export function WakeWordProvider({
       }
       return wirePipeline().submitText(text);
     },
-    [wirePipeline],
+    [checkProAccess, wirePipeline],
   );
   const retryLast = useCallback(() => wirePipeline().retryLast(), [wirePipeline]);
   const loadConversation = useCallback(

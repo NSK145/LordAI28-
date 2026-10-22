@@ -376,3 +376,25 @@ Building a futuristic AI from the ground up.
 Made with ❤️ and caffeine.
 
 </div>
+
+---
+
+# LORD Pro billing setup
+
+LORD Pro prices default to ₹99 monthly and ₹990 yearly. Billing is deliberately
+test-mode only: server routes reject non-test Razorpay key IDs. Apply
+`supabase/migrations/20261022000000_lord_pro_billing.sql`, create matching
+monthly and yearly subscription plans in the Razorpay test dashboard, configure
+the `RAZORPAY_*` server variables from `.env.example`, and register
+`/api/billing/webhook` with the same webhook secret. Subscribe to
+`subscription.charged`, `subscription.cancelled`, `subscription.halted`, and
+`subscription.completed`; entitlements activate or renew only from a verified
+webhook. Hosted checkout signatures are checked by `/api/billing/verify`, while
+the webhook supplies the authoritative subscription period end.
+
+Set `LORD_LIFETIME_PRO_USERS` to comma-separated `auth.users` UUID and email
+pairs for the three designated accounts. Confirm each immutable UUID in the
+Supabase dashboard and keep each email verified. The application grants
+lifetime access only when both that configured UUID and verified email match
+the authenticated Supabase user. Do not copy account emails alone into this
+setting. Android and web use the same server routes and records.

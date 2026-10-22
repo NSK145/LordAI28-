@@ -1,6 +1,7 @@
 import {
   BarChart3,
   Calendar,
+  Crown,
   FileText,
   FolderOpen,
   GraduationCap,
@@ -24,6 +25,7 @@ export const APP_NAVIGATION = [
   { to: "/tasks", label: "Tasks & Notifications", icon: Target },
   { to: "/documents", label: "Documents", icon: FileText },
   { to: "/statistics", label: "Statistics", icon: BarChart3 },
+  { to: "/upgrade", label: "LORD Pro", icon: Crown },
   { to: "/settings", label: "Settings", icon: Settings },
 ] as const;
 

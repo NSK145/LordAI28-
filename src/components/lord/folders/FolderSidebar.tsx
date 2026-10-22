@@ -29,6 +29,10 @@ import { FolderConversationItem } from "./FolderConversationItem";
 import { FolderDialog } from "./FolderDialog";
 import { SortableRootConversations } from "./SortableRootConversations";
 import { useReorderConversations } from "@/hooks/use-reorder-conversations";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 interface FolderSidebarProps {
   userId: string;
@@ -82,6 +86,7 @@ export function FolderSidebar({
   }>({ open: false, editing: null });
   const [focusIndex, setFocusIndex] = useState<number>(-1);
   const [dragFolderId, setDragFolderId] = useState<string | null>(null);
+  const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
   const listRef = useRef<HTMLDivElement>(null);
 
   const mutationOpts: FolderMutationsOptions = useMemo(
@@ -285,6 +290,12 @@ export function FolderSidebar({
     setEditingConvId(c.id);
     setConvDraft(c.title);
   }, []);
+  const requestDelete = useCallback((id: string) => setPendingDeleteId(id), []);
+  const confirmDelete = useCallback(() => {
+    if (!pendingDeleteId) return;
+    onDelete(pendingDeleteId);
+    setPendingDeleteId(null);
+  }, [onDelete, pendingDeleteId]);
 
   // ---- Keyboard navigation -------------------------------------------------
   const flatRows = useMemo<FlatRow[]>(() => {
@@ -331,7 +342,7 @@ export function FolderSidebar({
       } else if (e.key === "Delete" || e.key === "Backspace") {
         const row = flatRows[focusIndex];
         if (row?.type === "folder" && row.folderId) deleteFolder.mutate(row.folderId);
-        else if (row?.type === "conversation" && row.conversationId) onDelete(row.conversationId);
+        else if (row?.type === "conversation" && row.conversationId) requestDelete(row.conversationId);
       } else if (e.key === "F2") {
         const row = flatRows[focusIndex];
         if (row?.type === "conversation" && row.conversationId) {
@@ -349,6 +360,7 @@ export function FolderSidebar({
       onSelect,
       deleteFolder,
       onDelete,
+      requestDelete,
       conversations,
       convStartEdit,
       editingConvId,
@@ -434,7 +446,7 @@ export function FolderSidebar({
               onConvStartEdit={convStartEdit}
               onConvCommitEdit={convCommit}
               onConvCancelEdit={() => setEditingConvId(null)}
-              onConvDelete={onDelete}
+              onConvDelete={requestDelete}
               onConvPin={onPin}
               onConvFavorite={onFavorite}
               onFolderDragStart={(id) => setDragFolderId(id)}
@@ -458,7 +470,7 @@ export function FolderSidebar({
                   onConvStartEdit={convStartEdit}
                   onConvCommitEdit={convCommit}
                   onConvCancelEdit={() => setEditingConvId(null)}
-                  onConvDelete={onDelete}
+                  onConvDelete={requestDelete}
                   onConvPin={onPin}
                   onConvFavorite={onFavorite}
                   onReorder={(orderedIds) => reorderConversations({ orderedIds })}
@@ -487,6 +499,22 @@ export function FolderSidebar({
         onSubmit={submitDialog}
         onCancel={closeDialog}
       />
+      <AlertDialog open={pendingDeleteId !== null} onOpenChange={(open) => !open && setPendingDeleteId(null)}>
+        <AlertDialogContent className="border-white/10 bg-[#11151d] text-foreground">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete this chat?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This permanently deletes the conversation and its messages. This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              Delete Chat
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </HudPanel>
   );
 }
@@ -718,6 +746,12 @@ const FolderTreeView = memo(function FolderTreeView({
 const EMPTY_FOLDERS: FolderRow[] = [];
 
 function sortConvs(a: ConversationRow, b: ConversationRow): number {
+  if (Boolean(a.pinned) !== Boolean(b.pinned)) return a.pinned ? -1 : 1;
+  if (a.pinned && b.pinned) {
+    const pinA = a.pinned_at ? new Date(a.pinned_at).getTime() : 0;
+    const pinB = b.pinned_at ? new Date(b.pinned_at).getTime() : 0;
+    if (pinA !== pinB) return pinB - pinA;
+  }
   const ta = new Date(a.last_message_at).getTime();
   const tb = new Date(b.last_message_at).getTime();
   return tb - ta;

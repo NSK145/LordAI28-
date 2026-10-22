@@ -60,7 +60,10 @@ function summarizeMessages(messages: readonly ChatMessage[], tokenLimit: number)
     const excerpt = messageText(message).replace(/\s+/g, " ").trim().slice(0, 180);
     return `${message.role}: ${excerpt}`;
   });
-  return clipToTokens(`Earlier conversation summary:\n${lines.join("\n")}`, tokenLimit);
+  return clipToTokens(
+    `Earlier conversation excerpts (oldest first):\n${lines.join("\n")}`,
+    tokenLimit,
+  );
 }
 
 export function buildChatContextMessages(

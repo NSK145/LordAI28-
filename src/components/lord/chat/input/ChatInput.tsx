@@ -14,6 +14,8 @@ import {
   Square,
   Calendar as CalendarIcon,
   Globe2,
+  Zap,
+  Lock,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { Attachment, AttachmentKind, ChatSubmitPayload, ToolId } from "./types";
@@ -58,6 +60,9 @@ export function ChatInput({
   onWebSearchDepthChange,
   webSearchResults,
   onWebSearchResultsChange,
+  fastReply,
+  onFastReplyChange,
+  isPro,
   processingLabel,
   resetKey = 0,
   resetAttachmentIds = [],
@@ -74,6 +79,9 @@ export function ChatInput({
   onWebSearchDepthChange: (depth: "basic" | "advanced") => void;
   webSearchResults: number;
   onWebSearchResultsChange: (count: number) => void;
+  fastReply: boolean;
+  onFastReplyChange: (enabled: boolean) => void;
+  isPro: boolean;
   processingLabel?: string | null;
   resetKey?: number;
   resetAttachmentIds?: readonly string[];
@@ -497,6 +505,28 @@ export function ChatInput({
               )}
             >
               <Globe2 className="h-3.5 w-3.5" /> Sources
+            </button>
+            <button
+              type="button"
+              aria-pressed={fastReply && isPro}
+              aria-label={isPro ? "Toggle Fast Reply Mode" : "Fast Reply Mode requires LORD Pro"}
+              title={isPro ? "Fast Reply Mode" : "Fast Reply Mode · LORD Pro"}
+              onClick={() => {
+                if (!isPro) {
+                  window.location.assign("/upgrade");
+                  return;
+                }
+                onFastReplyChange(!fastReply);
+              }}
+              className={cn(
+                "flex h-9 items-center gap-1 rounded-full border px-2 text-xs transition focus-visible:ring-2 focus-visible:ring-cyan-400",
+                fastReply && isPro
+                  ? "border-amber-300/50 bg-amber-300/10 text-amber-200"
+                  : "border-white/10 text-white/60 hover:text-white",
+              )}
+            >
+              {isPro ? <Zap className="h-3.5 w-3.5" /> : <Lock className="h-3.5 w-3.5" />}
+              Fast Reply{!isPro && <span className="text-[9px] text-amber-200">PRO</span>}
             </button>
             <motion.button
               type="button"
