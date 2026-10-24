@@ -54,6 +54,10 @@ export interface MemoryRecord {
   created_at: string;
   updated_at: string;
   project_id?: string | null;
+  source_conversation_id?: string | null;
+  confirmation_status?: "suggested" | "confirmed";
+  use_in_context?: boolean;
+  archived?: boolean | null;
 }
 
 export interface MemorySettings {
@@ -92,6 +96,7 @@ export interface DetectedMemory {
   expiresAt?: string;
   /** Short human explanation used when asking the user to confirm. */
   reason: string;
+  sourceConversationId?: string;
 }
 
 /**

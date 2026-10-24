@@ -28,6 +28,7 @@ export const ChatRequestSchema = z.object({
       webSearch: z.boolean().optional(),
       webSearchDepth: z.enum(["basic", "advanced"]).optional(),
       webSearchResults: z.coerce.number().int().min(1).max(20).optional(),
+      realityCheck: z.boolean().optional(),
     })
     .passthrough()
     .optional(),

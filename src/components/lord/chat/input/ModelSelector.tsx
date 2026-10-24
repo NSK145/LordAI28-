@@ -1,16 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import {
-  Check,
-  ChevronDown,
-  Cpu,
-  Crown,
-  Eye,
-  Lock,
-  RefreshCw,
-  Sparkles,
-  Zap,
-} from "lucide-react";
+import { Check, ChevronDown, Cpu, Crown, Eye, Lock, RefreshCw, Sparkles, Zap } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { LORD_MODES, type LordMode } from "@/lib/modes";
 import { CHAT_MODEL_CATALOG } from "@/lib/ai/chat-model-catalog";
@@ -282,9 +272,7 @@ export function ModelSelector({ value, onChange }: ModelSelectorProps) {
                       <RefreshCw
                         className={cn(
                           "mt-0.5 h-3.5 w-3.5 shrink-0",
-                          catalogQuery.isFetching
-                            ? "animate-spin text-cyan-200"
-                            : "text-white/45",
+                          catalogQuery.isFetching ? "animate-spin text-cyan-200" : "text-white/45",
                         )}
                         aria-label={`Retry availability check for ${model.label}`}
                       />

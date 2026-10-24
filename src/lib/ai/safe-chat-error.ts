@@ -1,7 +1,8 @@
 import { formatUserFacingError, parseLordError } from "../lord-error";
 
 const HTML_PAGE = /<!doctype\s+html|<html[\s>]|<body[\s>]|<title[\s>]/i;
-const SERVER_TRACE = /(?:\bat\s+[\w$.<>]+\s*\(|\b(stack trace|internal server error|uncaught exception)\b)/i;
+const SERVER_TRACE =
+  /(?:\bat\s+[\w$.<>]+\s*\(|\b(stack trace|internal server error|uncaught exception)\b)/i;
 
 export function isUnsafeAssistantError(value: string): boolean {
   return HTML_PAGE.test(value) || SERVER_TRACE.test(value);

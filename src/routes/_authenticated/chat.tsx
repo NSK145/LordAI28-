@@ -1,6 +1,7 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useChat } from "@ai-sdk/react";
 import { DefaultChatTransport, type UIMessage } from "ai";
+import { z } from "zod";
 import { useState, useRef, useEffect, useMemo, useCallback } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
@@ -14,6 +15,9 @@ import {
   ThumbsUp,
   ThumbsDown,
   Globe2,
+  ShieldCheck,
+  Sparkles,
+  Mic,
 } from "lucide-react";
 import { toast } from "sonner";
 import { AppShell } from "@/components/lord/AppShell";
@@ -100,6 +104,7 @@ export const Route = createFileRoute("/_authenticated/chat")({
   head: () => ({
     meta: [{ title: "LORD — Chat" }, { name: "description", content: "Talk to LORD AI." }],
   }),
+  validateSearch: z.object({ conversationId: z.string().uuid().optional() }).catch({}),
   component: ChatPage,
 });
 
@@ -212,6 +217,43 @@ interface MessageRow {
   metadata?: Record<string, unknown> | null;
 }
 
+interface CouncilContribution {
+  role: string;
+  modelId: string;
+  status: "completed" | "failed";
+  summary: string;
+}
+
+interface CouncilProgress {
+  status:
+    | "selecting"
+    | "collaborating"
+    | "reviewing"
+    | "synthesizing"
+    | "completed"
+    | "reduced"
+    | "failed"
+    | "cancelled";
+  taskType: string;
+  mode: "council" | "reduced";
+  roles: Array<{ role: string; modelId: string; modelLabel: string }>;
+  contributions: CouncilContribution[];
+  disagreements: string[];
+  note?: string;
+}
+
+function isCouncilProgress(value: unknown): value is CouncilProgress {
+  if (!value || typeof value !== "object") return false;
+  const candidate = value as Partial<CouncilProgress>;
+  return (
+    typeof candidate.status === "string" &&
+    (candidate.mode === "council" || candidate.mode === "reduced") &&
+    Array.isArray(candidate.roles) &&
+    Array.isArray(candidate.contributions) &&
+    Array.isArray(candidate.disagreements)
+  );
+}
+
 // Stable empty references so that a `useQuery` result with no data does NOT
 // produce a brand-new array on every render. Returning a fresh `[]` default
 // each render would make downstream `useMemo`/effects see a new identity every
@@ -268,6 +310,7 @@ function isDefaultTitle(title: string | undefined | null): boolean {
 }
 
 function ChatPage() {
+  const { conversationId: requestedConversationId } = Route.useSearch();
   const qc = useQueryClient();
   const modelCatalogQuery = useChatModelCatalog();
   const { user } = Route.useRouteContext();
@@ -276,6 +319,10 @@ function ChatPage() {
 
   const [mode, setMode] = usePersistedState<LordMode>("chat-mode", DEFAULT_MODE);
   const [modelId, setModelId] = usePersistedState("chat-model-id", FREE_CHAT_MODEL_IDS[0]);
+  const [councilEnabled, setCouncilEnabled] = useState(false);
+  const [councilProgress, setCouncilProgress] = useState<CouncilProgress | null>(null);
+  const councilEnabledRef = useRef(councilEnabled);
+  councilEnabledRef.current = councilEnabled;
   const accessibleModels = (modelCatalogQuery.data?.models ?? []).filter(
     (model) => model.available && (!model.proOnly || modelCatalogQuery.data?.isPro),
   );
@@ -285,6 +332,7 @@ function ChatPage() {
   const [responseStyle] = usePersistedState<ResponseStyle>("chat-response-style", "balanced");
   const [fastReply, setFastReply] = usePersistedState("chat-fast-reply", false);
   const [webSearch, setWebSearch] = usePersistedState("chat-web-search", false);
+  const [realityCheck, setRealityCheck] = usePersistedState("chat-reality-check", false);
   const [webSearchDepth, setWebSearchDepth] = usePersistedState<"basic" | "advanced">(
     "chat-web-search-depth",
     "basic",
@@ -334,6 +382,9 @@ function ChatPage() {
   const [imagePrompt, setImagePrompt] = useState("");
   const imageRequestsInFlightRef = useRef(new Set<string>());
   const [conversationId, setConversationId] = useState<string | null>(null);
+  useEffect(() => {
+    setCouncilProgress(null);
+  }, [conversationId]);
 
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [mobileHistoryOpen, setMobileHistoryOpen] = useState(false);
@@ -471,6 +522,8 @@ function ChatPage() {
       webSearch,
       webSearchDepth,
       webSearchResults,
+      council: councilEnabled,
+      realityCheck,
     },
   });
 
@@ -487,6 +540,8 @@ function ChatPage() {
       webSearch,
       webSearchDepth,
       webSearchResults,
+      council: councilEnabled,
+      realityCheck,
     },
   };
   modeRef.current = mode;
@@ -638,6 +693,17 @@ function ChatPage() {
         .join("");
       const shouldTreatAsError = isError || isUnsafeAssistantError(unsafeCompletedText);
       setProcessingLabel(null);
+      if (councilEnabledRef.current && shouldTreatAsError) {
+        setCouncilProgress((current) =>
+          current
+            ? {
+                ...current,
+                status: "failed",
+                note: safeChatErrorMessage(unsafeCompletedText || undefined),
+              }
+            : null,
+        );
+      }
       const meta = (message?.metadata ?? null) as { tokenUsage?: TokenUsageEvent } | null;
       if (meta?.tokenUsage) {
         tokenUsageStore.record(meta.tokenUsage);
@@ -693,6 +759,24 @@ function ChatPage() {
         .slice()
         .reverse()
         .find((m) => m.role === "assistant");
+      const assistantMetadata = assistantMessage?.metadata as { council?: unknown } | undefined;
+      if (isCouncilProgress(assistantMetadata?.council)) {
+        setCouncilProgress(assistantMetadata.council);
+      } else if (councilEnabledRef.current) {
+        setCouncilProgress((current) =>
+          current?.status === "selecting"
+            ? {
+                status: "reduced",
+                taskType: "general",
+                mode: "reduced",
+                roles: [],
+                contributions: [],
+                disagreements: [],
+                note: "Council models were unavailable; standard single-model chat fallback was used.",
+              }
+            : current,
+        );
+      }
       const content =
         assistantMessage?.parts
           .filter((p) => p.type === "text")
@@ -711,9 +795,14 @@ function ChatPage() {
             .filter((part) => part.type === "reasoning")
             .map((part) => (part as { text?: string }).text ?? "")
             .join("\n") ?? "",
+        ...(isCouncilProgress(assistantMetadata?.council)
+          ? { council: assistantMetadata.council }
+          : {}),
       };
       const hasAssistantSupport =
-        assistantSupport.chatSources.length > 0 || Boolean(assistantSupport.chatReasoning.trim());
+        assistantSupport.chatSources.length > 0 ||
+        Boolean(assistantSupport.chatReasoning.trim()) ||
+        Boolean(isCouncilProgress(assistantMetadata?.council));
       const supportJson =
         assistantSupport as unknown as import("@/integrations/supabase/types").Json;
 
@@ -872,6 +961,16 @@ function ChatPage() {
       }
       qc.invalidateQueries({ queryKey: conversationsQueryKey });
       qc.invalidateQueries({ queryKey: ["messages", dbActiveConversationId] });
+    },
+    onData: (part) => {
+      if (part.type === "data-reality-check") {
+        const data = part.data as { status?: unknown };
+        if (data.status === "checking") setProcessingLabel("Checking claims and evidence…");
+        else if (data.status === "complete") setProcessingLabel(null);
+        return;
+      }
+      if (part.type !== "data-council" || !isCouncilProgress(part.data)) return;
+      setCouncilProgress(part.data);
     },
   });
 
@@ -1120,7 +1219,9 @@ function ChatPage() {
     },
     onMutate: async (id) => {
       await qc.cancelQueries({ queryKey: conversationsQueryKey });
+      await qc.cancelQueries({ queryKey: ["messages", id] });
       const previous = qc.getQueryData<ConversationRow[]>(conversationsQueryKey);
+      const previousMessages = qc.getQueryData<MessageRow[]>(["messages", id]);
       // Remove instantly from the sidebar. Also drop the cached message list so
       // re-opening never flashes stale data.
       qc.setQueryData<ConversationRow[]>(conversationsQueryKey, (old) =>
@@ -1129,11 +1230,12 @@ function ChatPage() {
       qc.removeQueries({ queryKey: ["messages", id] });
       // Cancel any in-flight title generation for this conversation.
       cancelTitleGeneration(id);
-      return { previous, id };
+      return { previous, previousMessages, id };
     },
     onError: (_err, id, context) => {
       // Rollback only server state; keep UI responsive.
       if (context?.previous) qc.setQueryData(conversationsQueryKey, context.previous);
+      if (context?.previousMessages) qc.setQueryData(["messages", id], context.previousMessages);
       toast.error("Couldn't delete conversation.", {
         description: "Tap to retry.",
         action: {
@@ -1145,7 +1247,10 @@ function ChatPage() {
     onSuccess: (_d, id) => {
       // Reconcile the single affected list; no full invalidation.
       qc.invalidateQueries({ queryKey: conversationsQueryKey, exact: true });
-      if (id === conversationId) startNewChat();
+      if (id === conversationId) {
+        startNewChat();
+        setMobileHistoryOpen(false);
+      }
     },
   });
 
@@ -1335,6 +1440,20 @@ function ChatPage() {
     setMessages([]); // will be replaced by initialMessages once query loads
   };
 
+  const requestedConversationRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (
+      !requestedConversationId ||
+      requestedConversationRef.current === requestedConversationId ||
+      busy ||
+      conversationId === requestedConversationId
+    ) {
+      return;
+    }
+    requestedConversationRef.current = requestedConversationId;
+    loadConversation(requestedConversationId);
+  }, [busy, conversationId, loadConversation, requestedConversationId]);
+
   useEffect(() => {
     const openRequestedConversation = (event: Event) => {
       const id = (event as CustomEvent<{ id?: unknown }>).detail?.id;
@@ -1474,7 +1593,19 @@ function ChatPage() {
       else void runImageGeneration(message, conversationId);
       return;
     }
-    if (webSearch) setProcessingLabel("Searching live web sources…");
+    if (councilEnabledRef.current) {
+      setCouncilProgress({
+        status: "selecting",
+        taskType: "classifying",
+        mode: "reduced",
+        roles: [],
+        contributions: [],
+        disagreements: [],
+      });
+    }
+    if (realityCheck) setProcessingLabel("Checking sources and calculations…");
+    else if (webSearch) setProcessingLabel("Searching live web sources…");
+    else if (councilEnabledRef.current) setProcessingLabel("LORD Council is selecting models…");
     if (isNew) {
       setPendingInitialSend({ conversationId, message });
     } else {
@@ -1808,9 +1939,11 @@ function ChatPage() {
 
     for (const d of toSave) {
       if (autoSave) {
-        void saveDetected.mutateAsync(d).catch(() => {
-          /* swallow — memory is best-effort */
-        });
+        void saveDetected
+          .mutateAsync({ ...d, sourceConversationId: conversationId })
+          .catch((error) => {
+            console.error("Could not save suggested memory", error);
+          });
       } else if (askBefore) {
         toAsk.push(d);
       }
@@ -1833,8 +1966,13 @@ function ChatPage() {
             category: d.category,
             confidence: d.confidence,
             source: "auto",
+            sourceConversationId: pendingMemories.conversationId,
+            confirmationStatus: "confirmed",
+            useInContext: true,
           })
-          .catch(() => {});
+          .catch((error) => {
+            console.error("Could not save confirmed memory", error);
+          });
       }
     }
     setPendingMemories(null);
@@ -2266,6 +2404,11 @@ function ChatPage() {
   const stopStreaming = () => {
     const messageId = streamingMsgIdRef.current;
     stop();
+    if (councilEnabledRef.current) {
+      setCouncilProgress((current) =>
+        current ? { ...current, status: "cancelled", note: "Council run cancelled." } : current,
+      );
+    }
     if (!messageId) return;
 
     void (async () => {
@@ -2348,6 +2491,10 @@ function ChatPage() {
           const imageGeneration = (
             m.metadata as { imageGeneration?: ImageGenerationMessageData } | undefined
           )?.imageGeneration;
+          const messageCouncilMetadata = (m.metadata as { council?: unknown } | undefined)?.council;
+          const messageCouncil = isCouncilProgress(messageCouncilMetadata)
+            ? messageCouncilMetadata
+            : null;
           const fileParts = m.parts
             .filter((part) => (part as { type?: string }).type === "file")
             .map((part) => part as { filename?: string; mediaType?: string; url?: string });
@@ -2508,6 +2655,45 @@ function ChatPage() {
                         </div>
                       </details>
                     )}
+                    {messageCouncil && (
+                      <details className="mt-3 rounded-xl border border-cyan-300/15 bg-cyan-300/[0.03] text-xs">
+                        <summary className="cursor-pointer select-none px-3 py-2 text-cyan-100/80">
+                          LORD Council · {messageCouncil.roles.length} model
+                          {messageCouncil.roles.length === 1 ? "" : "s"} · contributions
+                        </summary>
+                        <div className="space-y-2 border-t border-white/10 px-3 py-3">
+                          {messageCouncil.roles.map((role) => (
+                            <div key={`${role.role}:${role.modelId}`} className="text-white/60">
+                              <span className="font-semibold text-white/80">{role.role}</span>
+                              {" · "}
+                              {role.modelLabel} <span className="font-mono">({role.modelId})</span>
+                            </div>
+                          ))}
+                          {messageCouncil.contributions.map((contribution, contributionIndex) => (
+                            <details
+                              key={`${contribution.role}:${contribution.modelId}:${contributionIndex}`}
+                              className="rounded-lg border border-white/10 bg-black/10 px-2.5 py-2"
+                            >
+                              <summary className="cursor-pointer text-white/70">
+                                {contribution.role} · {contribution.status}
+                              </summary>
+                              <p className="mt-2 whitespace-pre-wrap leading-relaxed text-white/60">
+                                {contribution.summary}
+                              </p>
+                            </details>
+                          ))}
+                          {messageCouncil.disagreements.length > 0 && (
+                            <div className="rounded-lg border border-amber-200/10 bg-amber-200/[0.03] p-2 text-amber-100/70">
+                              <div className="mb-1 font-semibold">Disagreements</div>
+                              {messageCouncil.disagreements.join(" ")}
+                            </div>
+                          )}
+                          {messageCouncil.note && (
+                            <p className="text-amber-100/65">{messageCouncil.note}</p>
+                          )}
+                        </div>
+                      </details>
+                    )}
                     {errorParts.length > 0 && (
                       <div className="mt-2 space-y-1">
                         {errorParts.map((errText, i) => (
@@ -2578,9 +2764,7 @@ function ChatPage() {
             return (
               <li className="rounded-md border border-destructive/40 bg-destructive/10 p-3 text-xs text-destructive">
                 <div>
-                  {lordErr
-                    ? formatUserFacingError(lordErr)
-                    : safeChatErrorMessage(error.message)}
+                  {lordErr ? formatUserFacingError(lordErr) : safeChatErrorMessage(error.message)}
                 </div>
                 {requestId && (
                   <div className="mt-1 font-mono text-destructive/80">
@@ -2697,6 +2881,17 @@ function ChatPage() {
                   {conversations.find((c) => c.id === conversationId)?.title || "New conversation"}
                 </h1>
                 <div className="ml-auto flex shrink-0 items-center gap-2">
+                  {conversationId && isUuid(conversationId) && (
+                    <Link
+                      to="/voice"
+                      search={{ conversationId }}
+                      aria-label="Continue this conversation with voice"
+                      title="Continue this conversation with voice"
+                      className="grid h-9 w-9 place-items-center rounded-xl border border-border/60 text-muted-foreground transition hover:border-primary/40 hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/70"
+                    >
+                      <Mic className="h-4 w-4" />
+                    </Link>
+                  )}
                   <ModeSelector
                     value={mode}
                     onChange={(nextMode) => {
@@ -2704,6 +2899,50 @@ function ChatPage() {
                       emitDashboardEvent("ai");
                     }}
                   />
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setCouncilEnabled((enabled) => {
+                        if (!enabled) setRealityCheck(false);
+                        return !enabled;
+                      })
+                    }
+                    aria-pressed={councilEnabled}
+                    title={councilEnabled ? "Turn LORD Council off" : "Use LORD Council"}
+                    className={cn(
+                      "inline-flex h-9 items-center gap-1.5 rounded-full border px-2.5 text-xs font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400",
+                      councilEnabled
+                        ? "border-cyan-300/50 bg-cyan-300/15 text-cyan-100"
+                        : "border-border/60 bg-background/40 text-muted-foreground hover:text-foreground",
+                    )}
+                  >
+                    <Sparkles className="h-3.5 w-3.5" />
+                    Council
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setRealityCheck((enabled) => {
+                        if (!enabled) setCouncilEnabled(false);
+                        return !enabled;
+                      })
+                    }
+                    aria-pressed={realityCheck}
+                    title={
+                      realityCheck
+                        ? "Turn LORD Reality Check off"
+                        : "Check answer claims, sources, and calculations"
+                    }
+                    className={cn(
+                      "inline-flex h-9 items-center gap-1.5 rounded-full border px-2.5 text-xs font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400",
+                      realityCheck
+                        ? "border-emerald-300/50 bg-emerald-300/15 text-emerald-100"
+                        : "border-border/60 bg-background/40 text-muted-foreground hover:text-foreground",
+                    )}
+                  >
+                    <ShieldCheck className="h-3.5 w-3.5" />
+                    Reality Check
+                  </button>
                   <ModelSelector
                     value={selectedModelId}
                     onChange={(nextModelId) => {
@@ -2827,6 +3066,127 @@ function ChatPage() {
                       Cancel
                     </button>
                   </div>
+                )}
+                {(councilEnabled || councilProgress) && (
+                  <section
+                    aria-label="LORD Council status and contributions"
+                    className="mb-2 rounded-2xl border border-cyan-400/20 bg-cyan-400/[0.04] p-3 text-xs"
+                  >
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="font-semibold text-cyan-100">LORD Council</span>
+                      <span className="rounded-full bg-white/5 px-2 py-1 text-[10px] capitalize text-white/60">
+                        {councilProgress?.mode === "council" ? "multi-model" : "reduced mode"} ·{" "}
+                        {(councilProgress?.status ?? "ready").replaceAll("-", " ")}
+                      </span>
+                      {streaming ? (
+                        <button
+                          type="button"
+                          onClick={stopStreaming}
+                          className="ml-auto rounded-full border border-red-300/25 px-2.5 py-1 text-[10px] font-semibold text-red-100 hover:bg-red-300/10"
+                        >
+                          Cancel
+                        </button>
+                      ) : councilProgress ? (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            councilEnabledRef.current = true;
+                            setCouncilEnabled(true);
+                            setCouncilProgress({
+                              ...councilProgress,
+                              status: "selecting",
+                              contributions: [],
+                              disagreements: [],
+                            });
+                            void regenerate().catch((retryError: unknown) => {
+                              setPersistenceError(
+                                retryError instanceof Error
+                                  ? retryError.message
+                                  : "Could not retry LORD Council.",
+                              );
+                            });
+                          }}
+                          className="ml-auto rounded-full border border-cyan-300/25 px-2.5 py-1 text-[10px] font-semibold text-cyan-100 hover:bg-cyan-300/10"
+                        >
+                          Retry Council
+                        </button>
+                      ) : null}
+                    </div>
+                    {councilProgress?.taskType && councilProgress.taskType !== "classifying" && (
+                      <p className="mt-2 text-[10px] text-white/45">
+                        Classified task: {councilProgress.taskType}
+                      </p>
+                    )}
+                    {!councilProgress && (
+                      <p className="mt-2 text-white/50">
+                        The next message will use independently selected models when available. Simple tasks stay single-model; reduced mode is labeled clearly.
+                      </p>
+                    )}
+                    {councilProgress?.roles.length ? (
+                      <div className="mt-2 flex flex-wrap gap-1.5">
+                        {councilProgress.roles.map((role) => (
+                          <span
+                            key={`${role.role}:${role.modelId}`}
+                            className="rounded-full border border-white/10 bg-white/[0.03] px-2 py-1 text-[10px] text-white/65"
+                          >
+                            {role.role} · {role.modelLabel}
+                          </span>
+                        ))}
+                      </div>
+                    ) : null}
+                    {councilProgress?.contributions.length ? (
+                      <div className="mt-2 space-y-1.5">
+                        {councilProgress.contributions.map((contribution, index) => (
+                          <details
+                            key={`${contribution.role}:${contribution.modelId}:${index}`}
+                            className="rounded-xl border border-white/10 bg-black/10 px-2.5 py-2"
+                          >
+                            <summary className="cursor-pointer text-white/75">
+                              {contribution.role} · {contribution.modelId} · {contribution.status}
+                            </summary>
+                            <p className="mt-2 whitespace-pre-wrap leading-relaxed text-white/60">
+                              {contribution.summary}
+                            </p>
+                          </details>
+                        ))}
+                      </div>
+                    ) : councilProgress?.status === "selecting" ? (
+                      <p className="mt-2 text-white/50">
+                        Classifying the task and checking permitted, available models…
+                      </p>
+                    ) : null}
+                    {councilProgress?.disagreements.length ? (
+                      <details className="mt-2 rounded-xl border border-amber-200/15 bg-amber-200/[0.03] px-2.5 py-2">
+                        <summary className="cursor-pointer text-amber-100/80">
+                          Compare disagreements
+                        </summary>
+                        <div className="mt-2 grid gap-2 sm:grid-cols-2">
+                          {councilProgress.contributions
+                            .filter((contribution) => contribution.status === "completed")
+                            .slice(0, 3)
+                            .map((contribution) => (
+                              <div
+                                key={`${contribution.role}:${contribution.modelId}`}
+                                className="rounded-lg bg-black/10 p-2 text-white/60"
+                              >
+                                <div className="mb-1 font-semibold text-white/75">
+                                  {contribution.role}
+                                </div>
+                                {contribution.summary}
+                              </div>
+                            ))}
+                        </div>
+                        <ul className="mt-2 list-inside list-disc text-amber-100/65">
+                          {councilProgress.disagreements.map((disagreement) => (
+                            <li key={disagreement}>{disagreement}</li>
+                          ))}
+                        </ul>
+                      </details>
+                    ) : null}
+                    {councilProgress?.note && (
+                      <p className="mt-2 text-amber-100/65">{councilProgress.note}</p>
+                    )}
+                  </section>
                 )}
                 <ChatInput
                   value={input}

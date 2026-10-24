@@ -26,6 +26,7 @@ import { AttachmentMenu } from "./AttachmentMenu";
 import { ToolsMenu } from "./ToolsMenu";
 import { VoiceRecorder } from "./VoiceRecorder";
 import { CalendarModal } from "@/components/lord/CalendarModal";
+import { MissionWorkspace } from "./MissionWorkspace";
 import { toast } from "sonner";
 import { mobileCamera, mobileHaptics } from "@/lib/mobile-native";
 
@@ -528,6 +529,7 @@ export function ChatInput({
               {isPro ? <Zap className="h-3.5 w-3.5" /> : <Lock className="h-3.5 w-3.5" />}
               Fast Reply{!isPro && <span className="text-[9px] text-amber-200">PRO</span>}
             </button>
+            <MissionWorkspace isPro={isPro} />
             <motion.button
               type="button"
               onClick={() => setCalendarOpen(true)}

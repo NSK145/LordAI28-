@@ -33,6 +33,246 @@ export type Database = {
   };
   public: {
     Tables: {
+      autopilot_missions: {
+        Row: {
+          created_at: string;
+          execution_lease_until: string | null;
+          id: string;
+          objective: string;
+          plan: Json;
+          result: Json | null;
+          revision: number;
+          status: string;
+          updated_at: string;
+          user_id: string;
+        };
+        Insert: {
+          created_at?: string;
+          execution_lease_until?: string | null;
+          id?: string;
+          objective: string;
+          plan: Json;
+          result?: Json | null;
+          revision?: number;
+          status: string;
+          updated_at?: string;
+          user_id: string;
+        };
+        Update: {
+          created_at?: string;
+          execution_lease_until?: string | null;
+          id?: string;
+          objective?: string;
+          plan?: Json;
+          result?: Json | null;
+          revision?: number;
+          status?: string;
+          updated_at?: string;
+          user_id?: string;
+        };
+        Relationships: [];
+      };
+      lord_what_if_scenarios: {
+        Row: {
+          created_at: string;
+          data: Json;
+          id: string;
+          revision: number;
+          scenario_group_id: string;
+          title: string;
+          updated_at: string;
+          user_id: string;
+        };
+        Insert: {
+          created_at?: string;
+          data: Json;
+          id?: string;
+          revision: number;
+          scenario_group_id: string;
+          title: string;
+          updated_at?: string;
+          user_id: string;
+        };
+        Update: {
+          created_at?: string;
+          data?: Json;
+          id?: string;
+          revision?: number;
+          scenario_group_id?: string;
+          title?: string;
+          updated_at?: string;
+          user_id?: string;
+        };
+        Relationships: [];
+      };
+      pro_entitlements: {
+        Row: {
+          expires_at: string | null;
+          plan: string | null;
+          razorpay_subscription_id: string | null;
+          status: string;
+          updated_at: string;
+          user_id: string;
+        };
+        Insert: {
+          expires_at?: string | null;
+          plan?: string | null;
+          razorpay_subscription_id?: string | null;
+          status?: string;
+          updated_at?: string;
+          user_id: string;
+        };
+        Update: {
+          expires_at?: string | null;
+          plan?: string | null;
+          razorpay_subscription_id?: string | null;
+          status?: string;
+          updated_at?: string;
+          user_id?: string;
+        };
+        Relationships: [];
+      };
+      lord_studio_projects: {
+        Row: {
+          created_at: string;
+          goal: string;
+          project_id: string;
+          spec: Json;
+          status: string;
+          updated_at: string;
+          user_id: string;
+        };
+        Insert: {
+          created_at?: string;
+          goal: string;
+          project_id: string;
+          spec: Json;
+          status?: string;
+          updated_at?: string;
+          user_id: string;
+        };
+        Update: {
+          created_at?: string;
+          goal?: string;
+          project_id?: string;
+          spec?: Json;
+          status?: string;
+          updated_at?: string;
+          user_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "lord_studio_projects_project_id_fkey";
+            columns: ["project_id"];
+            isOneToOne: true;
+            referencedRelation: "projects";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      lord_studio_artifacts: {
+        Row: {
+          content: string;
+          created_at: string;
+          dependencies: Json;
+          file_name: string;
+          generation_model: string | null;
+          id: string;
+          kind: string;
+          mime_type: string;
+          project_id: string;
+          revision: number;
+          status: string;
+          title: string;
+          updated_at: string;
+          user_id: string;
+          validation: Json;
+        };
+        Insert: {
+          content?: string;
+          created_at?: string;
+          dependencies?: Json;
+          file_name: string;
+          generation_model?: string | null;
+          id?: string;
+          kind: string;
+          mime_type: string;
+          project_id: string;
+          revision?: number;
+          status?: string;
+          title: string;
+          updated_at?: string;
+          user_id: string;
+          validation?: Json;
+        };
+        Update: {
+          content?: string;
+          created_at?: string;
+          dependencies?: Json;
+          file_name?: string;
+          generation_model?: string | null;
+          id?: string;
+          kind?: string;
+          mime_type?: string;
+          project_id?: string;
+          revision?: number;
+          status?: string;
+          title?: string;
+          updated_at?: string;
+          user_id?: string;
+          validation?: Json;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "lord_studio_artifacts_project_id_fkey";
+            columns: ["project_id"];
+            isOneToOne: false;
+            referencedRelation: "projects";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      lord_studio_artifact_versions: {
+        Row: {
+          artifact_id: string;
+          content: string;
+          created_at: string;
+          created_by: string;
+          id: string;
+          revision: number;
+          user_id: string;
+          validation: Json;
+        };
+        Insert: {
+          artifact_id: string;
+          content: string;
+          created_at?: string;
+          created_by: string;
+          id?: string;
+          revision: number;
+          user_id: string;
+          validation: Json;
+        };
+        Update: {
+          artifact_id?: string;
+          content?: string;
+          created_at?: string;
+          created_by?: string;
+          id?: string;
+          revision?: number;
+          user_id?: string;
+          validation?: Json;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "lord_studio_artifact_versions_artifact_id_fkey";
+            columns: ["artifact_id"];
+            isOneToOne: false;
+            referencedRelation: "lord_studio_artifacts";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       tasks: {
         Row: {
           id: string;
@@ -3012,6 +3252,9 @@ export type Database = {
           pinned: boolean | null;
           project_id: string | null;
           source: string;
+          source_conversation_id: string | null;
+          confirmation_status: string;
+          use_in_context: boolean;
           summary: string | null;
           tags: string[] | null;
           updated_at: string | null;
@@ -3036,6 +3279,9 @@ export type Database = {
           pinned?: boolean | null;
           project_id?: string | null;
           source?: string;
+          source_conversation_id?: string | null;
+          confirmation_status?: string;
+          use_in_context?: boolean;
           summary?: string | null;
           tags?: string[] | null;
           updated_at?: string | null;
@@ -3060,6 +3306,9 @@ export type Database = {
           pinned?: boolean | null;
           project_id?: string | null;
           source?: string;
+          source_conversation_id?: string | null;
+          confirmation_status?: string;
+          use_in_context?: boolean;
           summary?: string | null;
           tags?: string[] | null;
           updated_at?: string | null;

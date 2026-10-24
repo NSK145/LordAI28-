@@ -713,10 +713,16 @@ body::after {
 }
 
 .voice-orb-state[data-state="processing"]::before,
-.voice-orb-state[data-state="speaking"]::before {
+.voice-orb-state[data-state="speaking"]::before,
+.voice-orb-state[data-state="review"]::before {
   border-color: rgba(136, 181, 255, 0.2);
   opacity: 0.75;
   transform: scale(1);
+}
+
+.voice-orb-state[data-state="review"]::before {
+  border-color: rgba(255, 210, 125, 0.28);
+  box-shadow: 0 0 32px rgba(255, 190, 96, 0.1);
 }
 
 .voice-orb-state[data-state="error"]::before {

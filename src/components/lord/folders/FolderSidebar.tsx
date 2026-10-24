@@ -30,8 +30,14 @@ import { FolderDialog } from "./FolderDialog";
 import { SortableRootConversations } from "./SortableRootConversations";
 import { useReorderConversations } from "@/hooks/use-reorder-conversations";
 import {
-  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
-  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 
 interface FolderSidebarProps {
@@ -342,7 +348,8 @@ export function FolderSidebar({
       } else if (e.key === "Delete" || e.key === "Backspace") {
         const row = flatRows[focusIndex];
         if (row?.type === "folder" && row.folderId) deleteFolder.mutate(row.folderId);
-        else if (row?.type === "conversation" && row.conversationId) requestDelete(row.conversationId);
+        else if (row?.type === "conversation" && row.conversationId)
+          requestDelete(row.conversationId);
       } else if (e.key === "F2") {
         const row = flatRows[focusIndex];
         if (row?.type === "conversation" && row.conversationId) {
@@ -359,7 +366,6 @@ export function FolderSidebar({
       toggle,
       onSelect,
       deleteFolder,
-      onDelete,
       requestDelete,
       conversations,
       convStartEdit,
@@ -499,17 +505,24 @@ export function FolderSidebar({
         onSubmit={submitDialog}
         onCancel={closeDialog}
       />
-      <AlertDialog open={pendingDeleteId !== null} onOpenChange={(open) => !open && setPendingDeleteId(null)}>
+      <AlertDialog
+        open={pendingDeleteId !== null}
+        onOpenChange={(open) => !open && setPendingDeleteId(null)}
+      >
         <AlertDialogContent className="border-white/10 bg-[#11151d] text-foreground">
           <AlertDialogHeader>
             <AlertDialogTitle>Delete this chat?</AlertDialogTitle>
             <AlertDialogDescription>
-              This permanently deletes the conversation and its messages. This action cannot be undone.
+              This permanently deletes the conversation and its messages. This action cannot be
+              undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={confirmDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+            <AlertDialogAction
+              onClick={confirmDelete}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
               Delete Chat
             </AlertDialogAction>
           </AlertDialogFooter>

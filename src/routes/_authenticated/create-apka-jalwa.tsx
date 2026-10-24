@@ -54,7 +54,7 @@ function GameStudio() {
   const proQuery = useQuery({ queryKey: ["pro-entitlement"], queryFn: async () => {
     const response = await authenticatedFetch("/api/billing/status");
     if (!response.ok) throw new Error("Could not verify your plan.");
-    return response.json() as Promise<{ pro: boolean }>;
+    return response.json() as Promise<{ pro: boolean; lifetime: boolean; pricing: { monthly: number; yearly: number } }>;
   } });
   const [prompt, setPrompt] = useState("");
   const [difficulty, setDifficulty] = useState<GameSpec["difficulty"]>("normal");
@@ -190,14 +190,14 @@ function GameStudio() {
                 <Gamepad2 size={16} /> LORD AI GAME STUDIO
               </p>
               <h1 className="text-4xl font-black tracking-tight text-white sm:text-5xl">
-                Create Apka Jalwa
+                LORD WorldForge
               </h1>
               <p className="mt-3 text-base text-slate-300">
                 Your imagination. Your game. Powered by AI.
               </p>
             </div>
             <span className="rounded-full border border-cyan-400/25 bg-cyan-400/5 px-3 py-1.5 text-xs text-cyan-200">
-              2D + 3D · AI playable games
+              Structured 2D + 3D game creation
             </span>
           </div>
           {studioError && (
@@ -244,7 +244,7 @@ function GameStudio() {
                     <option value="2d">2D · Canvas games</option>
                     <option value="3d" disabled={!proQuery.data?.pro}>3D · WebGL / Three.js{!proQuery.data?.pro ? " · Pro" : ""}</option>
                   </select>
-                  {!proQuery.data?.pro && <Link to="/upgrade" className="mb-3 inline-flex rounded-lg border border-cyan-300/20 bg-cyan-300/5 px-3 py-2 text-xs font-medium text-cyan-100">Unlock 3D games with LORD Pro →</Link>}
+                  {!proQuery.data?.pro && <Link to="/upgrade" className="mb-3 inline-flex flex-wrap rounded-lg border border-cyan-300/20 bg-cyan-300/5 px-3 py-2 text-xs font-medium text-cyan-100">Unlock 3D games with LORD Pro{proQuery.data?.pricing ? ` · ₹${proQuery.data.pricing.monthly}/month · ₹${proQuery.data.pricing.yearly}/year` : ""} →</Link>}
                   <Label htmlFor="difficulty" className="mb-2 block text-xs text-slate-400">
                     Difficulty
                   </Label>
@@ -321,14 +321,19 @@ function GameStudio() {
               {game?.spec.schemaVersion === 3 ? (
                 <ThreeGamePreview key={`${game.id}-${refreshKey}`} spec={game.spec} />
               ) : game ? (
-                <iframe
-                  key={refreshKey}
-                  title={`${game.spec.title} playable game`}
-                  srcDoc={preview}
-                  sandbox="allow-scripts"
-                  referrerPolicy="no-referrer"
-                  className="aspect-video w-full border-0 bg-[#07111f] sm:aspect-[16/10]"
-                />
+                <>
+                  <iframe
+                    key={refreshKey}
+                    title={`${game.spec.title} playable game`}
+                    srcDoc={preview}
+                    sandbox="allow-scripts"
+                    referrerPolicy="no-referrer"
+                    className="aspect-video w-full border-0 bg-[#07111f] sm:aspect-[16/10]"
+                  />
+                  <p role="status" className="px-5 pt-2 text-xs text-slate-400">
+                    Specification validation: passed · Automated gameplay test: not run
+                  </p>
+                </>
               ) : (
                 <div className="grid aspect-video place-items-center bg-[radial-gradient(ellipse_at_center,#10283a,#07111f_70%)] sm:aspect-[16/10]">
                   <div className="text-center">
@@ -360,6 +365,9 @@ function GameStudio() {
                     <Plus />
                     Publish · coming soon
                   </Button>
+                  <p className="w-full text-xs text-slate-400">
+                    Web ZIP export is supported. Android APK export is unavailable: no game-specific Android build and signing pipeline is configured.
+                  </p>
                 </div>
               )}
             </Card>

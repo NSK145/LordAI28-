@@ -5,7 +5,8 @@ import { Game3DSpecSchema, parseGame3DSpecForPreview, type Game3DSpec } from "./
 import { getRendererName, validateGameSpec } from "./game-runtime";
 import { classifyGameIntent, planGameSpec } from "./game-generation";
 import * as THREE from "three";
-import { getVisualPalette } from "./engines/3d/runtime";
+import { getEnvironmentAssetCount, getQualityPixelRatio, getVisualPalette } from "./engines/3d/runtime";
+import { THREE_D_CONTROLS } from "./game-controls-3d";
 
 const base = {
   schemaVersion: 3 as const,
@@ -34,6 +35,59 @@ const base = {
 const runner: Game3DSpec = Game3DSpecSchema.parse({ ...base, gameType: "runner", mechanics: { laneCount: 3, jumpHeight: 2, speed: 10, finishDistance: 180 } });
 
 describe("Three.js game specifications and exports", () => {
+  it("has mapped touch controls for every supported 3D genre", () => {
+    expect(Object.keys(THREE_D_CONTROLS).sort()).toEqual([
+      "adventure", "exploration", "fighting", "platformer", "racing", "rally", "runner", "shooter",
+    ]);
+    expect(THREE_D_CONTROLS.racing.actions).toContain("accelerate");
+    expect(THREE_D_CONTROLS.fighting.actions).toEqual(["punch", "kick", "dodge", "web"]);
+    expect(THREE_D_CONTROLS.shooter.movement).toContain("down");
+  });
+
+  it("validates and applies structured controller, physics, scoring, sound, and responsive UI settings", () => {
+    const configured = Game3DSpecSchema.parse({
+      ...runner,
+      gameType: "runner",
+      playerController: "auto",
+      physics: { gravity: 12, friction: 0.35, collisionRadius: 0.7 },
+      materialStyle: "metallic",
+      scoring: { distancePoints: 3, collectiblePoints: 75, enemyPoints: 125 },
+      health: 2,
+      audio: { enabled: true, volume: 0.3 },
+      ui: { touchControls: false, hudScale: 1.1 },
+    });
+    expect(configured).toMatchObject({
+      playerController: "lane-runner",
+      physics: { gravity: 12, friction: 0.35, collisionRadius: 0.7 },
+      materialStyle: "metallic",
+      scoring: { distancePoints: 3, collectiblePoints: 75, enemyPoints: 125 },
+      health: 2,
+      audio: { enabled: true, volume: 0.3 },
+      ui: { touchControls: false, hudScale: 1.1 },
+    });
+    expect(Game3DSpecSchema.safeParse({ ...runner, physics: { gravity: 100, friction: 0.2, collisionRadius: 0.8 } }).success).toBe(false);
+    expect(Game3DSpecSchema.safeParse({ ...runner, audio: { enabled: true, volume: 2 } }).success).toBe(false);
+  });
+
+  it("caps mobile rendering cost and pixel ratio by the selected quality level", () => {
+    expect(getQualityPixelRatio(3, "low")).toBe(1);
+    expect(getQualityPixelRatio(3, "medium")).toBe(1.25);
+    expect(getQualityPixelRatio(1, "high")).toBe(1);
+    expect(getQualityPixelRatio(Number.NaN, "high")).toBe(1);
+    expect(getEnvironmentAssetCount(5, "city", "low")).toBeLessThanOrEqual(36);
+    expect(getEnvironmentAssetCount(5, "space-nebula", "medium")).toBeLessThanOrEqual(72);
+    expect(getEnvironmentAssetCount(5, "city", "high")).toBe(86);
+  });
+
+  it("exports the supported genre's mapped controls instead of assuming a partial genre list", async () => {
+    const zip = await createGameZip(runner, "A neon lane runner", "export-runtime");
+    const archive = await JSZip.loadAsync(zip);
+    const html = await archive.file("index.html")!.async("text");
+    expect(html).toContain('"runner":{"movement":["left","right"],"actions":["jump"]}');
+    expect(html).toContain("async function startGame()");
+    expect(html).toContain("Automated gameplay test: not run");
+  });
+
   it("normalizes an old saved v3 spec before visual palette selection", () => {
     const oldSaved = { ...runner } as Record<string, unknown>;
     delete oldSaved.environmentPreset;
@@ -92,6 +146,13 @@ describe("Three.js game specifications and exports", () => {
     const legacySaved = Game3DSpecSchema.parse(runner);
     expect(legacySaved.environmentPreset).toBe("city");
     expect(legacySaved.assetDensity).toBe(3);
+    expect(legacySaved).toMatchObject({
+      playerController: "lane-runner",
+      physics: { gravity: 10, friction: 0.28, collisionRadius: 0.8 },
+      scoring: { distancePoints: 2, collectiblePoints: 50, enemyPoints: 100 },
+      audio: { enabled: false, volume: 0.45 },
+      ui: { touchControls: true, hudScale: 1 },
+    });
     const themed = Game3DSpecSchema.parse({
       ...runner,
       environmentPreset: "desert-dunes",

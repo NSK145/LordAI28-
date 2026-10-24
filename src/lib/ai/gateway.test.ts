@@ -3,6 +3,7 @@ import { OpenRouterError } from "./errors";
 
 const mocks = vi.hoisted(() => ({
   streamChat: vi.fn(),
+  completeChat: vi.fn(),
   getAIConfig: vi.fn(() => ({ openRouterApiKey: "test-key" })),
 }));
 
@@ -13,6 +14,10 @@ vi.mock("./config", () => ({
 
 vi.mock("./client", () => ({
   OpenRouterClient: class MockOpenRouterClient {
+    async completeChat(...args: unknown[]) {
+      return mocks.completeChat(...args);
+    }
+
     async *streamChatEvents(...args: unknown[]) {
       for await (const delta of mocks.streamChat(...args)) {
         if (delta) yield { type: "text", delta };
@@ -31,6 +36,7 @@ async function* tokens(...values: string[]) {
 describe("streamChat", () => {
   beforeEach(() => {
     mocks.streamChat.mockReset();
+    mocks.completeChat.mockReset();
     mocks.getAIConfig.mockClear();
     clearModelAvailabilityForTests();
     vi.spyOn(console, "info").mockImplementation(() => undefined);
@@ -93,6 +99,64 @@ describe("streamChat", () => {
     const body = await response.text();
     expect(body).toContain("The current fact is supported [S1].");
     expect(body).toContain("[Reference](https://example.com/source)");
+  });
+
+  it("adds evidence-backed Reality Check results after the generated answer", async () => {
+    const answer = "The source confirms the example claim.";
+    mocks.streamChat.mockImplementationOnce(() => tokens(answer));
+    mocks.completeChat.mockResolvedValue(
+      JSON.stringify([
+        {
+          text: answer,
+          kind: "fact",
+          assessment: "supported",
+          sourceIndex: 1,
+          evidence: "The source confirms the example claim.",
+        },
+      ]),
+    );
+
+    const response = streamChat(
+      [{ role: "user", content: "Is this claim supported?" }],
+      undefined,
+      ["free-model:free"],
+      "00000000-0000-4000-8000-000000000005",
+      [
+        {
+          title: "Example source",
+          url: "https://example.com/source",
+          content: "The source confirms the example claim.",
+        },
+      ],
+      1400,
+      { enabled: true },
+    );
+    const body = await response.text();
+
+    expect(body).toContain("The source confirms the example claim.");
+    expect(body).toContain("fact — supported evidence");
+    expect(body).toContain("not independent proof");
+    expect(body).toContain("data-reality-check");
+    expect(mocks.completeChat).toHaveBeenCalledTimes(1);
+  });
+
+  it("shows an unavailable report rather than a false success when claim analysis fails", async () => {
+    mocks.streamChat.mockImplementationOnce(() => tokens("A current factual claim."));
+    mocks.completeChat.mockRejectedValue(new OpenRouterError("rate_limit", 429));
+    const response = streamChat(
+      [{ role: "user", content: "Check this." }],
+      undefined,
+      ["free-model:free"],
+      "00000000-0000-4000-8000-000000000006",
+      [],
+      1400,
+      { enabled: true },
+    );
+
+    const body = await response.text();
+    expect(body).toContain("claim-analysis model was unavailable");
+    expect(body).toContain("Current or external factual claims are unverified");
+    expect(body).not.toContain("factual claims passed");
   });
 
   it("returns a structured, correlated error after all candidates fail", async () => {

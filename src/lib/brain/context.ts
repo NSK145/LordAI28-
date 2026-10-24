@@ -15,6 +15,7 @@ import type {
   KnowledgeSource,
   SearchResult,
 } from "./types";
+import { getBrainContextCacheVersion } from "./context-cache";
 
 export type { BrainContextOptions } from "./types";
 
@@ -50,8 +51,10 @@ function brainCacheKey(
   projectId: string | null | undefined,
   includePinnedNotes: boolean,
   includeRecentTasks: boolean,
+  memoryEnabled: boolean,
+  memoryRevision: string,
 ): string {
-  return `${userId}:${projectId ?? ""}:${includePinnedNotes ? 1 : 0}:${includeRecentTasks ? 1 : 0}`;
+  return `${userId}:${getBrainContextCacheVersion(userId)}:${memoryRevision}:${projectId ?? ""}:${includePinnedNotes ? 1 : 0}:${includeRecentTasks ? 1 : 0}:${memoryEnabled ? 1 : 0}`;
 }
 
 function estimateTokens(s: string): number {
@@ -94,10 +97,25 @@ export async function buildBrainContext(
   let notes: Awaited<ReturnType<typeof fetchPinnedNotes>> = [];
   let tasks: Awaited<ReturnType<typeof fetchRecentTasks>> = [];
 
-  const cacheKey = brainCacheKey(userId, projectId, includePinnedNotes, includeRecentTasks);
+  const { data: memorySettings, error: settingsError } = await client
+    .from("memory_settings")
+    .select("memory_enabled,updated_at")
+    .eq("user_id", userId)
+    .maybeSingle();
+  if (settingsError) throw settingsError;
+  const memoryEnabled = memorySettings?.memory_enabled ?? true;
+
+  const cacheKey = brainCacheKey(
+    userId,
+    projectId,
+    includePinnedNotes,
+    includeRecentTasks,
+    memoryEnabled,
+    memorySettings?.updated_at ?? "default",
+  );
   const cached = brainCache.get(cacheKey);
   if (cached && Date.now() - cached.ts < BRAIN_CACHE_TTL_MS) {
-    memoryRows = cached.memoryRows;
+    memoryRows = memoryEnabled ? cached.memoryRows : [];
     knowledge = cached.knowledge;
     chats = cached.chats;
     notes = cached.notes;
@@ -106,7 +124,9 @@ export async function buildBrainContext(
     // These five lookups are independent, so run them concurrently instead of
     // in a chain. This roughly halves the context-assembly latency.
     const [memResult, knowResult, chatResult, noteResult, taskResult] = await Promise.all([
-      fetchMemories(client, userId, projectId, maxMemories * 2),
+      memoryEnabled
+        ? fetchMemories(client, userId, projectId, maxMemories * 2)
+        : Promise.resolve([] as Awaited<ReturnType<typeof fetchMemories>>),
       fetchKnowledgeChunks(client, userId, projectId, maxKnowledgeChunks * 2),
       fetchRecentChats(client, userId, projectId, maxRecentChats),
       includePinnedNotes
@@ -280,6 +300,9 @@ function buildSystemPromptSnippet(ctx: {
   if (ctx.memories.length > 0) {
     const lines = ctx.memories.map((m) => `- ${m.content}`);
     parts.push(`RELEVANT MEMORIES:\n${lines.join("\n")}`);
+    parts.push(
+      "MEMORY TRANSPARENCY: If a listed saved memory materially influenced your answer, finish with one brief 'Memory used:' note naming only the relevant memory. Omit the note if no saved memory influenced the answer. Never claim influence that did not occur.",
+    );
   }
 
   if (ctx.knowledgeChunks.length > 0) {
@@ -310,7 +333,7 @@ function buildSystemPromptSnippet(ctx: {
 
   if (parts.length === 0) return "";
 
-  return `ACTIVE CONTEXT:\n\n${parts.join("\n\n")}\n\nUse this context naturally. Do not mention that you are accessing stored context. Do not invent information.`;
+  return `ACTIVE CONTEXT:\n\n${parts.join("\n\n")}\n\nUse this context naturally and do not invent information.`;
 }
 
 async function fetchMemories(
@@ -338,6 +361,8 @@ async function fetchMemories(
     .select("*")
     .eq("user_id", userId)
     .eq("archived", false)
+    .eq("confirmation_status", "confirmed")
+    .eq("use_in_context", true)
     .or(`expires_at.is.null,expires_at.gt.${new Date().toISOString()}`)
     .order("importance", { ascending: false })
     .order("created_at", { ascending: false })

@@ -10,11 +10,14 @@ describe("safe chat error rendering", () => {
   });
 
   it("does not expose server stack traces", () => {
-    expect(safeChatErrorMessage("Internal Server Error at handler (server.js:12)"))
-      .not.toContain("server.js");
+    expect(safeChatErrorMessage("Internal Server Error at handler (server.js:12)")).not.toContain(
+      "server.js",
+    );
   });
 
   it("keeps ordinary provider messages readable", () => {
-    expect(safeChatErrorMessage("OpenRouter rate limit reached.")).toBe("OpenRouter rate limit reached.");
+    expect(safeChatErrorMessage("OpenRouter rate limit reached.")).toBe(
+      "OpenRouter rate limit reached.",
+    );
   });
 });

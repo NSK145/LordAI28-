@@ -11,6 +11,61 @@ export interface OpenRouterStreamEvent {
 export class OpenRouterClient {
   constructor(private readonly apiKey: string) {}
 
+  async completeChat(
+    messages: readonly ChatMessage[],
+    model: string,
+    signal?: AbortSignal,
+    maxTokens = 1400,
+  ): Promise<string> {
+    const body = {
+      model,
+      messages: messages.map((message) => ({
+        role: message.role,
+        content: message.content,
+      })),
+      stream: false,
+      max_tokens: maxTokens,
+    };
+
+    let response: Response;
+    try {
+      response = await fetch(OPENROUTER_URL, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${this.apiKey}`,
+          "Content-Type": "application/json",
+          "HTTP-Referer": "https://lordai.app",
+          "X-Title": "LordAI",
+        },
+        body: JSON.stringify(body),
+        signal,
+      });
+    } catch (error) {
+      throw normalizeOpenRouterError(error);
+    }
+
+    if (!response.ok) {
+      const details = await response.text().catch(() => "");
+      throw errorFromStatus(response.status, details);
+    }
+
+    const payload: unknown = await response.json();
+    if (!payload || typeof payload !== "object") {
+      throw new OpenRouterError("malformed_response");
+    }
+    const choices = (payload as { choices?: unknown }).choices;
+    const message =
+      Array.isArray(choices) && choices[0] && typeof choices[0] === "object"
+        ? (choices[0] as { message?: unknown }).message
+        : null;
+    const content =
+      message && typeof message === "object" ? (message as { content?: unknown }).content : null;
+    if (typeof content !== "string" || !content.trim()) {
+      throw new OpenRouterError("malformed_response");
+    }
+    return content;
+  }
+
   async *streamChat(
     messages: readonly ChatMessage[],
     model: string,

@@ -14,6 +14,7 @@ import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as ResetPasswordRouteImport } from './routes/reset-password'
 import { Route as SitemapDotxmlRouteImport } from './routes/sitemap[.]xml'
+import { Route as AuthenticatedAnythingStudioRouteImport } from './routes/_authenticated/anything-studio'
 import { Route as AuthenticatedBoardsRouteImport } from './routes/_authenticated/boards'
 import { Route as AuthenticatedCalendarRouteImport } from './routes/_authenticated/calendar'
 import { Route as AuthenticatedChatRouteImport } from './routes/_authenticated/chat'
@@ -24,6 +25,7 @@ import { Route as AuthenticatedFeedRouteImport } from './routes/_authenticated/f
 import { Route as AuthenticatedImagesRouteImport } from './routes/_authenticated/images'
 import { Route as AuthenticatedLearnRouteImport } from './routes/_authenticated/learn'
 import { Route as AuthenticatedMemoryRouteImport } from './routes/_authenticated/memory'
+import { Route as AuthenticatedMindGraphRouteImport } from './routes/_authenticated/mind-graph'
 import { Route as AuthenticatedPlanRouteImport } from './routes/_authenticated/plan'
 import { Route as AuthenticatedPracticeRouteImport } from './routes/_authenticated/practice'
 import { Route as AuthenticatedProductivityRouteImport } from './routes/_authenticated/productivity'
@@ -35,15 +37,19 @@ import { Route as AuthenticatedStudyRouteImport } from './routes/_authenticated/
 import { Route as AuthenticatedTasksRouteImport } from './routes/_authenticated/tasks'
 import { Route as AuthenticatedUpgradeRouteImport } from './routes/_authenticated/upgrade'
 import { Route as AuthenticatedVoiceRouteImport } from './routes/_authenticated/voice'
+import { Route as AuthenticatedWhatIfRouteImport } from './routes/_authenticated/what-if'
+import { Route as ApiAnythingStudioRouteImport } from './routes/api/anything-studio'
 import { Route as ApiChatRouteImport } from './routes/api/chat'
 import { Route as ApiGamesRouteImport } from './routes/api/games'
 import { Route as ApiHealthRouteImport } from './routes/api/health'
 import { Route as ApiImagesRouteImport } from './routes/api/images'
+import { Route as ApiMissionsRouteImport } from './routes/api/missions'
 import { Route as ApiModelsRouteImport } from './routes/api/models'
 import { Route as ApiOpenrouterTestRouteImport } from './routes/api/openrouter-test'
 import { Route as ApiSearchRouteImport } from './routes/api/search'
 import { Route as ApiSharesRouteImport } from './routes/api/shares'
 import { Route as ApiTitleRouteImport } from './routes/api/title'
+import { Route as ApiWhatIfRouteImport } from './routes/api/what-if'
 import { Route as ShareTokenRouteImport } from './routes/share/$token'
 import { Route as AuthenticatedCanvasIndexRouteImport } from './routes/_authenticated/canvas/index'
 import { Route as AuthenticatedCanvasIdRouteImport } from './routes/_authenticated/canvas/$id'
@@ -108,6 +114,7 @@ import { Route as ApiSharedTokenRouteImport } from './routes/api/shared/$token'
 import { Route as ApiSharesTokenRouteImport } from './routes/api/shares/$token'
 import { Route as ApiStudyPlansIndexRouteImport } from './routes/api/study-plans/index'
 import { Route as ApiStudyPlansIdRouteImport } from './routes/api/study-plans/$id'
+import { Route as ApiVoiceMissionsRouteImport } from './routes/api/voice/missions'
 import { Route as ApiLearningSourcesIngestRouteImport } from './routes/api/learning/sources/ingest'
 import { Route as ApiLordAgentExecuteRouteImport } from './routes/api/lord/agent/execute'
 import { Route as ApiLordAgentStopRouteImport } from './routes/api/lord/agent/stop'
@@ -151,6 +158,12 @@ const SitemapDotxmlRoute = SitemapDotxmlRouteImport.update({
   path: '/sitemap.xml',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AuthenticatedAnythingStudioRoute =
+  AuthenticatedAnythingStudioRouteImport.update({
+    id: '/anything-studio',
+    path: '/anything-studio',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const AuthenticatedBoardsRoute = AuthenticatedBoardsRouteImport.update({
   id: '/boards',
   path: '/boards',
@@ -201,6 +214,11 @@ const AuthenticatedLearnRoute = AuthenticatedLearnRouteImport.update({
 const AuthenticatedMemoryRoute = AuthenticatedMemoryRouteImport.update({
   id: '/memory',
   path: '/memory',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedMindGraphRoute = AuthenticatedMindGraphRouteImport.update({
+  id: '/mind-graph',
+  path: '/mind-graph',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
 const AuthenticatedPlanRoute = AuthenticatedPlanRouteImport.update({
@@ -259,6 +277,16 @@ const AuthenticatedVoiceRoute = AuthenticatedVoiceRouteImport.update({
   path: '/voice',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedWhatIfRoute = AuthenticatedWhatIfRouteImport.update({
+  id: '/what-if',
+  path: '/what-if',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const ApiAnythingStudioRoute = ApiAnythingStudioRouteImport.update({
+  id: '/api/anything-studio',
+  path: '/api/anything-studio',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiChatRoute = ApiChatRouteImport.update({
   id: '/api/chat',
   path: '/api/chat',
@@ -277,6 +305,11 @@ const ApiHealthRoute = ApiHealthRouteImport.update({
 const ApiImagesRoute = ApiImagesRouteImport.update({
   id: '/api/images',
   path: '/api/images',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiMissionsRoute = ApiMissionsRouteImport.update({
+  id: '/api/missions',
+  path: '/api/missions',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiModelsRoute = ApiModelsRouteImport.update({
@@ -302,6 +335,11 @@ const ApiSharesRoute = ApiSharesRouteImport.update({
 const ApiTitleRoute = ApiTitleRouteImport.update({
   id: '/api/title',
   path: '/api/title',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiWhatIfRoute = ApiWhatIfRouteImport.update({
+  id: '/api/what-if',
+  path: '/api/what-if',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ShareTokenRoute = ShareTokenRouteImport.update({
@@ -639,6 +677,11 @@ const ApiStudyPlansIdRoute = ApiStudyPlansIdRouteImport.update({
   path: '/api/study-plans/$id',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiVoiceMissionsRoute = ApiVoiceMissionsRouteImport.update({
+  id: '/api/voice/missions',
+  path: '/api/voice/missions',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiLearningSourcesIngestRoute =
   ApiLearningSourcesIngestRouteImport.update({
     id: '/api/learning/sources/ingest',
@@ -743,6 +786,7 @@ export interface FileRoutesByFullPath {
   '/reset-password': typeof ResetPasswordRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/command-center': typeof AuthenticatedCommandCenterRouteRouteWithChildren
+  '/anything-studio': typeof AuthenticatedAnythingStudioRoute
   '/boards': typeof AuthenticatedBoardsRoute
   '/calendar': typeof AuthenticatedCalendarRoute
   '/chat': typeof AuthenticatedChatRoute
@@ -752,6 +796,7 @@ export interface FileRoutesByFullPath {
   '/images': typeof AuthenticatedImagesRoute
   '/learn': typeof AuthenticatedLearnRoute
   '/memory': typeof AuthenticatedMemoryRoute
+  '/mind-graph': typeof AuthenticatedMindGraphRoute
   '/plan': typeof AuthenticatedPlanRoute
   '/practice': typeof AuthenticatedPracticeRoute
   '/productivity': typeof AuthenticatedProductivityRoute
@@ -763,15 +808,19 @@ export interface FileRoutesByFullPath {
   '/tasks': typeof AuthenticatedTasksRoute
   '/upgrade': typeof AuthenticatedUpgradeRoute
   '/voice': typeof AuthenticatedVoiceRoute
+  '/what-if': typeof AuthenticatedWhatIfRoute
+  '/api/anything-studio': typeof ApiAnythingStudioRoute
   '/api/chat': typeof ApiChatRouteWithChildren
   '/api/games': typeof ApiGamesRoute
   '/api/health': typeof ApiHealthRoute
   '/api/images': typeof ApiImagesRouteWithChildren
+  '/api/missions': typeof ApiMissionsRoute
   '/api/models': typeof ApiModelsRoute
   '/api/openrouter-test': typeof ApiOpenrouterTestRoute
   '/api/search': typeof ApiSearchRoute
   '/api/shares': typeof ApiSharesRouteWithChildren
   '/api/title': typeof ApiTitleRoute
+  '/api/what-if': typeof ApiWhatIfRoute
   '/share/$token': typeof ShareTokenRoute
   '/canvas/$id': typeof AuthenticatedCanvasIdRoute
   '/command-center/automations': typeof AuthenticatedCommandCenterAutomationsRoute
@@ -825,6 +874,7 @@ export interface FileRoutesByFullPath {
   '/api/shared/$token': typeof ApiSharedTokenRoute
   '/api/shares/$token': typeof ApiSharesTokenRoute
   '/api/study-plans/$id': typeof ApiStudyPlansIdRouteWithChildren
+  '/api/voice/missions': typeof ApiVoiceMissionsRoute
   '/canvas/': typeof AuthenticatedCanvasIndexRoute
   '/command-center/': typeof AuthenticatedCommandCenterIndexRoute
   '/dashboards/': typeof AuthenticatedDashboardsIndexRoute
@@ -860,6 +910,7 @@ export interface FileRoutesByTo {
   '/auth': typeof AuthRoute
   '/reset-password': typeof ResetPasswordRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
+  '/anything-studio': typeof AuthenticatedAnythingStudioRoute
   '/boards': typeof AuthenticatedBoardsRoute
   '/calendar': typeof AuthenticatedCalendarRoute
   '/chat': typeof AuthenticatedChatRoute
@@ -869,6 +920,7 @@ export interface FileRoutesByTo {
   '/images': typeof AuthenticatedImagesRoute
   '/learn': typeof AuthenticatedLearnRoute
   '/memory': typeof AuthenticatedMemoryRoute
+  '/mind-graph': typeof AuthenticatedMindGraphRoute
   '/plan': typeof AuthenticatedPlanRoute
   '/practice': typeof AuthenticatedPracticeRoute
   '/productivity': typeof AuthenticatedProductivityRoute
@@ -880,15 +932,19 @@ export interface FileRoutesByTo {
   '/tasks': typeof AuthenticatedTasksRoute
   '/upgrade': typeof AuthenticatedUpgradeRoute
   '/voice': typeof AuthenticatedVoiceRoute
+  '/what-if': typeof AuthenticatedWhatIfRoute
+  '/api/anything-studio': typeof ApiAnythingStudioRoute
   '/api/chat': typeof ApiChatRouteWithChildren
   '/api/games': typeof ApiGamesRoute
   '/api/health': typeof ApiHealthRoute
   '/api/images': typeof ApiImagesRouteWithChildren
+  '/api/missions': typeof ApiMissionsRoute
   '/api/models': typeof ApiModelsRoute
   '/api/openrouter-test': typeof ApiOpenrouterTestRoute
   '/api/search': typeof ApiSearchRoute
   '/api/shares': typeof ApiSharesRouteWithChildren
   '/api/title': typeof ApiTitleRoute
+  '/api/what-if': typeof ApiWhatIfRoute
   '/share/$token': typeof ShareTokenRoute
   '/canvas/$id': typeof AuthenticatedCanvasIdRoute
   '/command-center/automations': typeof AuthenticatedCommandCenterAutomationsRoute
@@ -942,6 +998,7 @@ export interface FileRoutesByTo {
   '/api/shared/$token': typeof ApiSharedTokenRoute
   '/api/shares/$token': typeof ApiSharesTokenRoute
   '/api/study-plans/$id': typeof ApiStudyPlansIdRouteWithChildren
+  '/api/voice/missions': typeof ApiVoiceMissionsRoute
   '/canvas': typeof AuthenticatedCanvasIndexRoute
   '/command-center': typeof AuthenticatedCommandCenterIndexRoute
   '/dashboards': typeof AuthenticatedDashboardsIndexRoute
@@ -980,6 +1037,7 @@ export interface FileRoutesById {
   '/reset-password': typeof ResetPasswordRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/_authenticated/command-center': typeof AuthenticatedCommandCenterRouteRouteWithChildren
+  '/_authenticated/anything-studio': typeof AuthenticatedAnythingStudioRoute
   '/_authenticated/boards': typeof AuthenticatedBoardsRoute
   '/_authenticated/calendar': typeof AuthenticatedCalendarRoute
   '/_authenticated/chat': typeof AuthenticatedChatRoute
@@ -989,6 +1047,7 @@ export interface FileRoutesById {
   '/_authenticated/images': typeof AuthenticatedImagesRoute
   '/_authenticated/learn': typeof AuthenticatedLearnRoute
   '/_authenticated/memory': typeof AuthenticatedMemoryRoute
+  '/_authenticated/mind-graph': typeof AuthenticatedMindGraphRoute
   '/_authenticated/plan': typeof AuthenticatedPlanRoute
   '/_authenticated/practice': typeof AuthenticatedPracticeRoute
   '/_authenticated/productivity': typeof AuthenticatedProductivityRoute
@@ -1000,15 +1059,19 @@ export interface FileRoutesById {
   '/_authenticated/tasks': typeof AuthenticatedTasksRoute
   '/_authenticated/upgrade': typeof AuthenticatedUpgradeRoute
   '/_authenticated/voice': typeof AuthenticatedVoiceRoute
+  '/_authenticated/what-if': typeof AuthenticatedWhatIfRoute
+  '/api/anything-studio': typeof ApiAnythingStudioRoute
   '/api/chat': typeof ApiChatRouteWithChildren
   '/api/games': typeof ApiGamesRoute
   '/api/health': typeof ApiHealthRoute
   '/api/images': typeof ApiImagesRouteWithChildren
+  '/api/missions': typeof ApiMissionsRoute
   '/api/models': typeof ApiModelsRoute
   '/api/openrouter-test': typeof ApiOpenrouterTestRoute
   '/api/search': typeof ApiSearchRoute
   '/api/shares': typeof ApiSharesRouteWithChildren
   '/api/title': typeof ApiTitleRoute
+  '/api/what-if': typeof ApiWhatIfRoute
   '/share/$token': typeof ShareTokenRoute
   '/_authenticated/canvas/$id': typeof AuthenticatedCanvasIdRoute
   '/_authenticated/command-center/automations': typeof AuthenticatedCommandCenterAutomationsRoute
@@ -1062,6 +1125,7 @@ export interface FileRoutesById {
   '/api/shared/$token': typeof ApiSharedTokenRoute
   '/api/shares/$token': typeof ApiSharesTokenRoute
   '/api/study-plans/$id': typeof ApiStudyPlansIdRouteWithChildren
+  '/api/voice/missions': typeof ApiVoiceMissionsRoute
   '/_authenticated/canvas/': typeof AuthenticatedCanvasIndexRoute
   '/_authenticated/command-center/': typeof AuthenticatedCommandCenterIndexRoute
   '/_authenticated/dashboards/': typeof AuthenticatedDashboardsIndexRoute
@@ -1100,6 +1164,7 @@ export interface FileRouteTypes {
     | '/reset-password'
     | '/sitemap.xml'
     | '/command-center'
+    | '/anything-studio'
     | '/boards'
     | '/calendar'
     | '/chat'
@@ -1109,6 +1174,7 @@ export interface FileRouteTypes {
     | '/images'
     | '/learn'
     | '/memory'
+    | '/mind-graph'
     | '/plan'
     | '/practice'
     | '/productivity'
@@ -1120,15 +1186,19 @@ export interface FileRouteTypes {
     | '/tasks'
     | '/upgrade'
     | '/voice'
+    | '/what-if'
+    | '/api/anything-studio'
     | '/api/chat'
     | '/api/games'
     | '/api/health'
     | '/api/images'
+    | '/api/missions'
     | '/api/models'
     | '/api/openrouter-test'
     | '/api/search'
     | '/api/shares'
     | '/api/title'
+    | '/api/what-if'
     | '/share/$token'
     | '/canvas/$id'
     | '/command-center/automations'
@@ -1182,6 +1252,7 @@ export interface FileRouteTypes {
     | '/api/shared/$token'
     | '/api/shares/$token'
     | '/api/study-plans/$id'
+    | '/api/voice/missions'
     | '/canvas/'
     | '/command-center/'
     | '/dashboards/'
@@ -1217,6 +1288,7 @@ export interface FileRouteTypes {
     | '/auth'
     | '/reset-password'
     | '/sitemap.xml'
+    | '/anything-studio'
     | '/boards'
     | '/calendar'
     | '/chat'
@@ -1226,6 +1298,7 @@ export interface FileRouteTypes {
     | '/images'
     | '/learn'
     | '/memory'
+    | '/mind-graph'
     | '/plan'
     | '/practice'
     | '/productivity'
@@ -1237,15 +1310,19 @@ export interface FileRouteTypes {
     | '/tasks'
     | '/upgrade'
     | '/voice'
+    | '/what-if'
+    | '/api/anything-studio'
     | '/api/chat'
     | '/api/games'
     | '/api/health'
     | '/api/images'
+    | '/api/missions'
     | '/api/models'
     | '/api/openrouter-test'
     | '/api/search'
     | '/api/shares'
     | '/api/title'
+    | '/api/what-if'
     | '/share/$token'
     | '/canvas/$id'
     | '/command-center/automations'
@@ -1299,6 +1376,7 @@ export interface FileRouteTypes {
     | '/api/shared/$token'
     | '/api/shares/$token'
     | '/api/study-plans/$id'
+    | '/api/voice/missions'
     | '/canvas'
     | '/command-center'
     | '/dashboards'
@@ -1336,6 +1414,7 @@ export interface FileRouteTypes {
     | '/reset-password'
     | '/sitemap.xml'
     | '/_authenticated/command-center'
+    | '/_authenticated/anything-studio'
     | '/_authenticated/boards'
     | '/_authenticated/calendar'
     | '/_authenticated/chat'
@@ -1345,6 +1424,7 @@ export interface FileRouteTypes {
     | '/_authenticated/images'
     | '/_authenticated/learn'
     | '/_authenticated/memory'
+    | '/_authenticated/mind-graph'
     | '/_authenticated/plan'
     | '/_authenticated/practice'
     | '/_authenticated/productivity'
@@ -1356,15 +1436,19 @@ export interface FileRouteTypes {
     | '/_authenticated/tasks'
     | '/_authenticated/upgrade'
     | '/_authenticated/voice'
+    | '/_authenticated/what-if'
+    | '/api/anything-studio'
     | '/api/chat'
     | '/api/games'
     | '/api/health'
     | '/api/images'
+    | '/api/missions'
     | '/api/models'
     | '/api/openrouter-test'
     | '/api/search'
     | '/api/shares'
     | '/api/title'
+    | '/api/what-if'
     | '/share/$token'
     | '/_authenticated/canvas/$id'
     | '/_authenticated/command-center/automations'
@@ -1418,6 +1502,7 @@ export interface FileRouteTypes {
     | '/api/shared/$token'
     | '/api/shares/$token'
     | '/api/study-plans/$id'
+    | '/api/voice/missions'
     | '/_authenticated/canvas/'
     | '/_authenticated/command-center/'
     | '/_authenticated/dashboards/'
@@ -1455,15 +1540,18 @@ export interface RootRouteChildren {
   AuthRoute: typeof AuthRoute
   ResetPasswordRoute: typeof ResetPasswordRoute
   SitemapDotxmlRoute: typeof SitemapDotxmlRoute
+  ApiAnythingStudioRoute: typeof ApiAnythingStudioRoute
   ApiChatRoute: typeof ApiChatRouteWithChildren
   ApiGamesRoute: typeof ApiGamesRoute
   ApiHealthRoute: typeof ApiHealthRoute
   ApiImagesRoute: typeof ApiImagesRouteWithChildren
+  ApiMissionsRoute: typeof ApiMissionsRoute
   ApiModelsRoute: typeof ApiModelsRoute
   ApiOpenrouterTestRoute: typeof ApiOpenrouterTestRoute
   ApiSearchRoute: typeof ApiSearchRoute
   ApiSharesRoute: typeof ApiSharesRouteWithChildren
   ApiTitleRoute: typeof ApiTitleRoute
+  ApiWhatIfRoute: typeof ApiWhatIfRoute
   ShareTokenRoute: typeof ShareTokenRoute
   ApiAdminGatewayRoute: typeof ApiAdminGatewayRoute
   ApiBillingStatusRoute: typeof ApiBillingStatusRoute
@@ -1501,6 +1589,7 @@ export interface RootRouteChildren {
   ApiProjectsIdRoute: typeof ApiProjectsIdRoute
   ApiSharedTokenRoute: typeof ApiSharedTokenRoute
   ApiStudyPlansIdRoute: typeof ApiStudyPlansIdRouteWithChildren
+  ApiVoiceMissionsRoute: typeof ApiVoiceMissionsRoute
   ApiCanvasIndexRoute: typeof ApiCanvasIndexRoute
   ApiDashboardsIndexRoute: typeof ApiDashboardsIndexRoute
   ApiKnowledgeIndexRoute: typeof ApiKnowledgeIndexRoute
@@ -1557,6 +1646,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/sitemap.xml'
       preLoaderRoute: typeof SitemapDotxmlRouteImport
       parentRoute: typeof rootRouteImport
+    }
+    '/_authenticated/anything-studio': {
+      id: '/_authenticated/anything-studio'
+      path: '/anything-studio'
+      fullPath: '/anything-studio'
+      preLoaderRoute: typeof AuthenticatedAnythingStudioRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/boards': {
       id: '/_authenticated/boards'
@@ -1626,6 +1722,13 @@ declare module '@tanstack/react-router' {
       path: '/memory'
       fullPath: '/memory'
       preLoaderRoute: typeof AuthenticatedMemoryRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/mind-graph': {
+      id: '/_authenticated/mind-graph'
+      path: '/mind-graph'
+      fullPath: '/mind-graph'
+      preLoaderRoute: typeof AuthenticatedMindGraphRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/plan': {
@@ -1705,6 +1808,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedVoiceRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/what-if': {
+      id: '/_authenticated/what-if'
+      path: '/what-if'
+      fullPath: '/what-if'
+      preLoaderRoute: typeof AuthenticatedWhatIfRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/api/anything-studio': {
+      id: '/api/anything-studio'
+      path: '/api/anything-studio'
+      fullPath: '/api/anything-studio'
+      preLoaderRoute: typeof ApiAnythingStudioRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/chat': {
       id: '/api/chat'
       path: '/api/chat'
@@ -1731,6 +1848,13 @@ declare module '@tanstack/react-router' {
       path: '/api/images'
       fullPath: '/api/images'
       preLoaderRoute: typeof ApiImagesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/missions': {
+      id: '/api/missions'
+      path: '/api/missions'
+      fullPath: '/api/missions'
+      preLoaderRoute: typeof ApiMissionsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/models': {
@@ -1766,6 +1890,13 @@ declare module '@tanstack/react-router' {
       path: '/api/title'
       fullPath: '/api/title'
       preLoaderRoute: typeof ApiTitleRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/what-if': {
+      id: '/api/what-if'
+      path: '/api/what-if'
+      fullPath: '/api/what-if'
+      preLoaderRoute: typeof ApiWhatIfRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/share/$token': {
@@ -2216,6 +2347,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiStudyPlansIdRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/voice/missions': {
+      id: '/api/voice/missions'
+      path: '/api/voice/missions'
+      fullPath: '/api/voice/missions'
+      preLoaderRoute: typeof ApiVoiceMissionsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/learning/sources/ingest': {
       id: '/api/learning/sources/ingest'
       path: '/api/learning/sources/ingest'
@@ -2386,6 +2524,7 @@ const AuthenticatedCommandCenterRouteRouteWithChildren =
 
 interface AuthenticatedRouteRouteChildren {
   AuthenticatedCommandCenterRouteRoute: typeof AuthenticatedCommandCenterRouteRouteWithChildren
+  AuthenticatedAnythingStudioRoute: typeof AuthenticatedAnythingStudioRoute
   AuthenticatedBoardsRoute: typeof AuthenticatedBoardsRoute
   AuthenticatedCalendarRoute: typeof AuthenticatedCalendarRoute
   AuthenticatedChatRoute: typeof AuthenticatedChatRoute
@@ -2395,6 +2534,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedImagesRoute: typeof AuthenticatedImagesRoute
   AuthenticatedLearnRoute: typeof AuthenticatedLearnRoute
   AuthenticatedMemoryRoute: typeof AuthenticatedMemoryRoute
+  AuthenticatedMindGraphRoute: typeof AuthenticatedMindGraphRoute
   AuthenticatedPlanRoute: typeof AuthenticatedPlanRoute
   AuthenticatedPracticeRoute: typeof AuthenticatedPracticeRoute
   AuthenticatedProductivityRoute: typeof AuthenticatedProductivityRoute
@@ -2406,6 +2546,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedTasksRoute: typeof AuthenticatedTasksRoute
   AuthenticatedUpgradeRoute: typeof AuthenticatedUpgradeRoute
   AuthenticatedVoiceRoute: typeof AuthenticatedVoiceRoute
+  AuthenticatedWhatIfRoute: typeof AuthenticatedWhatIfRoute
   AuthenticatedCanvasIdRoute: typeof AuthenticatedCanvasIdRoute
   AuthenticatedProjectsIdRoute: typeof AuthenticatedProjectsIdRoute
   AuthenticatedCanvasIndexRoute: typeof AuthenticatedCanvasIndexRoute
@@ -2418,6 +2559,7 @@ interface AuthenticatedRouteRouteChildren {
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedCommandCenterRouteRoute:
     AuthenticatedCommandCenterRouteRouteWithChildren,
+  AuthenticatedAnythingStudioRoute: AuthenticatedAnythingStudioRoute,
   AuthenticatedBoardsRoute: AuthenticatedBoardsRoute,
   AuthenticatedCalendarRoute: AuthenticatedCalendarRoute,
   AuthenticatedChatRoute: AuthenticatedChatRoute,
@@ -2427,6 +2569,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedImagesRoute: AuthenticatedImagesRoute,
   AuthenticatedLearnRoute: AuthenticatedLearnRoute,
   AuthenticatedMemoryRoute: AuthenticatedMemoryRoute,
+  AuthenticatedMindGraphRoute: AuthenticatedMindGraphRoute,
   AuthenticatedPlanRoute: AuthenticatedPlanRoute,
   AuthenticatedPracticeRoute: AuthenticatedPracticeRoute,
   AuthenticatedProductivityRoute: AuthenticatedProductivityRoute,
@@ -2438,6 +2581,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedTasksRoute: AuthenticatedTasksRoute,
   AuthenticatedUpgradeRoute: AuthenticatedUpgradeRoute,
   AuthenticatedVoiceRoute: AuthenticatedVoiceRoute,
+  AuthenticatedWhatIfRoute: AuthenticatedWhatIfRoute,
   AuthenticatedCanvasIdRoute: AuthenticatedCanvasIdRoute,
   AuthenticatedProjectsIdRoute: AuthenticatedProjectsIdRoute,
   AuthenticatedCanvasIndexRoute: AuthenticatedCanvasIndexRoute,
@@ -2515,15 +2659,18 @@ const rootRouteChildren: RootRouteChildren = {
   AuthRoute: AuthRoute,
   ResetPasswordRoute: ResetPasswordRoute,
   SitemapDotxmlRoute: SitemapDotxmlRoute,
+  ApiAnythingStudioRoute: ApiAnythingStudioRoute,
   ApiChatRoute: ApiChatRouteWithChildren,
   ApiGamesRoute: ApiGamesRoute,
   ApiHealthRoute: ApiHealthRoute,
   ApiImagesRoute: ApiImagesRouteWithChildren,
+  ApiMissionsRoute: ApiMissionsRoute,
   ApiModelsRoute: ApiModelsRoute,
   ApiOpenrouterTestRoute: ApiOpenrouterTestRoute,
   ApiSearchRoute: ApiSearchRoute,
   ApiSharesRoute: ApiSharesRouteWithChildren,
   ApiTitleRoute: ApiTitleRoute,
+  ApiWhatIfRoute: ApiWhatIfRoute,
   ShareTokenRoute: ShareTokenRoute,
   ApiAdminGatewayRoute: ApiAdminGatewayRoute,
   ApiBillingStatusRoute: ApiBillingStatusRoute,
@@ -2561,6 +2708,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiProjectsIdRoute: ApiProjectsIdRoute,
   ApiSharedTokenRoute: ApiSharedTokenRoute,
   ApiStudyPlansIdRoute: ApiStudyPlansIdRouteWithChildren,
+  ApiVoiceMissionsRoute: ApiVoiceMissionsRoute,
   ApiCanvasIndexRoute: ApiCanvasIndexRoute,
   ApiDashboardsIndexRoute: ApiDashboardsIndexRoute,
   ApiKnowledgeIndexRoute: ApiKnowledgeIndexRoute,

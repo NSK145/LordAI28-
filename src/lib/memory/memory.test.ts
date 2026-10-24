@@ -77,4 +77,40 @@ describe("semantic retrieval", () => {
 
     expect(results.map(({ memory: item }) => item.id)).toEqual(["auth"]);
   });
+
+  it("does not retrieve suggestions, excluded memories, or memories when disabled", async () => {
+    const makeMemory = (id: string): MemoryRecord => ({
+      id,
+      user_id: "user-1",
+      content: "Project authentication uses React",
+      category: "project",
+      pinned: false,
+      confidence: 0.9,
+      source: "auto",
+      embedding: null,
+      created_at: "2026-09-27T12:00:00.000Z",
+      updated_at: "2026-09-27T12:00:00.000Z",
+    });
+    const confirmed = makeMemory("confirmed");
+    confirmed.confirmation_status = "confirmed";
+    confirmed.use_in_context = true;
+    const suggestion = makeMemory("suggested");
+    suggestion.confirmation_status = "suggested";
+    suggestion.use_in_context = true;
+    const excluded = makeMemory("excluded");
+    excluded.confirmation_status = "confirmed";
+    excluded.use_in_context = false;
+
+    const memories = [confirmed, suggestion, excluded];
+    const retrieved = await retrieveMemories("React authentication", memories, {
+      lightweight: true,
+    });
+    const disabled = await retrieveMemories("React authentication", memories, {
+      lightweight: true,
+      enabled: false,
+    });
+
+    expect(retrieved.map(({ memory: item }) => item.id)).toEqual(["confirmed"]);
+    expect(disabled).toEqual([]);
+  });
 });

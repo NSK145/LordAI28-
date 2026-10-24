@@ -445,11 +445,21 @@ async function fetchMemories(
 > {
   const { supabase } = await import("@/integrations/supabase/client");
   const db = supabase;
+  const { data: settings, error: settingsError } = await db
+    .from("memory_settings")
+    .select("memory_enabled")
+    .eq("user_id", userId)
+    .maybeSingle();
+  if (settingsError) throw settingsError;
+  if (settings?.memory_enabled === false) return [];
+
   let query = db
     .from("memories")
     .select("*")
     .eq("user_id", userId)
     .eq("archived", false)
+    .eq("confirmation_status", "confirmed")
+    .eq("use_in_context", true)
     .order("importance", { ascending: false })
     .order("created_at", { ascending: false })
     .limit(limit);

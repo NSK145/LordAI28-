@@ -112,6 +112,8 @@ async function searchMemories(
     .select("*")
     .eq("user_id", userId)
     .eq("archived", false)
+    .eq("confirmation_status", "confirmed")
+    .eq("use_in_context", true)
     .order("importance", { ascending: false })
     .limit(opts.limit);
 

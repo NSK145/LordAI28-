@@ -39,10 +39,27 @@ import {
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { GripVertical, MessageSquare, Pencil, Trash2, Pin, Star, Check, X } from "lucide-react";
+import {
+  GripVertical,
+  MessageSquare,
+  Pencil,
+  Trash2,
+  Pin,
+  Star,
+  Check,
+  X,
+  MoreHorizontal,
+} from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { ConversationWithFolder } from "@/lib/folders";
 import { sortRootConversations } from "@/lib/conversation-grouping";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 interface FlatRowRef {
   key: string;
@@ -290,48 +307,97 @@ const SortableConvItem = memo(function SortableConvItem({
           >
             <MessageSquare className="h-3 w-3 flex-shrink-0" />
             <p className="truncate font-medium">{conv.title || "Untitled"}</p>
+            {pinned && (
+              <Pin
+                className="h-3 w-3 flex-shrink-0 fill-current text-primary"
+                aria-label="Pinned"
+              />
+            )}
           </button>
         )}
 
         {!isEditing && (
-          <div className="flex shrink-0 gap-1 opacity-0 transition group-hover:opacity-100">
-            <button
-              onClick={() => onPin(conv.id, !pinned)}
-              aria-label={pinned ? `Unpin ${conv.title}` : `Pin ${conv.title}`}
-              className={cn(
-                "transition",
-                pinned ? "text-primary opacity-100" : "text-muted-foreground hover:text-primary",
-              )}
-            >
-              <Pin className="h-3.5 w-3.5" />
-            </button>
-            <button
-              onClick={() => onFavorite(conv.id, !favorite)}
-              aria-label={favorite ? `Unfavorite ${conv.title}` : `Favorite ${conv.title}`}
-              className={cn(
-                "transition",
-                favorite
-                  ? "text-amber-400 opacity-100"
-                  : "text-muted-foreground hover:text-amber-400",
-              )}
-            >
-              <Star className="h-3.5 w-3.5" />
-            </button>
-            <button
-              onClick={() => onStartEdit(conv)}
-              aria-label={`Rename ${conv.title}`}
-              className="text-muted-foreground hover:text-primary"
-            >
-              <Pencil className="h-3.5 w-3.5" />
-            </button>
-            <button
-              onClick={() => onDelete(conv.id)}
-              aria-label={`Delete ${conv.title}`}
-              className="text-muted-foreground hover:text-destructive"
-            >
-              <Trash2 className="h-3.5 w-3.5" />
-            </button>
-          </div>
+          <>
+            <div className="hidden shrink-0 gap-1 opacity-0 transition group-hover:opacity-100 sm:flex">
+              <button
+                onClick={() => onPin(conv.id, !pinned)}
+                aria-label={pinned ? `Unpin ${conv.title}` : `Pin ${conv.title}`}
+                className={cn(
+                  "transition",
+                  pinned ? "text-primary opacity-100" : "text-muted-foreground hover:text-primary",
+                )}
+              >
+                <Pin className="h-3.5 w-3.5" />
+              </button>
+              <button
+                onClick={() => onFavorite(conv.id, !favorite)}
+                aria-label={favorite ? `Unfavorite ${conv.title}` : `Favorite ${conv.title}`}
+                className={cn(
+                  "transition",
+                  favorite
+                    ? "text-amber-400 opacity-100"
+                    : "text-muted-foreground hover:text-amber-400",
+                )}
+              >
+                <Star className="h-3.5 w-3.5" />
+              </button>
+              <button
+                onClick={() => onStartEdit(conv)}
+                aria-label={`Rename ${conv.title}`}
+                className="text-muted-foreground hover:text-primary"
+              >
+                <Pencil className="h-3.5 w-3.5" />
+              </button>
+              <button
+                onClick={() => onDelete(conv.id)}
+                aria-label={`Delete ${conv.title}`}
+                className="text-muted-foreground hover:text-destructive"
+              >
+                <Trash2 className="h-3.5 w-3.5" />
+              </button>
+            </div>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button
+                  type="button"
+                  aria-label={`Actions for ${conv.title || "Untitled"}`}
+                  onPointerDown={(event) => event.stopPropagation()}
+                  onClick={(event) => event.stopPropagation()}
+                  className="grid h-11 w-11 shrink-0 place-items-center rounded-xl text-muted-foreground transition hover:bg-white/10 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/70 sm:hidden"
+                >
+                  <MoreHorizontal className="h-5 w-5" />
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent
+                align="end"
+                className="min-w-48 border-white/10 bg-[#11151d] text-foreground shadow-xl"
+              >
+                <DropdownMenuItem onSelect={() => onPin(conv.id, !pinned)} className="min-h-11">
+                  <Pin className="h-4 w-4" />
+                  {pinned ? "Unpin Chat" : "Pin Chat"}
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onSelect={() => onFavorite(conv.id, !favorite)}
+                  className="min-h-11"
+                >
+                  <Star className="h-4 w-4" />
+                  {favorite ? "Remove Favorite" : "Add Favorite"}
+                </DropdownMenuItem>
+                <DropdownMenuItem onSelect={() => onStartEdit(conv)} className="min-h-11">
+                  <Pencil className="h-4 w-4" />
+                  Rename Chat
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem
+                  onSelect={() => onDelete(conv.id)}
+                  className="min-h-11 text-destructive focus:text-destructive"
+                >
+                  <Trash2 className="h-4 w-4" />
+                  Delete Chat
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </>
         )}
       </div>
     </li>

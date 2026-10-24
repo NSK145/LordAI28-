@@ -85,7 +85,10 @@ export const Route = createFileRoute("/api/models")({
         try {
           isPro = await hasProEntitlement({ id: auth.userId, ...auth.claims });
         } catch (error) {
-          console.error("Model catalog entitlement check failed; returning Free access only.", error);
+          console.error(
+            "Model catalog entitlement check failed; returning Free access only.",
+            error,
+          );
         }
         const apiKey = readEnvApiKey("OPENROUTER_API_KEY");
         const knownOpenRouterIds = CHAT_MODEL_CATALOG.filter(
@@ -95,26 +98,23 @@ export const Route = createFileRoute("/api/models")({
         const provider = await getProviderAvailability(apiKey, knownOpenRouterIds, forceRefresh);
         const models = CHAT_MODEL_CATALOG.map((model) => {
           const probe = provider.probes.get(model.id);
-          const providerStatus = model.provider !== "openrouter"
-            ? "unavailable"
-            : probe
-              ? probe.status
-              : !provider.ok
-              ? provider.status
-              : !provider.modelIds.has(model.id)
-                ? "unsupported_model"
-                : isModelAvailable(model.id)
-                  ? "available"
-                  : "cooldown";
-          const available =
-            model.provider === "openrouter" &&
-            providerStatus === "available";
+          const providerStatus =
+            model.provider !== "openrouter"
+              ? "unavailable"
+              : probe
+                ? probe.status
+                : !provider.ok
+                  ? provider.status
+                  : !provider.modelIds.has(model.id)
+                    ? "unsupported_model"
+                    : isModelAvailable(model.id)
+                      ? "available"
+                      : "cooldown";
+          const available = model.provider === "openrouter" && providerStatus === "available";
           return {
             ...model,
             available,
-            ...(!available
-              ? { unavailableReason: availabilityMessage(providerStatus) }
-              : {}),
+            ...(!available ? { unavailableReason: availabilityMessage(providerStatus) } : {}),
             providerStatus,
           };
         });

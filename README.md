@@ -164,6 +164,18 @@ Based on your JEE preparation...
 
 # 🏗 Architecture
 
+## LORD What-If Lab
+
+The authenticated `/what-if` workspace creates meaningfully different qualitative approaches
+through LORD's configured OpenRouter model, then compares user-entered costs, effort, and risk
+with deterministic calculations. It supports editable assumptions and constraints, sensitivity
+analysis, private saved revisions, duplication, saved-revision comparison, and JSON report export.
+
+Generated benefits, disadvantages, dependencies, and questions are hypotheses, not verified facts.
+LORD does not invent prices or citations, run unconfigured simulations, guarantee outcomes, or
+execute real-world actions from a scenario. Cost totals use the user's own input units:
+`upfront cost + monthly cost × time horizon`.
+
 ```text
 ┌──────────────────────────┐
 │      LORD AI OS          │
@@ -312,6 +324,11 @@ cp .env.example .env
 
 > Only `VITE_`-prefixed variables reach the browser. Keep `OPENROUTER_API_KEY` and
 > service-role keys server-side only.
+
+What-If Lab uses the existing Supabase and `OPENROUTER_API_KEY` configuration; no additional
+environment variables are required. Apply `supabase/migrations/20261024020000_lord_what_if_scenarios.sql`
+before using the workspace. Saved scenario rows are protected by Supabase row-level security and
+the authenticated API also scopes reads and writes to the current user.
 
 The chat **Sources** toggle requires a server-side `TAVILY_API_KEY`. Get a key at
 [Tavily](https://app.tavily.com/), then add it to your local `.env` file using the

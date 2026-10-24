@@ -123,7 +123,9 @@ export const FolderConversationItem = memo(function FolderConversationItem({
           >
             <MessageSquare className="h-3.5 w-3.5 flex-shrink-0 text-muted-foreground" />
             <span className="truncate font-medium">{conv.title || "Untitled"}</span>
-            {pinned && <Pin className="h-3 w-3 shrink-0 fill-current text-primary" aria-label="Pinned" />}
+            {pinned && (
+              <Pin className="h-3 w-3 shrink-0 fill-current text-primary" aria-label="Pinned" />
+            )}
           </button>
           <div className="hidden shrink-0 gap-0.5 opacity-0 transition-opacity duration-150 group-hover:opacity-100 group-focus-within:opacity-100 sm:flex">
             <button
@@ -168,19 +170,32 @@ export const FolderConversationItem = memo(function FolderConversationItem({
                 <MoreHorizontal className="h-5 w-5" />
               </button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="min-w-48 border-white/10 bg-[#11151d] text-foreground shadow-xl">
+            <DropdownMenuContent
+              align="end"
+              className="min-w-48 border-white/10 bg-[#11151d] text-foreground shadow-xl"
+            >
               <DropdownMenuItem onSelect={() => onPin(conv.id, !pinned)} className="min-h-11">
-                <Pin className="h-4 w-4" />{pinned ? "Unpin Chat" : "Pin Chat"}
+                <Pin className="h-4 w-4" />
+                {pinned ? "Unpin Chat" : "Pin Chat"}
               </DropdownMenuItem>
-              <DropdownMenuItem onSelect={() => onFavorite(conv.id, !favorite)} className="min-h-11">
-                <Star className="h-4 w-4" />{favorite ? "Remove Favorite" : "Add Favorite"}
+              <DropdownMenuItem
+                onSelect={() => onFavorite(conv.id, !favorite)}
+                className="min-h-11"
+              >
+                <Star className="h-4 w-4" />
+                {favorite ? "Remove Favorite" : "Add Favorite"}
               </DropdownMenuItem>
               <DropdownMenuItem onSelect={() => onStartEdit(conv)} className="min-h-11">
-                <Pencil className="h-4 w-4" />Rename Chat
+                <Pencil className="h-4 w-4" />
+                Rename Chat
               </DropdownMenuItem>
               <DropdownMenuSeparator />
-              <DropdownMenuItem onSelect={() => onDelete(conv.id)} className="min-h-11 text-destructive focus:text-destructive">
-                <Trash2 className="h-4 w-4" />Delete Chat
+              <DropdownMenuItem
+                onSelect={() => onDelete(conv.id)}
+                className="min-h-11 text-destructive focus:text-destructive"
+              >
+                <Trash2 className="h-4 w-4" />
+                Delete Chat
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>

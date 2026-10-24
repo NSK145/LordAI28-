@@ -15,7 +15,7 @@
 
 import { embed, cosineSimilarity } from "./embeddings";
 import { MEMORY_RETRIEVAL_LIMIT, MEMORY_CONTEXT_TOKEN_BUDGET } from "./constants";
-import type { MemoryRecord } from "./types";
+import { isMemoryActive, type MemoryRecord } from "./types";
 
 function estimateTokens(s: string): number {
   return Math.ceil(s.length / 4);
@@ -24,6 +24,7 @@ function estimateTokens(s: string): number {
 export interface RetrievalOptions {
   limit?: number;
   tokenBudget?: number;
+  enabled?: boolean;
   /** Drop memories with similarity below this floor (0 disables). */
   minSimilarity?: number;
   /** When true, skip embedding entirely and rank by keyword overlap. */
@@ -48,9 +49,17 @@ export async function retrieveMemories(
   const tokenBudget = options.tokenBudget ?? MEMORY_CONTEXT_TOKEN_BUDGET;
   const minSimilarity = options.minSimilarity ?? 0;
 
-  if (memories.length === 0) return [];
+  if (options.enabled === false) return [];
+  const eligibleMemories = memories.filter(
+    (memory) =>
+      memory.confirmation_status !== "suggested" &&
+      memory.use_in_context !== false &&
+      memory.archived !== true &&
+      isMemoryActive(memory.expires_at),
+  );
+  if (eligibleMemories.length === 0) return [];
 
-  const pinned = memories.filter((m) => m.pinned);
+  const pinned = eligibleMemories.filter((m) => m.pinned);
 
   // Compute query embedding once.
   let queryVec: number[] | null = null;
@@ -62,7 +71,7 @@ export async function retrieveMemories(
     }
   }
 
-  const scored = memories
+  const scored = eligibleMemories
     .filter((m) => !m.pinned)
     .map((m) => {
       let similarity: number;

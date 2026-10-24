@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
   createGameRecord,
+  hasThreeDimensionalGameSpec,
+  isThreeDimensionalGameSpec,
   ownedGamesQuery,
   scopeGameToOwner,
   updateGameGeneration,
@@ -48,6 +50,15 @@ function fakeDb(result: { data: PersistedGame | null; error: unknown }) {
 }
 
 describe("Create Apka Jalwa persistence", () => {
+  it("detects 3D specs in both current and saved-version payloads", () => {
+    expect(isThreeDimensionalGameSpec({ schemaVersion: 3 })).toBe(true);
+    expect(isThreeDimensionalGameSpec({ dimension: "3d" })).toBe(true);
+    expect(isThreeDimensionalGameSpec({ schemaVersion: 2 })).toBe(false);
+    expect(isThreeDimensionalGameSpec(null)).toBe(false);
+    expect(hasThreeDimensionalGameSpec([{ schemaVersion: 2 }, { schemaVersion: 3 }])).toBe(true);
+    expect(hasThreeDimensionalGameSpec([{ schemaVersion: 2 }])).toBe(false);
+  });
+
   it("creates an owned pending record before generation and returns its ID", async () => {
     const savedRecord: PersistedGame = {
       id: "game-123",

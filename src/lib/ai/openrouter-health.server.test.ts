@@ -62,16 +62,30 @@ describe("checkOpenRouterHealth", () => {
     ] as const;
     for (const [status, expected] of cases) {
       const fetcher = vi.fn<typeof fetch>().mockResolvedValue(new Response(null, { status }));
-      await expect(probeOpenRouterModel("secret-test-key", "vendor/model", fetcher)).resolves.toMatchObject({ status: expected });
+      await expect(
+        probeOpenRouterModel("secret-test-key", "vendor/model", fetcher),
+      ).resolves.toMatchObject({ status: expected });
     }
     const malformed = vi.fn<typeof fetch>().mockResolvedValue(Response.json({ choices: [] }));
-    await expect(probeOpenRouterModel("secret-test-key", "vendor/model", malformed)).resolves.toMatchObject({ status: "malformed_response" });
-    const success = vi.fn<typeof fetch>().mockResolvedValue(Response.json({ choices: [{ message: { content: [{ type: "text", text: "OK" }] } }] }));
-    await expect(probeOpenRouterModel("secret-test-key", "vendor/model", success)).resolves.toMatchObject({ status: "available" });
+    await expect(
+      probeOpenRouterModel("secret-test-key", "vendor/model", malformed),
+    ).resolves.toMatchObject({ status: "malformed_response" });
+    const success = vi
+      .fn<typeof fetch>()
+      .mockResolvedValue(
+        Response.json({ choices: [{ message: { content: [{ type: "text", text: "OK" }] } }] }),
+      );
+    await expect(
+      probeOpenRouterModel("secret-test-key", "vendor/model", success),
+    ).resolves.toMatchObject({ status: "available" });
   });
 
   it("reports malformed provider catalog JSON", async () => {
-    const fetcher = vi.fn<typeof fetch>().mockResolvedValue(new Response("<html>error</html>", { status: 200 }));
-    await expect(checkOpenRouterHealth("secret-test-key", fetcher)).resolves.toMatchObject({ status: "malformed_response" });
+    const fetcher = vi
+      .fn<typeof fetch>()
+      .mockResolvedValue(new Response("<html>error</html>", { status: 200 }));
+    await expect(checkOpenRouterHealth("secret-test-key", fetcher)).resolves.toMatchObject({
+      status: "malformed_response",
+    });
   });
 });

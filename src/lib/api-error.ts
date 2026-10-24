@@ -6,6 +6,7 @@ export type ApiErrorCode =
   | "AI_BAD_REQUEST"
   | "AI_CREDITS_EXHAUSTED"
   | "AI_RATE_LIMITED"
+  | "AI_TIMEOUT"
   | "AI_UPSTREAM_ERROR"
   | "AI_INVALID_OUTPUT"
   | "AI_ERROR"
@@ -15,7 +16,8 @@ export type ApiErrorCode =
   | "DB_ERROR"
   | "NO_VALID_CONCEPTS"
   | "INTERNAL_ERROR"
-  | "NOT_FOUND";
+  | "NOT_FOUND"
+  | "PRO_REQUIRED";
 
 export interface ProviderStatus {
   provider: string;

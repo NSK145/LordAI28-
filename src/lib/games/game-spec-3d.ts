@@ -1,5 +1,8 @@
 import { z } from "zod";
 
+const gameTypeSchema = z.enum(["runner", "rally", "racing", "shooter", "adventure", "exploration", "platformer", "fighting"]);
+const playerControllerSchema = z.enum(["auto", "lane-runner", "vehicle", "space-shooter", "third-person", "arena-fighter"]);
+
 const placement = z.object({
   key: z.string().trim().max(80).default(""),
   kind: z.enum(["barrier", "rock", "asteroid", "hazard", "platform"]),
@@ -29,14 +32,35 @@ const base = {
   dimension: z.literal("3d"),
   title: z.string().trim().min(1).max(60),
   description: z.string().trim().min(1).max(300),
-  gameType: z.enum(["runner", "rally", "racing", "shooter", "adventure", "exploration", "platformer", "fighting"]),
+  gameType: gameTypeSchema,
   theme: z.string().trim().min(1).max(80),
   visualStyle: z.string().trim().min(1).max(120),
   world: z.string().trim().min(1).max(120),
   player: z.string().trim().min(1).max(140),
+  playerController: playerControllerSchema.default("auto"),
   objective: z.string().trim().min(1).max(140),
   camera: z.object({ fov: z.number().min(45).max(85), followDistance: z.number().min(4).max(20), height: z.number().min(2).max(10) }).strict(),
   lighting: z.object({ ambient: z.number().min(0.15).max(1.2), directional: z.number().min(0.2).max(2), fogDistance: z.number().min(40).max(220) }).strict(),
+  physics: z.object({
+    gravity: z.number().min(5).max(20).default(10),
+    friction: z.number().min(0.05).max(0.9).default(0.28),
+    collisionRadius: z.number().min(0.4).max(1.4).default(0.8),
+  }).strict().default({ gravity: 10, friction: 0.28, collisionRadius: 0.8 }),
+  materialStyle: z.enum(["stylized", "metallic", "matte", "stone", "organic"]).default("stylized"),
+  scoring: z.object({
+    distancePoints: z.number().int().min(0).max(10).default(2),
+    collectiblePoints: z.number().int().min(0).max(500).default(50),
+    enemyPoints: z.number().int().min(0).max(500).default(100),
+  }).strict().default({ distancePoints: 2, collectiblePoints: 50, enemyPoints: 100 }),
+  health: z.number().int().min(1).max(8).default(1),
+  audio: z.object({
+    enabled: z.boolean().default(false),
+    volume: z.number().min(0).max(1).default(0.45),
+  }).strict().default({ enabled: false, volume: 0.45 }),
+  ui: z.object({
+    touchControls: z.boolean().default(true),
+    hudScale: z.number().min(0.8).max(1.2).default(1),
+  }).strict().default({ touchControls: true, hudScale: 1 }),
   controls: z.array(z.string().trim().min(1).max(60)).min(2).max(8),
   obstacles: z.array(placement).max(24),
   enemies: z.array(enemy).max(12),
@@ -100,8 +124,19 @@ export const Game3DSpecSchema = Game3DSpecInputSchema.transform((spec) => {
     used.add(key);
     return { ...item, key } as Omit<T, "key"> & { key: string };
   });
+  const controllerByGenre: Record<z.infer<typeof gameTypeSchema>, Exclude<z.infer<typeof playerControllerSchema>, "auto">> = {
+    runner: "lane-runner",
+    rally: "vehicle",
+    racing: "vehicle",
+    shooter: "space-shooter",
+    adventure: "third-person",
+    exploration: "third-person",
+    platformer: "third-person",
+    fighting: "arena-fighter",
+  };
   return {
     ...spec,
+    playerController: spec.playerController === "auto" ? controllerByGenre[spec.gameType] : spec.playerController,
     obstacles: assignKeys(spec.obstacles, "obstacle"),
     enemies: assignKeys(spec.enemies, "enemy"),
     collectibles: assignKeys(spec.collectibles, "collectible"),

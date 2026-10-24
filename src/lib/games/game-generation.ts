@@ -12,7 +12,7 @@ export const GAME_PLANNER_SYSTEM = `You create validated data-only game specific
 
 For 2D return schemaVersion 2 and fields title, description, gameType, theme, player, world, difficulty, objective, controls, visualStyle, winCondition, loseCondition, seed, mechanics. 2D mechanics: runner {obstacleDensity .5..2,collectibleDensity .2..2,jumpHeight .7..1.4,finishDistance 80..240}; rally {fuelCapacity 50..200,fuelDrain .1..1,rockDensity .4..2,fuelPickupRate .3..2,finishDistance 80..240}; platformer {platformCount integer 5..16,hazardCount integer 1..8,collectibleCount integer 2..12}; shooter {fireRate .12.. .8,enemyDensity .3..2,playerSpeed 2..8,targetKills integer 8..20}; puzzle {gridSize integer 5..8,colorCount integer 3..6,matchLength integer 3..4,targetMatches integer 3..12}.
 
-For 3D return schemaVersion 3, dimension "3d", title <=60, description <=300, theme <=80, visualStyle <=120, world <=120, player <=140, objective <=140, controls (2..8 strings <=60), camera {fov 45..85,followDistance 4..20,height 2..10}, lighting {ambient .15..1.2,directional .2..2,fogDistance 40..220}, obstacles (0..24 {kind barrier|rock|asteroid|hazard|platform,lane -1..1,distance 18..500}), enemies (0..12 {kind drone|asteroid|sentinel,lane -1..1,distance 18..500}), collectibles (0..24 {kind coin|fuel|crystal|star,lane -1..1,distance 18..500}), objectives (1..5), levels (1..5 {name,distance 80..500,speedScale .8..1.8}), difficulty, winCondition, loseCondition, seed, palette (neon|jungle|desert|space|ancient), and the supported visual fields defined by schema. Choose visual fields from the actual theme.
+For 3D return schemaVersion 3, dimension "3d", title <=60, description <=300, theme <=80, visualStyle <=120, world <=120, player <=140, playerController (lane-runner|vehicle|space-shooter|third-person|arena-fighter), objective <=140, controls (2..8 strings <=60), camera {fov 45..85,followDistance 4..20,height 2..10}, lighting {ambient .15..1.2,directional .2..2,fogDistance 40..220}, physics {gravity 5..20,friction .05.. .9,collisionRadius .4..1.4}, materialStyle (stylized|metallic|matte|stone|organic), scoring {distancePoints 0..10,collectiblePoints 0..500,enemyPoints 0..500}, health 1..8, audio {enabled boolean,volume 0..1}, ui {touchControls boolean,hudScale .8..1.2}, obstacles (0..24 {kind barrier|rock|asteroid|hazard|platform,lane -1..1,distance 18..500}), enemies (0..12 {kind drone|asteroid|sentinel,lane -1..1,distance 18..500}), collectibles (0..24 {kind coin|fuel|crystal|star,lane -1..1,distance 18..500}), objectives (1..5), levels (1..5 {name,distance 80..500,speedScale .8..1.8}), difficulty, winCondition, loseCondition, seed, palette (neon|jungle|desert|space|ancient), and the supported visual fields defined by schema. The checked-in renderer uses these data-only settings; never emit code or asset paths. Choose visual fields from the actual theme.
 
 3D mechanics by gameType: runner {laneCount:3,jumpHeight 1..5,speed 6..18,finishDistance 80..500}; rally or racing {fuelCapacity 50..200,fuelDrain .05..1,acceleration 4..18,finishDistance 80..500}; shooter {fireRate .12..1,playerSpeed 3..12,health 1..8,targetKills 5..20}; adventure, exploration, or platformer {playerSpeed 2..8,jumpHeight 1..5,collectibleGoal 1..12,finishDistance 80..400}; fighting {suits: 2..8 original suits {name <=48,description <=100,accent crimson|cyan|gold|violet|emerald|silver|obsidian}, mechanics {playerHealth 60..200,enemyHealth 20..120,enemyCount 2..5,battleCount 1..5,comboTarget 3..20,suitUnlockEvery 1..10,punchDamage 8..40,kickDamage 12..60,webDamage 5..35}}. For superhero/fighting ideas use an original hero and original opponents, close-range punch/kick, dodge, combo, enemy health, and web-based melee/ranged control as fitting. Preserve requested fight count and unlock cadence exactly. Example: a request for suits unlocked after three fights sets suitUnlockEvery=3 and provides multiple suit choices.
 
@@ -62,6 +62,40 @@ function applyPromptRequirements(spec: GeneratedGameSpec, prompt: string): Gener
   const battleCount = cadence ? suitUnlockEvery : spec.mechanics.battleCount;
   const player = /spider[ -]?man/i.test(spec.player) ? "Original spider-themed hero" : spec.player;
   return Game3DSpecSchema.parse({ ...spec, player, mechanics: { ...spec.mechanics, battleCount, suitUnlockEvery } });
+}
+
+function preserveUnrequestedSections(
+  existing: GeneratedGameSpec,
+  generated: GeneratedGameSpec,
+  instruction: string,
+): GeneratedGameSpec {
+  const groups: Array<[RegExp, string[]]> = [
+    [/\b(rename|retitle|call it|change the name|new title)\b/i, ["title", "description"]],
+    [/\b(theme|visual|look|color|colour|environment|world|biome|lighting|weather|material|texture|style|background)\b/i, ["theme", "visualStyle", "world", "palette", "environmentPreset", "timeOfDay", "terrainStyle", "architectureStyle", "vegetationStyle", "lightingPreset", "atmosphere", "assetDensity", "particleIntensity", "materialStyle"]],
+    [/\b(camera|viewpoint|field of view|follow distance)\b/i, ["camera"]],
+    [/\b(physics|gravity|friction|collision|collisions|hitbox)\b/i, ["physics"]],
+    [/\b(sound|audio|music|volume|mute)\b/i, ["audio"]],
+    [/\b(score|scoring|points|reward)\b/i, ["scoring"]],
+    [/\b(health|lives|damage|survivability)\b/i, ["health", "mechanics"]],
+    [/\b(control|controls|touch|keyboard|mobile|button|input)\b/i, ["controls", "ui"]],
+    [/\b(level|levels|progression|checkpoint|stage|unlock)\b/i, ["levels", "objectives", "winCondition", "mechanics"]],
+    [/\b(player|character|hero|vehicle|spaceship|suit|costume|controller|movement|jump|speed|ability|abilities)\b/i, ["player", "playerController", "suits", "mechanics", "physics"]],
+    [/\b(enemy|enemies|opponent|opponents|obstacle|obstacles|hazard|hazards|pickup|pickups|collectible|collectibles|fight|battle|combat|shoot|weapon|fuel|rock|platform)\b/i, ["enemies", "obstacles", "collectibles", "mechanics", "objectives", "winCondition", "loseCondition"]],
+    [/\b(difficulty|harder|easier|challenge|challenging|fun|exciting|engaging)\b/i, ["difficulty", "mechanics", "levels", "enemies", "obstacles", "health", "loseCondition"]],
+    [/\b(objective|goal|win|lose|finish|ending|mission)\b/i, ["objective", "objectives", "winCondition", "loseCondition", "mechanics"]],
+  ];
+  const allowed = new Set(groups.flatMap(([pattern, fields]) => pattern.test(instruction) ? fields : []));
+  if (!allowed.size) {
+    throw new GameServiceError("unsupported", "Specify which game section to change, such as visuals, controls, physics, levels, sound, scoring, or difficulty.");
+  }
+  const merged = { ...existing } as Record<string, unknown>;
+  const next = generated as unknown as Record<string, unknown>;
+  for (const field of allowed) {
+    if (field in next) merged[field] = next[field];
+  }
+  return existing.schemaVersion === 3
+    ? Game3DSpecSchema.parse(merged)
+    : GameSpecSchema.parse(merged);
 }
 
 export async function planGameSpec(args: {
@@ -118,6 +152,9 @@ export async function planGameSpec(args: {
     const explicitChange = new RegExp(`\\b(?:change|switch|convert|turn|make)\\b[^.]{0,50}\\b${target}\\b`, "i");
     if (!explicitChange.test(args.instruction ?? ""))
       throw new Error("The customization changed the game type without being asked, or changed the dimension without being asked. Your current game was kept.");
+    return promptRequirementsApplied;
   }
-  return promptRequirementsApplied;
+  return args.existing
+    ? preserveUnrequestedSections(args.existing, promptRequirementsApplied, args.instruction ?? "")
+    : promptRequirementsApplied;
 }

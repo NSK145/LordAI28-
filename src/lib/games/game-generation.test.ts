@@ -56,6 +56,32 @@ describe("AI game planning contract", () => {
     expect(result.mechanics).toMatchObject({ rockDensity: 1.8, fuelDrain: .7 });
   });
 
+  it("applies only requested sections and retains unrelated generated changes", async () => {
+    const current = spec("rally");
+    const modelOutput = { ...current, theme: "unrequested theme", world: "unrequested world", mechanics: { ...current.mechanics, fuelDrain: .8 } };
+    const result = await planGameSpec({
+      prompt: "",
+      difficulty: "normal",
+      existing: current,
+      instruction: "Make fuel scarcer",
+      generate: async () => modelOutput,
+    });
+    expect(result.theme).toBe(current.theme);
+    expect(result.world).toBe(current.world);
+    expect(result.mechanics).toMatchObject({ fuelDrain: 0.8 });
+  });
+
+  it("rejects vague customization requests that do not identify a section", async () => {
+    const current = spec("rally");
+    await expect(planGameSpec({
+      prompt: "",
+      difficulty: "normal",
+      existing: current,
+      instruction: "Do something",
+      generate: async () => current,
+    })).rejects.toMatchObject({ kind: "unsupported" });
+  });
+
   it("preserves the current game type unless a genre change is explicit", async () => {
     const current = spec("rally");
     await expect(planGameSpec({

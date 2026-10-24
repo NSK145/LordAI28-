@@ -26,6 +26,8 @@ import {
   type MemorySource,
 } from "./types";
 import { embed } from "./embeddings";
+import { arePossibleDuplicates } from "./graph";
+import { invalidateBrainContextCache } from "@/lib/brain/context-cache";
 import type { Database } from "@/integrations/supabase/types";
 
 export const MEMORIES_KEY = (userId: string | null | undefined) =>
@@ -47,6 +49,11 @@ type DbMemoryRow = {
   expires_at?: string | null;
   created_at: string;
   updated_at: string;
+  project_id?: string | null;
+  source_conversation_id?: string | null;
+  confirmation_status?: "suggested" | "confirmed";
+  use_in_context?: boolean;
+  archived?: boolean | null;
 };
 
 function rowToMemory(row: DbMemoryRow): MemoryRecord {
@@ -72,6 +79,11 @@ function rowToMemory(row: DbMemoryRow): MemoryRecord {
     expires_at: row.expires_at ?? null,
     created_at: row.created_at,
     updated_at: row.updated_at,
+    project_id: row.project_id ?? null,
+    source_conversation_id: row.source_conversation_id ?? null,
+    confirmation_status: row.confirmation_status ?? "confirmed",
+    use_in_context: row.use_in_context ?? true,
+    archived: row.archived ?? false,
   };
 }
 
@@ -131,6 +143,10 @@ export function useAddMemory(userId: string | null | undefined) {
       confidence?: number;
       source?: MemorySource;
       expiresAt?: string;
+      projectId?: string | null;
+      sourceConversationId?: string | null;
+      confirmationStatus?: "suggested" | "confirmed";
+      useInContext?: boolean;
     }) => {
       if (!userId) throw new Error("Not authenticated");
       const content = input.content.trim();
@@ -155,6 +171,11 @@ export function useAddMemory(userId: string | null | undefined) {
         embedding,
         expires_at: input.expiresAt ?? null,
         client_tag: tag,
+        project_id: input.projectId ?? null,
+        source_conversation_id: input.sourceConversationId ?? null,
+        confirmation_status:
+          input.confirmationStatus ?? (input.source === "auto" ? "suggested" : "confirmed"),
+        use_in_context: input.useInContext ?? input.source !== "auto",
       };
       const { data, error } = await supabase
         .from("memories")
@@ -162,6 +183,7 @@ export function useAddMemory(userId: string | null | undefined) {
         .select()
         .single();
       if (error) throw error;
+      invalidateBrainContextCache(userId);
       return rowToMemory(data as DbMemoryRow);
     },
     onMutate: async (input) => {
@@ -180,6 +202,11 @@ export function useAddMemory(userId: string | null | undefined) {
         expires_at: input.expiresAt ?? null,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
+        project_id: input.projectId ?? null,
+        source_conversation_id: input.sourceConversationId ?? null,
+        confirmation_status:
+          input.confirmationStatus ?? (input.source === "auto" ? "suggested" : "confirmed"),
+        use_in_context: input.useInContext ?? input.source !== "auto",
       };
       patchMemoriesCache(qc, userId, (old) => [optimistic, ...old]);
       return { previous, optimisticId: optimistic.id };
@@ -212,6 +239,9 @@ export function useSaveDetectedMemory(userId: string | null | undefined) {
         confidence: detected.confidence,
         source: "auto",
         expiresAt: detected.expiresAt,
+        sourceConversationId: detected.sourceConversationId,
+        confirmationStatus: "suggested",
+        useInContext: false,
       }),
   });
 }
@@ -224,8 +254,17 @@ export function useUpdateMemory(userId: string | null | undefined) {
       content?: string;
       category?: MemoryCategory;
       pinned?: boolean;
+      archived?: boolean;
+      confirmationStatus?: "suggested" | "confirmed";
+      useInContext?: boolean;
+      projectId?: string | null;
     }) => {
       if (!userId) throw new Error("Not authenticated");
+      if (input.content !== undefined) {
+        const content = input.content.trim();
+        if (!content) throw new Error("Memory cannot be empty");
+        if (isSensitive(content)) throw new Error("That looks like a secret. Not saved.");
+      }
       const tag = createClientTag();
       markClientTagSent(tag);
 
@@ -234,10 +273,21 @@ export function useUpdateMemory(userId: string | null | undefined) {
         ...(input.content !== undefined ? { content: input.content.trim() } : {}),
         ...(input.category !== undefined ? { category: input.category } : {}),
         ...(input.pinned !== undefined ? { pinned: input.pinned } : {}),
+        ...(input.archived !== undefined ? { archived: input.archived } : {}),
+        ...(input.confirmationStatus !== undefined
+          ? { confirmation_status: input.confirmationStatus }
+          : {}),
+        ...(input.useInContext !== undefined ? { use_in_context: input.useInContext } : {}),
+        ...(input.projectId !== undefined ? { project_id: input.projectId } : {}),
       };
 
-      const { error } = await supabase.from("memories").update(update).eq("id", input.id);
+      const { error } = await supabase
+        .from("memories")
+        .update(update)
+        .eq("id", input.id)
+        .eq("user_id", userId);
       if (error) throw error;
+      invalidateBrainContextCache(userId);
     },
     onMutate: async (input) => {
       if (!userId) return;
@@ -251,6 +301,12 @@ export function useUpdateMemory(userId: string | null | undefined) {
                 ...(input.content !== undefined ? { content: input.content!.trim() } : {}),
                 ...(input.category !== undefined ? { category: input.category! } : {}),
                 ...(input.pinned !== undefined ? { pinned: input.pinned! } : {}),
+                ...(input.archived !== undefined ? { archived: input.archived! } : {}),
+                ...(input.confirmationStatus !== undefined
+                  ? { confirmation_status: input.confirmationStatus }
+                  : {}),
+                ...(input.useInContext !== undefined ? { use_in_context: input.useInContext } : {}),
+                ...(input.projectId !== undefined ? { project_id: input.projectId } : {}),
               }
             : m,
         ),
@@ -277,6 +333,7 @@ export function useDeleteMemory(userId: string | null | undefined) {
       markClientTagSent(tag);
       const { error } = await supabase.from("memories").delete().eq("id", id).eq("user_id", userId);
       if (error) throw error;
+      invalidateBrainContextCache(userId);
     },
     onMutate: async (id) => {
       if (!userId) return;
@@ -303,6 +360,7 @@ export function useClearMemories(userId: string | null | undefined) {
       if (!userId) throw new Error("Not authenticated");
       const { error } = await supabase.from("memories").delete().eq("user_id", userId);
       if (error) throw error;
+      invalidateBrainContextCache(userId);
     },
     onMutate: async () => {
       if (!userId) return;
@@ -332,6 +390,7 @@ export function useUpdateMemorySettings(userId: string | null | undefined) {
         .from("memory_settings")
         .upsert(update, { onConflict: "user_id" });
       if (error) throw error;
+      invalidateBrainContextCache(userId);
     },
     onMutate: async (patch) => {
       if (!userId) return;
@@ -358,6 +417,5 @@ export function useUpdateMemorySettings(userId: string | null | undefined) {
 // ---- Dedup helper ----------------------------------------------------------
 /** True if an equivalent memory (same content, roughly) already exists. */
 export function memoryExists(memories: MemoryRecord[], content: string): boolean {
-  const norm = content.trim().toLowerCase().replace(/\s+/g, " ");
-  return memories.some((m) => m.content.trim().toLowerCase().replace(/\s+/g, " ") === norm);
+  return memories.some((memory) => arePossibleDuplicates(memory.content, content));
 }

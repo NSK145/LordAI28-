@@ -3,7 +3,7 @@ import { applyEnemyDamage, canSelectFightingSuit, createFightingProgress, getCom
 
 export type Game3DAction = "left" | "right" | "jump" | "accelerate" | "brake" | "up" | "down" | "fire" | "punch" | "kick" | "dodge" | "web";
 export type GraphicsQuality = "low" | "medium" | "high";
-export type Game3DStatus = { status: "ready" | "playing" | "paused" | "completed" | "failed"; hud: string; fightingProgress?: FightingProgress; battle?: number; battleCount?: number; enemyHealth?: Array<{ key: string; health: number; maxHealth: number }> };
+export type Game3DStatus = { status: "ready" | "playing" | "paused" | "completed" | "failed"; hud: string; error?: string; fightingProgress?: FightingProgress; battle?: number; battleCount?: number; enemyHealth?: Array<{ key: string; health: number; maxHealth: number }> };
 export type Game3DHandle = {
   action(action: Game3DAction, pressed: boolean): void;
   pause(): void;
@@ -13,6 +13,16 @@ export type Game3DHandle = {
   setSuit(suitKey: string): void;
   dispose(): void;
 };
+
+export function getQualityPixelRatio(devicePixelRatio: number, quality: GraphicsQuality): number {
+  const deviceRatio = Number.isFinite(devicePixelRatio) && devicePixelRatio > 0 ? devicePixelRatio : 1;
+  return Math.min(deviceRatio, quality === "low" ? 1 : quality === "medium" ? 1.25 : 1.5);
+}
+
+export function getEnvironmentAssetCount(assetDensity: number, environment: Game3DSpec["environmentPreset"], quality: GraphicsQuality): number {
+  const count = environment === "space-nebula" ? 140 : 26 + assetDensity * 12;
+  return quality === "low" ? Math.min(count, 36) : quality === "medium" ? Math.min(count, 72) : count;
+}
 
 const PALETTES = {
   neon: { sky: 0x071426, ground: 0x102838, accent: 0x30eaff },
@@ -73,7 +83,7 @@ export async function mountThreeGame(
   keyLight.position.set(-8, 18, 8);
   scene.add(ambient, keyLight);
   let qualitySetting = quality;
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, qualitySetting === "low" ? 1 : qualitySetting === "medium" ? 1.25 : 1.5));
+  renderer.setPixelRatio(getQualityPixelRatio(window.devicePixelRatio, qualitySetting));
   renderer.shadowMap.enabled = qualitySetting === "high";
   renderer.shadowMap.type = THREE.PCFSoftShadowMap;
   if (renderer.shadowMap.enabled) {
@@ -113,7 +123,11 @@ export async function mountThreeGame(
   const makeObject = (key: string, kind: string, lane: number, distance: number, enemyObject = false) => {
     const group = new THREE.Group();
     const color = kind === "fuel" ? 0x45ef9b : kind === "coin" || kind === "star" ? 0xffd166 : kind === "crystal" ? 0x65efff : enemyObject ? 0xf66c90 : kind === "rock" ? 0x8a8179 : 0xff647e;
-    const material = new THREE.MeshStandardMaterial({ color, roughness: 0.55, metalness: kind === "coin" || kind === "star" ? 0.45 : 0.08 });
+    const material = new THREE.MeshStandardMaterial({
+      color,
+      roughness: spec.materialStyle === "metallic" ? 0.24 : spec.materialStyle === "matte" ? 0.92 : spec.materialStyle === "stone" || spec.materialStyle === "organic" ? 0.82 : 0.55,
+      metalness: spec.materialStyle === "metallic" ? 0.62 : kind === "coin" || kind === "star" ? 0.45 : 0.08,
+    });
     if (["coin", "fuel", "crystal", "star"].includes(kind)) {
       const shape = kind === "fuel" ? new THREE.CylinderGeometry(0.28, 0.28, 0.62, 8) : kind === "crystal" ? new THREE.OctahedronGeometry(0.38) : new THREE.TorusGeometry(0.34, 0.11, 6, 12);
       const item = new THREE.Mesh(shape, material);
@@ -177,11 +191,12 @@ export async function mountThreeGame(
   let finalStatus: "completed" | "failed" = "failed";
   let lastReportAt = 0;
   let lastReportedStatus: Game3DStatus["status"] | "" = "";
+  let runtimeError: string | undefined;
   let speed = isRacing ? 0 : spec.gameType === "runner" ? spec.mechanics.speed : 9;
   let distance = 0;
   let score = 0;
   let fuel = isRacing ? spec.mechanics.fuelCapacity : 100;
-  let health = spec.gameType === "shooter" ? spec.mechanics.health : 3;
+  let health = spec.gameType === "shooter" ? spec.mechanics.health : spec.health;
   let kills = 0;
   let playerX = 0;
   let jumpVelocity = 0;
@@ -200,6 +215,40 @@ export async function mountThreeGame(
   let dodgeExpires = 0;
   let lastEnemyHit = 0;
   const lastMoveAt: Record<CombatMove, number> = { punch: 0, kick: 0, web: 0 };
+  let audioContext: AudioContext | null = null;
+  let audioUnavailable = false;
+  const playSound = (action: Game3DAction) => {
+    if (!spec.audio.enabled || spec.audio.volume <= 0 || audioUnavailable || typeof AudioContext === "undefined") return;
+    try {
+      audioContext ??= new AudioContext();
+      if (audioContext.state === "suspended") {
+        void audioContext.resume().catch((error: unknown) => console.warn("[games] Audio could not resume", error));
+      }
+      const frequencies: Partial<Record<Game3DAction, number>> = {
+        jump: 620, accelerate: 260, brake: 170, fire: 880, punch: 220, kick: 150, dodge: 540, web: 740,
+      };
+      const frequency = frequencies[action];
+      if (!frequency) return;
+      const oscillator = audioContext.createOscillator();
+      const gain = audioContext.createGain();
+      const now = audioContext.currentTime;
+      oscillator.frequency.setValueAtTime(frequency, now);
+      gain.gain.setValueAtTime(0, now);
+      gain.gain.linearRampToValueAtTime(spec.audio.volume * 0.08, now + 0.012);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.13);
+      oscillator.connect(gain);
+      gain.connect(audioContext.destination);
+      oscillator.start(now);
+      oscillator.stop(now + 0.14);
+    } catch (error) {
+      audioUnavailable = true;
+      console.warn("[games] Audio effects are unavailable", error);
+    }
+  };
+  const getLevelIndex = (value: number) => {
+    const index = spec.levels.findIndex((level) => value < level.distance);
+    return index < 0 ? spec.levels.length - 1 : index;
+  };
   let fightNumber = 0;
   const combatEnemies: Array<{ key: string; mesh: InstanceType<typeof THREE.Group>; bar: InstanceType<typeof THREE.Mesh>; barAnchor: InstanceType<typeof THREE.Group>; health: number; maxHealth: number; attackAt: number; index: number }> = [];
   const combatEffects: Array<{ mesh: InstanceType<typeof THREE.Object3D>; expires: number }> = [];
@@ -295,13 +344,16 @@ export async function mountThreeGame(
     if (!force && status === lastReportedStatus && now - lastReportAt < 180) return;
     lastReportAt = now;
     lastReportedStatus = status;
+    const levelNumber = getLevelIndex(distance);
+    const levelLabel = `Level ${levelNumber + 1}: ${spec.levels[levelNumber].name}`;
     const hud = isFighting ? `Health ${playerCombatHealth}/${fightingSpec?.mechanics.playerHealth} · Combo x${comboCount}`
-      : isRacing ? `Speed ${Math.round(speed * 8)} · Fuel ${Math.max(0, Math.round(fuel))} · ${Math.floor(distance)} m`
-      : spec.gameType === "shooter" ? `Hull ${health} · Targets ${kills}/${spec.mechanics.targetKills} · Score ${score}`
-        : `Distance ${Math.floor(distance)} m · Score ${score}`;
+      : isRacing ? `${levelLabel} · Speed ${Math.round(speed * 8)} · Fuel ${Math.max(0, Math.round(fuel))} · ${Math.floor(distance)} m`
+      : spec.gameType === "shooter" ? `${levelLabel} · Hull ${health} · Targets ${kills}/${spec.mechanics.targetKills} · Score ${score}`
+        : `${levelLabel} · Health ${health} · Distance ${Math.floor(distance)} m · Score ${score}`;
     report({
       status,
       hud,
+      ...(runtimeError ? { error: runtimeError } : {}),
       ...(isFighting && fightingSpec && fightingProgress ? {
         fightingProgress,
         battle: getFightRoundNumber(fightingSpec, fightingProgress.wins),
@@ -318,7 +370,7 @@ export async function mountThreeGame(
     emit(won ? "completed" : "failed");
   };
   const reset = () => {
-    distance = 0; score = 0; kills = 0; playerX = 0; jumpVelocity = 0; adventureGround = 0; activePlatformZ = null; health = spec.gameType === "shooter" ? spec.mechanics.health : 3;
+    distance = 0; score = 0; kills = 0; playerX = 0; jumpVelocity = 0; adventureGround = 0; activePlatformZ = null; runtimeError = undefined; health = spec.gameType === "shooter" ? spec.mechanics.health : spec.health;
     fuel = isRacing ? spec.mechanics.fuelCapacity : 100;
     speed = isRacing ? 0 : spec.gameType === "runner" ? spec.mechanics.speed : 9;
     ended = false; finalStatus = "failed"; active = true; player.position.set(0, 0, 0);
@@ -409,6 +461,7 @@ export async function mountThreeGame(
   };
   const frame = () => {
     if (disposed || !active) return;
+    try {
     const dt = Math.min(clock.getDelta(), 0.04);
     const elapsed = clock.elapsedTime;
     if (isFighting) {
@@ -417,13 +470,14 @@ export async function mountThreeGame(
       return;
     }
     if (isRacing) {
-      speed += ((inputs.has("accelerate") ? spec.mechanics.acceleration : 0) - (inputs.has("brake") ? spec.mechanics.acceleration * 1.35 : 0) - speed * 0.28) * dt;
+      speed += ((inputs.has("accelerate") ? spec.mechanics.acceleration : 0) - (inputs.has("brake") ? spec.mechanics.acceleration * 1.35 : 0) - speed * spec.physics.friction) * dt;
       speed = Math.max(0, Math.min(22, speed));
       fuel -= spec.mechanics.fuelDrain * (0.35 + speed / 12) * dt;
     } else if (spec.gameType === "runner") {
       speed = Math.min(spec.mechanics.speed * 1.65, speed + dt * 0.035);
     }
-    const speedFactor = isRacing ? speed : spec.gameType === "shooter" ? 7 : speed;
+    const levelNumber = getLevelIndex(distance);
+    const speedFactor = (isRacing ? speed : spec.gameType === "shooter" ? 7 : speed) * spec.levels[levelNumber].speedScale;
     if (isExploration) {
       if (inputs.has("up")) player.position.z = Math.max(-spec.mechanics.finishDistance, player.position.z - spec.mechanics.playerSpeed * dt);
       if (inputs.has("down")) player.position.z = Math.min(0, player.position.z + spec.mechanics.playerSpeed * dt);
@@ -431,7 +485,7 @@ export async function mountThreeGame(
     } else {
       distance += speedFactor * dt;
     }
-    score = Math.floor(distance * (isRacing ? 1 : 2));
+    score = Math.floor(distance * (isRacing ? 1 : 2) * (spec.scoring.distancePoints / 2));
     if (inputs.has("left")) playerX = Math.max(-1, playerX - dt * (isRacing ? 0.9 : 2.4));
     if (inputs.has("right")) playerX = Math.min(1, playerX + dt * (isRacing ? 0.9 : 2.4));
     if (spec.gameType === "shooter" && inputs.has("up")) player.position.z = Math.max(-1.8, player.position.z - dt * 4);
@@ -442,7 +496,7 @@ export async function mountThreeGame(
     }
     if (jumpVelocity > 0 || player.position.y > 0) {
       player.position.y += jumpVelocity * dt;
-      jumpVelocity -= 10 * dt;
+      jumpVelocity -= spec.physics.gravity * dt;
       if (player.position.y < adventureGround) { player.position.y = adventureGround; jumpVelocity = 0; }
     }
     if (isExploration && activePlatformZ !== null && player.position.z < activePlatformZ - 2) {
@@ -467,20 +521,20 @@ export async function mountThreeGame(
       if (spec.gameType === "shooter" && ["asteroid", "drone", "sentinel"].includes(object.kind)) {
         object.mesh.position.z += dt * (1.4 + distance * 0.0008);
         const hit = projectiles.find((shot) => Math.abs(shot.mesh.position.x - object.mesh.position.x) < 1 && Math.abs(shot.mesh.position.z - object.mesh.position.z) < 1.5);
-        if (hit) { object.consumed = true; object.mesh.visible = false; hit.mesh.visible = false; kills++; score += 100; continue; }
+        if (hit) { object.consumed = true; object.mesh.visible = false; hit.mesh.visible = false; kills++; score += spec.scoring.enemyPoints; continue; }
         if (object.mesh.position.z > -0.7 && Math.abs(object.mesh.position.x - player.position.x) < 1.1) {
           object.mesh.position.z = -700; health--;
-          if (health <= 0) finish(false);
+          if (health <= 0) { finish(false); break; }
           continue;
         }
       }
-      const close = Math.abs(object.mesh.position.z - player.position.z) < (isExploration ? 1.4 : 1.25);
-      const aligned = Math.abs(object.mesh.position.x - player.position.x) < (isRacing ? 1.25 : 1.05);
+      const close = Math.abs(object.mesh.position.z - player.position.z) < spec.physics.collisionRadius + (isExploration ? 0.6 : 0.45);
+      const aligned = Math.abs(object.mesh.position.x - player.position.x) < spec.physics.collisionRadius + (isRacing ? 0.45 : 0.25);
       if (close && aligned) {
         if (["coin", "fuel", "crystal", "star"].includes(object.kind)) {
           object.consumed = true; object.mesh.visible = false;
           if (object.kind === "fuel" && isRacing) fuel = Math.min(spec.mechanics.fuelCapacity, fuel + 24);
-          else score += 50;
+          else score += spec.scoring.collectiblePoints;
         } else if (isExploration && object.kind === "platform") {
           const platformTop = object.mesh.position.y + 0.19;
           if (jumpVelocity <= 0 && player.position.y >= platformTop - 0.55) {
@@ -491,7 +545,12 @@ export async function mountThreeGame(
             object.consumed = true;
           }
         } else {
-          if (!(spec.gameType === "runner" && player.position.y > 0.75)) finish(false);
+          if (!(spec.gameType === "runner" && player.position.y > 0.75)) {
+            health--;
+            object.consumed = true;
+            object.mesh.visible = false;
+            if (health <= 0) { finish(false); break; }
+          }
         }
       }
       if (object.mesh.position.z > 10 && isExploration) object.consumed = true;
@@ -518,6 +577,15 @@ export async function mountThreeGame(
     renderer.render(scene, camera);
     emit(ended ? finalStatus : "playing");
     if (active) raf = requestAnimationFrame(frame);
+    } catch (error) {
+      active = false;
+      ended = true;
+      finalStatus = "failed";
+      runtimeError = "The game runtime stopped unexpectedly. Restart to retry.";
+      cancelAnimationFrame(raf);
+      console.error("[games] 3D runtime frame failed", error);
+      emit("failed", true);
+    }
   };
   const resize = () => {
     const width = Math.max(1, host.clientWidth), height = Math.max(1, host.clientHeight);
@@ -525,7 +593,7 @@ export async function mountThreeGame(
   };
   const setQuality = (next: GraphicsQuality) => {
     qualitySetting = next;
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, next === "low" ? 1 : next === "medium" ? 1.25 : 1.5));
+    renderer.setPixelRatio(getQualityPixelRatio(window.devicePixelRatio, next));
     renderer.shadowMap.enabled = next === "high";
     keyLight.castShadow = next === "high";
     scene.traverse((item) => {
@@ -539,7 +607,7 @@ export async function mountThreeGame(
   resizeObserver.observe(host); resize();
   const keyMap: Record<string, Game3DAction> = { ArrowLeft: "left", KeyA: "left", ArrowRight: "right", KeyD: "right", Space: isFighting ? "dodge" : "jump", ArrowUp: "up", KeyW: "up", ArrowDown: "down", KeyS: "down", Enter: "accelerate", ShiftLeft: "brake", KeyJ: isFighting ? "punch" : "fire" };
   if (isFighting) { keyMap.KeyK = "kick"; keyMap.KeyL = "web"; }
-  const keydown = (event: KeyboardEvent) => { const action = keyMap[event.code]; if (action) { inputs.add(action); if (["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown", "Space"].includes(event.code)) event.preventDefault(); } };
+  const keydown = (event: KeyboardEvent) => { const action = keyMap[event.code]; if (action) { const wasPressed = inputs.has(action); inputs.add(action); if (!wasPressed) playSound(action); if (["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown", "Space"].includes(event.code)) event.preventDefault(); } };
   const keyup = (event: KeyboardEvent) => { const action = keyMap[event.code]; if (action) inputs.delete(action); };
   renderer.domElement.addEventListener("keydown", keydown); renderer.domElement.addEventListener("keyup", keyup);
   renderer.domElement.addEventListener("pointerdown", () => renderer.domElement.focus());
@@ -548,6 +616,7 @@ export async function mountThreeGame(
   const dispose = () => {
     if (disposed) return;
     disposed = true; active = false; cancelAnimationFrame(raf); resizeObserver.disconnect();
+    if (audioContext) void audioContext.close().catch((error: unknown) => console.warn("[games] Audio context cleanup failed", error));
     renderer.domElement.removeEventListener("keydown", keydown); renderer.domElement.removeEventListener("keyup", keyup);
     document.removeEventListener("visibilitychange", visibility);
     scene.traverse((item) => {
@@ -559,7 +628,11 @@ export async function mountThreeGame(
   };
   reset();
   return {
-    action(action, pressed) { pressed ? inputs.add(action) : inputs.delete(action); },
+    action(action, pressed) {
+      const wasPressed = inputs.has(action);
+      pressed ? inputs.add(action) : inputs.delete(action);
+      if (pressed && !wasPressed) playSound(action);
+    },
     pause() { if (active) { active = false; cancelAnimationFrame(raf); emit("paused"); } },
     resume() { if (!disposed && !ended && !active) { active = true; clock.start(); emit("playing"); raf = requestAnimationFrame(frame); } },
     restart() { if (!disposed) reset(); },
@@ -707,7 +780,7 @@ function buildEnvironment(
     road.receiveShadow = true;
     world.add(road);
   }
-  const count = spec.environmentPreset === "space-nebula" ? 140 : 26 + spec.assetDensity * 12;
+  const count = getEnvironmentAssetCount(spec.assetDensity, spec.environmentPreset, quality);
   const rand = (n: number) => { const value = Math.sin((n + spec.seed) * 127.1) * 43758.5453; return value - Math.floor(value); };
   const animated: Array<{ mesh: InstanceType<typeof THREE.Object3D>; phase: number; baseY: number }> = [];
   const shared = (geometry: InstanceType<typeof THREE.BoxGeometry>, color: number, roughness = 0.86, metalness = 0.02) => new THREE.Mesh(geometry, new THREE.MeshStandardMaterial({ color, roughness, metalness }));
@@ -716,14 +789,12 @@ function buildEnvironment(
   const rockGeometry = new THREE.DodecahedronGeometry(1.2, 0);
   const buildingGeometry = new THREE.BoxGeometry(1.8, 1, 1.6);
   const stoneGeometry = new THREE.BoxGeometry(2.4, 4.5, 1.1);
-  const starGeometry = new THREE.SphereGeometry(0.045, 5, 4);
   const materials = {
     leaf: new THREE.MeshStandardMaterial({ color: spec.vegetationStyle === "cacti" ? 0x527d48 : 0x2f7453, roughness: 0.95 }),
     trunk: new THREE.MeshStandardMaterial({ color: 0x574331, roughness: 1 }),
     rock: new THREE.MeshStandardMaterial({ color: visual.distant, roughness: 0.94 }),
     stone: new THREE.MeshStandardMaterial({ color: 0x857459, roughness: 0.92 }),
     glow: new THREE.MeshBasicMaterial({ color: visual.accent }),
-    star: new THREE.MeshBasicMaterial({ color: 0xddeaff }),
   };
   const add = (mesh: InstanceType<typeof THREE.Mesh>, x: number, y: number, z: number, scale = 1) => {
     mesh.position.set(x, y, z); mesh.scale.setScalar(scale); mesh.castShadow = quality === "high"; mesh.receiveShadow = quality === "high"; world.add(mesh); return mesh;
@@ -731,15 +802,22 @@ function buildEnvironment(
   const useArchitecture = spec.architectureStyle !== "none" || ["city", "jungle-temple", "ancient-ruins"].includes(spec.environmentPreset);
   const templeArchitecture = spec.architectureStyle === "temple" || spec.environmentPreset === "ancient-ruins" || spec.environmentPreset === "jungle-temple";
   const cityArchitecture = spec.architectureStyle === "neon-city" || spec.environmentPreset === "city";
+  if (isSpace) {
+    const positions = new Float32Array(count * 3);
+    for (let i = 0; i < count; i++) {
+      positions[i * 3] = (rand(i + 99) - 0.5) * 55;
+      positions[i * 3 + 1] = (rand(i + 77) - 0.25) * 28;
+      positions[i * 3 + 2] = -18 - rand(i * 3 + 1) * 640;
+    }
+    const starsGeometry = new THREE.BufferGeometry();
+    starsGeometry.setAttribute("position", new THREE.BufferAttribute(positions, 3));
+    world.add(new THREE.Points(starsGeometry, new THREE.PointsMaterial({ color: 0xddeaff, size: 2, sizeAttenuation: true })));
+  }
   for (let i = 0; i < count; i++) {
     const side = i % 2 ? 1 : -1;
     const z = -18 - rand(i * 3 + 1) * 640;
     const x = side * (5.2 + rand(i * 3 + 2) * (spec.environmentPreset === "space-nebula" ? 28 : 10));
-    if (spec.environmentPreset === "space-nebula") {
-      const star = new THREE.Mesh(starGeometry, materials.star);
-      add(star, (rand(i + 99) - 0.5) * 55, (rand(i + 77) - 0.25) * 28, z, 0.5 + rand(i + 18) * 2.2);
-      continue;
-    }
+    if (isSpace) continue;
     if (spec.vegetationStyle !== "none" || spec.environmentPreset === "jungle-temple") {
       const scale = 0.65 + rand(i + 9) * 1.5;
       if (spec.vegetationStyle === "cacti") {

@@ -1,5 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
+import { z } from "zod";
 import {
   ArrowLeft,
   History,
@@ -11,7 +12,7 @@ import {
   Volume2,
   VolumeX,
 } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { AppShell } from "@/components/lord/AppShell";
 import { EnergyOrb } from "@/components/lord/EnergyOrb";
 import { useWakeWord } from "@/components/lord/WakeWordProvider";
@@ -26,13 +27,61 @@ import { supabase } from "@/integrations/supabase/client";
 import { usePersistedState } from "@/lib/use-persisted-state";
 import { cn } from "@/lib/utils";
 import { authenticatedFetch } from "@/lib/authenticated-fetch";
+import {
+  parseVoiceMissionCommand,
+  type VoiceMissionCommand,
+} from "@/lib/voice/mission-command";
 
 export const Route = createFileRoute("/_authenticated/voice")({
   head: () => ({ meta: [{ title: "LORD AI — Voice Assistant" }] }),
+  validateSearch: z.object({ conversationId: z.string().uuid().optional() }).catch({}),
   component: VoicePage,
 });
 
+type MissionStatus =
+  | "planned"
+  | "running"
+  | "paused"
+  | "completed"
+  | "failed"
+  | "cancelled";
+
+interface VoiceMissionStep {
+  id: string;
+  title: string;
+  instruction: string;
+  status: "pending" | "running" | "completed" | "failed";
+  result?: string;
+}
+
+interface VoiceMission {
+  id: string;
+  goal: string;
+  title: string;
+  status: MissionStatus;
+  steps: VoiceMissionStep[];
+  progress: { completed: number; total: number; percent: number };
+}
+
+type PendingMissionAction =
+  | { action: "plan"; goal: string; heard: string }
+  | {
+      action: "run" | "resume" | "pause" | "cancel";
+      missionId: string;
+      title: string;
+      heard: string;
+    };
+
+async function readMissionResponse<T>(response: Response): Promise<T> {
+  const body = (await response.json().catch(() => ({}))) as T & {
+    error?: { message?: string };
+  };
+  if (!response.ok) throw new Error(body.error?.message || "Mission request failed.");
+  return body;
+}
+
 function VoicePage() {
+  const { conversationId: linkedConversationId } = Route.useSearch();
   const {
     enabled,
     supported,
@@ -55,10 +104,20 @@ function VoicePage() {
     stopSpeaking,
     stop,
     setVoiceOutputEnabled,
+    stopListening,
+    setCommandHandler,
   } = useWakeWord();
   const [subtitlesEnabled, setSubtitlesEnabled] = usePersistedState("voice-subtitles", true);
   const [historyOpen, setHistoryOpen] = useState(false);
   const [typedCommand, setTypedCommand] = useState("");
+  const [pendingMissionAction, setPendingMissionAction] = useState<PendingMissionAction | null>(
+    null,
+  );
+  const [missionBusy, setMissionBusy] = useState(false);
+  const [missionNotice, setMissionNotice] = useState("");
+  const [missionResult, setMissionResult] = useState<VoiceMission | null>(null);
+  const [recentMissions, setRecentMissions] = useState<VoiceMission[]>([]);
+  const initialConversationHandledRef = useRef(false);
   const proQuery = useQuery({ queryKey: ["pro-entitlement"], queryFn: async () => {
     const response = await authenticatedFetch("/api/billing/status");
     if (!response.ok) throw new Error("Could not verify your plan.");
@@ -90,11 +149,140 @@ function VoicePage() {
     },
   });
 
+  const fetchMissionList = useCallback(async () => {
+    const response = await authenticatedFetch("/api/voice/missions", { cache: "no-store" });
+    const data = await readMissionResponse<{ missions: VoiceMission[] }>(response);
+    setRecentMissions(data.missions);
+    return data.missions;
+  }, []);
+
+  const postMissionAction = useCallback(async (action: string, values: Record<string, string>) => {
+    const response = await authenticatedFetch("/api/voice/missions", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action, ...values }),
+    });
+    return readMissionResponse<{ mission: VoiceMission; progress: VoiceMission["progress"] }>(
+      response,
+    );
+  }, []);
+
+  const prepareMissionAction = useCallback(async (command: VoiceMissionCommand, heard: string) => {
+    setMissionBusy(true);
+    try {
+      if (command.action === "progress") {
+        const missions = await fetchMissionList();
+        const mission =
+          missions.find((item) => item.status === "running") ?? missions[0] ?? null;
+        setMissionResult(mission);
+        setMissionNotice(
+          mission
+            ? `${mission.title}: ${mission.progress.percent}% complete (${mission.progress.completed} of ${mission.progress.total} steps). Status: ${mission.status}.`
+            : "There are no saved missions yet. Say “start mission to …” to plan one.",
+        );
+        return;
+      }
+
+      const missions = await fetchMissionList();
+      const eligible = missions.filter((mission) => {
+        if (command.action === "pause") return mission.status === "running";
+        if (command.action === "resume") return mission.status === "paused";
+        return ["planned", "running", "paused"].includes(mission.status);
+      });
+      if (eligible.length !== 1) {
+        setMissionNotice(
+          eligible.length === 0
+            ? `There is no ${command.action === "pause" ? "running" : command.action === "resume" ? "paused" : "active"} mission to ${command.action}.`
+            : `I found ${eligible.length} possible missions. Open Mission Control and choose one explicitly; no mission was changed.`,
+        );
+        return;
+      }
+      const mission = eligible[0];
+      setMissionResult(mission);
+      setPendingMissionAction({
+        action: command.action,
+        missionId: mission.id,
+        title: mission.title,
+        heard,
+      });
+      setMissionNotice("");
+    } catch (error) {
+      setMissionNotice(error instanceof Error ? error.message : "Could not inspect missions.");
+    } finally {
+      setMissionBusy(false);
+    }
+  }, [fetchMissionList]);
+
+  const handleVoiceCommand = useCallback((heard: string) => {
+    const command = parseVoiceMissionCommand(heard);
+    if (!command) return false;
+    setPendingMissionAction(null);
+    setMissionResult(null);
+    setMissionNotice("");
+    if (command.action === "start") {
+      setPendingMissionAction({ action: "plan", goal: command.goal, heard });
+    } else {
+      void prepareMissionAction(command, heard);
+    }
+    return true;
+  }, [prepareMissionAction]);
+
+  useEffect(() => {
+    setCommandHandler(handleVoiceCommand);
+    return () => setCommandHandler(null);
+  }, [handleVoiceCommand, setCommandHandler]);
+
+  const confirmMissionAction = useCallback(async () => {
+    if (!pendingMissionAction || missionBusy) return;
+    const pending = pendingMissionAction;
+    setMissionBusy(true);
+    setMissionNotice("");
+    try {
+      if (pending.action === "plan") {
+        const result = await postMissionAction("plan", { goal: pending.goal });
+        const mission = { ...result.mission, progress: result.progress };
+        setMissionResult(mission);
+        setPendingMissionAction({
+          action: "run",
+          missionId: mission.id,
+          title: mission.title,
+          heard: pending.heard,
+        });
+        setMissionNotice(
+          "Plan ready. Review the steps below. LORD will only generate text results; it cannot browse, edit files, or perform external actions.",
+        );
+        return;
+      }
+
+      const result = await postMissionAction(pending.action, { missionId: pending.missionId });
+      setMissionResult({ ...result.mission, progress: result.progress });
+      setPendingMissionAction(null);
+      setMissionNotice(
+        pending.action === "cancel"
+          ? `${pending.title} was cancelled.`
+          : pending.action === "pause"
+            ? `${pending.title} was paused.`
+            : `${pending.title} ${pending.action === "run" ? "started" : "resumed"}.`,
+      );
+      await fetchMissionList();
+    } catch (error) {
+      setMissionNotice(error instanceof Error ? error.message : "Mission request failed.");
+    } finally {
+      setMissionBusy(false);
+    }
+  }, [fetchMissionList, pendingMissionAction, missionBusy, postMissionAction]);
+
+  useEffect(() => {
+    if (initialConversationHandledRef.current) return;
+    initialConversationHandledRef.current = true;
+    if (linkedConversationId) void loadConversation(linkedConversationId);
+  }, [linkedConversationId, loadConversation]);
+
   useEffect(() => {
     if (stayAtBottomRef.current && transcriptRef.current) {
       transcriptRef.current.scrollTop = transcriptRef.current.scrollHeight;
     }
-  }, [messages, transcript, reply]);
+  }, [messages, transcript, reply, pendingMissionAction, missionNotice]);
 
   const onTranscriptScroll = () => {
     const element = transcriptRef.current;
@@ -110,6 +298,7 @@ function VoicePage() {
     command_listening: "Listening to your command",
     processing: "Thinking",
     speaking: "Speaking",
+    review: "Review the recognized command",
     error: "Voice assistant needs attention",
   }[state];
 
@@ -146,6 +335,15 @@ function VoicePage() {
             </div>
           </div>
           <div className="flex items-center gap-2">
+            <Link
+              to="/chat"
+              search={{ conversationId: activeConversationId ?? undefined }}
+              onClick={stop}
+              className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-border/60 px-3 text-sm text-muted-foreground transition hover:border-primary/40 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              aria-label="Continue this conversation in text chat"
+            >
+              <span className="hidden sm:inline">Text chat</span>
+            </Link>
             <button
               type="button"
               onClick={() => setHistoryOpen(true)}
@@ -184,8 +382,8 @@ function VoicePage() {
           </p>
           {state === "disabled" && (
             <p className="mt-2 max-w-md text-xs leading-relaxed text-muted-foreground">
-              Enable the microphone to listen for “Hey, LORD”. Voice recognition runs only while
-              this page is open and active.
+              Enable voice or tap to talk. LORD listens only while this page is open and in the
+              foreground; background wake-word listening is not supported.
             </p>
           )}
           {!supported && (
@@ -218,11 +416,34 @@ function VoicePage() {
             </button>
             <button
               type="button"
-              onClick={() => void startTapToTalk()}
-              disabled={!supported || state === "processing" || state === "speaking"}
+              onClick={() =>
+                state === "command_listening" ? stopListening() : void startTapToTalk()
+              }
+              disabled={
+                !supported ||
+                state === "processing" ||
+                state === "requesting_permission" ||
+                state === "review"
+              }
+              aria-label={
+                state === "command_listening"
+                  ? "Stop listening"
+                  : state === "speaking"
+                    ? "Interrupt LORD and start listening"
+                    : "Tap to talk"
+              }
               className="inline-flex min-h-12 items-center gap-2 rounded-full border border-border/70 px-4 text-sm text-foreground/85 transition hover:border-primary/40 hover:bg-primary/5 disabled:cursor-not-allowed disabled:opacity-45"
             >
-              <Mic className="h-4 w-4" /> Tap to talk
+              {state === "command_listening" ? (
+                <MicOff className="h-4 w-4" />
+              ) : (
+                <Mic className="h-4 w-4" />
+              )}
+              {state === "command_listening"
+                ? "Stop listening"
+                : state === "speaking"
+                  ? "Interrupt & talk"
+                  : "Tap to talk"}
             </button>
             {state === "speaking" && (
               <button
@@ -269,6 +490,144 @@ function VoicePage() {
             )}
           </div>
         </section>
+
+        <section
+          className="mb-4 w-full max-w-3xl rounded-xl border border-cyan-200/15 bg-cyan-200/[0.035] p-4 text-left"
+          aria-labelledby="voice-mission-title"
+        >
+          <h2 id="voice-mission-title" className="font-semibold text-cyan-100">
+            Mission control
+          </h2>
+          <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
+            Say “start mission to …”, “pause mission”, “resume mission”, “cancel mission”, or
+            “check mission progress”. LORD shows the recognized words and asks you to confirm every
+            change before it happens.
+          </p>
+          {pendingMissionAction && (
+            <div className="mt-3 rounded-lg border border-amber-200/20 bg-amber-200/[0.04] p-3">
+              <p className="text-[11px] font-semibold uppercase tracking-wider text-amber-100">
+                Please review what LORD heard
+              </p>
+              <blockquote className="mt-2 break-words text-sm text-foreground">
+                “{pendingMissionAction.heard}”
+              </blockquote>
+              <p className="mt-2 text-xs text-muted-foreground">
+                {pendingMissionAction.action === "plan"
+                  ? `Create a proposed plan for: ${pendingMissionAction.goal}`
+                  : `${pendingMissionAction.action} mission: ${pendingMissionAction.title}`}
+              </p>
+              <div className="mt-3 flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  onClick={() => void confirmMissionAction()}
+                  disabled={missionBusy}
+                  className="min-h-10 rounded-lg bg-primary px-4 text-sm font-semibold text-primary-foreground disabled:opacity-50"
+                >
+                  {missionBusy
+                    ? "Working…"
+                    : pendingMissionAction.action === "plan"
+                      ? "Confirm plan"
+                      : pendingMissionAction.action === "run"
+                        ? "Confirm and run"
+                        : pendingMissionAction.action === "resume"
+                          ? "Confirm and resume"
+                          : pendingMissionAction.action === "pause"
+                            ? "Confirm pause"
+                            : "Confirm cancellation"}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setPendingMissionAction(null)}
+                  disabled={missionBusy}
+                  className="min-h-10 rounded-lg border border-border/70 px-4 text-sm text-foreground disabled:opacity-50"
+                >
+                  Do not proceed
+                </button>
+              </div>
+            </div>
+          )}
+          {missionNotice && (
+            <p
+              role="status"
+              aria-live="polite"
+              className="mt-3 rounded-lg border border-border/50 bg-background/35 p-3 text-sm text-foreground/90"
+            >
+              {missionNotice}
+            </p>
+          )}
+          {missionResult && (
+            <div className="mt-3 rounded-lg border border-border/50 bg-background/25 p-3">
+              <div className="flex flex-wrap items-start justify-between gap-2">
+                <div>
+                  <p className="font-medium text-foreground">{missionResult.title}</p>
+                  <p className="mt-1 break-words text-xs text-muted-foreground">
+                    {missionResult.goal}
+                  </p>
+                </div>
+                <span className="rounded-full border border-cyan-200/20 px-2 py-1 text-xs text-cyan-100">
+                  {missionResult.status}
+                </span>
+              </div>
+              <div
+                className="mt-3 h-1.5 overflow-hidden rounded-full bg-white/10"
+                role="progressbar"
+                aria-valuenow={missionResult.progress.percent}
+                aria-valuemin={0}
+                aria-valuemax={100}
+                aria-label="Mission progress"
+              >
+                <div
+                  className="h-full bg-cyan-300 transition-[width]"
+                  style={{ width: `${missionResult.progress.percent}%` }}
+                />
+              </div>
+              <p className="mt-1 text-xs text-muted-foreground">
+                {missionResult.progress.completed} of {missionResult.progress.total} steps complete
+              </p>
+              <ol className="mt-3 space-y-2">
+                {missionResult.steps.map((step, index) => (
+                  <li key={step.id} className="border-t border-border/40 pt-2 text-sm">
+                    <p>
+                      {index + 1}. {step.title} <span className="text-muted-foreground">· {step.status}</span>
+                    </p>
+                    {step.result && (
+                      <p className="mt-1 whitespace-pre-wrap text-xs leading-relaxed text-muted-foreground">
+                        {step.result}
+                      </p>
+                    )}
+                  </li>
+                ))}
+              </ol>
+            </div>
+          )}
+          {recentMissions.length > 0 && (
+            <details className="mt-3">
+              <summary className="min-h-10 cursor-pointer py-2 text-xs font-medium text-cyan-100">
+                Recent missions ({recentMissions.length})
+              </summary>
+              <ul className="space-y-2">
+                {recentMissions.slice(0, 5).map((mission) => (
+                  <li
+                    key={mission.id}
+                    className="flex flex-wrap items-center justify-between gap-2 border-t border-border/40 pt-2 text-xs"
+                  >
+                    <span className="min-w-0 break-words text-foreground">{mission.title}</span>
+                    <span className="shrink-0 text-muted-foreground">
+                      {mission.status} · {mission.progress.percent}%
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </details>
+          )}
+        </section>
+
+        <p className="mb-4 max-w-3xl text-center text-[11px] leading-relaxed text-muted-foreground">
+          Microphone permission is requested only after you activate voice. Your browser or Android
+          speech service may process audio remotely; LORD receives recognized text, not an audio
+          recording. Audio is not saved by LORD. Text chat remains available if speech is
+          unsupported or permission is denied.
+        </p>
 
         {errorMessage && (
           <section
@@ -330,10 +689,17 @@ function VoicePage() {
                   </p>
                 </article>
               ))}
-              {transcript && (state === "command_listening" || state === "wake_listening") && (
+              {transcript &&
+                (state === "command_listening" ||
+                  state === "wake_listening" ||
+                  state === "review") && (
                 <article className="ml-auto max-w-[90%] text-left">
                   <p className="mb-1 font-mono text-[9px] uppercase tracking-[0.18em] text-muted-foreground">
-                    {state === "wake_listening" ? "Wake recognition · live" : "You · live"}
+                    {state === "wake_listening"
+                      ? "Wake recognition · live"
+                      : state === "review"
+                        ? "You · review before action"
+                        : "You · live"}
                   </p>
                   <p className="whitespace-pre-wrap rounded-xl border border-cyan-200/15 bg-cyan-200/5 px-3 py-2 text-sm text-foreground/80">
                     {transcript}
@@ -379,11 +745,6 @@ function VoicePage() {
           </button>
         </form>
 
-        <p className="mt-3 max-w-3xl text-center text-[10px] leading-relaxed text-muted-foreground/75">
-          Recognition uses your browser’s speech service while this page is open. LORD AI receives
-          the recognized text, not a raw microphone recording. Continuous wake recognition may stop
-          in some browsers; use Tap to talk or text input if it does.
-        </p>
       </main>
       <Sheet open={historyOpen} onOpenChange={setHistoryOpen}>
         <SheetContent

@@ -1,6 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/integrations/supabase/types";
 import { isMemoryEnabled, isSensitive } from "@/lib/memory/types";
+import { invalidateBrainContextCache } from "@/lib/brain/context-cache";
 import type { AgentExecuteResult } from "./types";
 
 function buildProjectOutcome(result: AgentExecuteResult): string {
@@ -58,12 +59,16 @@ export async function persistProjectOutcome(
       confidence: 0.8,
       importance: 0.65,
       source: "auto",
+      confirmation_status: "confirmed",
+      use_in_context: true,
       pinned: false,
       archived: false,
       expires_at: null,
       tags: ["agent", "project-outcome"],
     });
-    return !insertError;
+    if (insertError) return false;
+    invalidateBrainContextCache(userId);
+    return true;
   } catch {
     return false;
   }

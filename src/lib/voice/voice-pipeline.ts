@@ -9,7 +9,7 @@ import {
 } from "./webspeech-wake-engine";
 
 export type VoicePipelineStatus =
-  "command_listening" | "processing" | "speaking" | "wake_listening" | "error";
+  "command_listening" | "processing" | "speaking" | "wake_listening" | "review" | "error";
 
 export interface VoiceMessage {
   id: string;
@@ -46,6 +46,7 @@ export class VoicePipeline {
   private failedUserMessage: VoiceMessage | null = null;
   private failedUserSaved = false;
   private speechStoppedByUser = false;
+  private speaking = false;
   private cancelled = false;
 
   onStatusChange: (status: VoicePipelineStatus) => void = () => {};
@@ -54,6 +55,7 @@ export class VoicePipeline {
   onError: (error: string) => void = () => {};
   onMessagesChange: (messages: VoiceMessage[]) => void = () => {};
   onConversationChange: (conversationId: string | null) => void = () => {};
+  onCommand: ((text: string) => boolean) | null = null;
 
   constructor(mode: LordMode = "balanced", autoSpeak = true, voiceRate = 1) {
     this.mode = mode;
@@ -68,8 +70,9 @@ export class VoicePipeline {
 
   startListening() {
     if (this.processing) return false;
+    if (this.recognition) return false;
     this.cancelled = false;
-    this.stopListening();
+    this.stopSpeaking();
     const Recognition = getSpeechRecognitionConstructor();
     if (!Recognition) {
       this.onError(
@@ -86,6 +89,7 @@ export class VoicePipeline {
     let finalHandled = false;
     this.interimTranscript = "";
     recognition.onresult = (event) => {
+      if (this.recognition !== recognition || finalHandled) return;
       const transcript = Array.from(event.results)
         .map((result) => result[0]?.transcript ?? "")
         .join(" ")
@@ -99,10 +103,16 @@ export class VoicePipeline {
         .trim();
       if (finalTranscript && !finalHandled) {
         finalHandled = true;
+        this.stopListening();
+        if (this.onCommand?.(finalTranscript)) {
+          this.onStatusChange("review");
+          return;
+        }
         void this.processSpeech(finalTranscript);
       }
     };
     recognition.onerror = (event) => {
+      if (this.recognition !== recognition) return;
       if (event.error === "aborted") return;
       if (event.error === "no-speech") {
         this.onStatusChange("wake_listening");
@@ -116,7 +126,8 @@ export class VoicePipeline {
       this.onStatusChange("error");
     };
     recognition.onend = () => {
-      if (this.recognition === recognition) this.recognition = null;
+      if (this.recognition !== recognition) return;
+      this.recognition = null;
       if (!finalHandled && !this.processing) this.onStatusChange("wake_listening");
     };
     this.recognition = recognition;
@@ -133,6 +144,11 @@ export class VoicePipeline {
   }
 
   async submitText(text: string) {
+    if (this.onCommand?.(text)) {
+      this.onTranscript(text.trim());
+      this.onStatusChange("review");
+      return;
+    }
     await this.processSpeech(text);
   }
 
@@ -171,7 +187,6 @@ export class VoicePipeline {
       .select("id")
       .eq("id", conversationId)
       .eq("user_id", auth.user.id)
-      .contains("metadata", { source: "voice" })
       .maybeSingle();
     if (conversationError) throw conversationError;
     if (!conversation) throw new Error("That voice conversation is unavailable.");
@@ -322,11 +337,13 @@ export class VoicePipeline {
     if (typeof window === "undefined" || !("speechSynthesis" in window) || !text) return false;
     window.speechSynthesis.cancel();
     this.speechStoppedByUser = false;
+    this.speaking = true;
     const chunks = splitSpeechText(text);
     let index = 0;
     const speakNext = () => {
       const part = chunks[index++]?.trim();
       if (!part) {
+        this.speaking = false;
         this.onStatusChange("wake_listening");
         return;
       }
@@ -336,6 +353,7 @@ export class VoicePipeline {
         if (this.cancelled) return;
         if (this.speechStoppedByUser) {
           this.speechStoppedByUser = false;
+          this.speaking = false;
           return;
         }
         speakNext();
@@ -344,9 +362,11 @@ export class VoicePipeline {
         if (this.cancelled) return;
         if (this.speechStoppedByUser) {
           this.speechStoppedByUser = false;
+          this.speaking = false;
           this.onStatusChange("wake_listening");
           return;
         }
+        this.speaking = false;
         this.onError("Speech playback stopped. The text response is still available.");
         this.onStatusChange("wake_listening");
       };
@@ -367,10 +387,11 @@ export class VoicePipeline {
   }
 
   stopSpeaking() {
-    if (typeof window !== "undefined" && "speechSynthesis" in window) {
+    if (this.speaking && typeof window !== "undefined" && "speechSynthesis" in window) {
       this.speechStoppedByUser = true;
+      this.speaking = false;
       window.speechSynthesis.cancel();
-      this.onStatusChange("wake_listening");
+      if (!this.recognition && !this.processing) this.onStatusChange("wake_listening");
     }
   }
 
@@ -378,6 +399,7 @@ export class VoicePipeline {
     this.cancelled = true;
     this.stopListening();
     this.speechStoppedByUser = true;
+    this.speaking = false;
     if (typeof window !== "undefined" && "speechSynthesis" in window) {
       window.speechSynthesis.cancel();
     }
